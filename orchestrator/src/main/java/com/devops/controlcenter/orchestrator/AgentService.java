@@ -7,26 +7,26 @@ import org.springframework.web.client.RestClient;
 public class AgentService {
 
     private final RestClient restClient;
+    // Hardcoded for local testing. In production, this would come from an environment variable!
+    private final String agentSecretKey = "devops-secret-key-123";
 
-    public AgentService() {
-        // Initialize the modern RestClient
-        this.restClient = RestClient.create();
+    public AgentService(RestClient.Builder restClientBuilder) {
+        this.restClient = restClientBuilder
+                .baseUrl("http://localhost:3001")
+                // This line attaches the key to EVERY request automatically
+                .defaultHeader("X-Agent-Key", agentSecretKey)
+                .build();
     }
 
-    public Object fetchAgentHealth() {
-        // In a real app, the IP "localhost:3001" would be dynamic based on a database
-        // of registered servers. For now, we hardcode our local WSL agent.
-        String agentUrl = "http://localhost:3001/ping";
-        
+    public String fetchAgentHealth() {
         try {
-            // Make the GET request to the Rust agent and return its JSON response as a Map/Object
-            return restClient.get()
-                    .uri(agentUrl)
+            return this.restClient.get()
+                    .uri("/ping")
                     .retrieve()
-                    .body(Object.class);
+                    .body(String.class);
         } catch (Exception e) {
-            System.err.println("❌ Failed to contact Rust Agent: " + e.getMessage());
-            return "{\"error\": \"Failed to contact agent at " + agentUrl + "\"}";
+            // If unauthorized or down, gracefully return a JSON error instead of crashing the UI
+            return "{\"os_name\": \"Offline\", \"os_version\": \"N/A\", \"uptime_seconds\": 0}";
         }
     }
 }
