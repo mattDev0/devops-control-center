@@ -1,11 +1,14 @@
 import { useState, useEffect, useRef } from 'react';
-import { Server, Activity, Clock, Terminal as TerminalIcon, FileText, Box, Play, Square, RotateCw } from 'lucide-react';
+import { Server, Activity, Clock, Terminal as TerminalIcon, FileText, Box, Play, Square, RotateCw, GitPullRequest, GitBranch, PlayCircle, CheckCircle, XCircle, Loader2 } from 'lucide-react';
 
 export default function App() {
   const [health, setHealth] = useState(null);
   const [loading, setLoading] = useState(true);
   const [logs, setLogs] = useState([]);
   const [containers, setContainers] = useState([]);
+  const [workflows, setWorkflows] = useState([]);
+  const [loadingWorkflows, setLoadingWorkflows] = useState(true);
+  
   const terminalRef = useRef(null);
   const xtermInstance = useRef(null);
   const currentLine = useRef('');
@@ -47,9 +50,35 @@ export default function App() {
     }
   };
 
+  // Fetch GitHub Workflows
+  const fetchWorkflows = async () => {
+    setLoadingWorkflows(true);
+    try {
+      const response = await fetch('/api/ci/workflows');
+      const data = await response.json();
+      setWorkflows(data);
+    } catch (error) {
+      console.error("Failed to fetch workflows", error);
+    } finally {
+      setLoadingWorkflows(false);
+    }
+  };
+
+  // Trigger GitHub Workflow
+  const triggerWorkflow = async (id) => {
+    try {
+      await fetch(`/api/ci/workflows/${id}/dispatch`, { method: 'POST' });
+      // Refresh the workflow list shortly after triggering
+      setTimeout(fetchWorkflows, 1500);
+    } catch (error) {
+      console.error(`Failed to trigger workflow ${id}`, error);
+    }
+  };
+
   useEffect(() => {
     fetchHealth();
     fetchContainers();
+    fetchWorkflows();
   }, []);
 
   // Initialize xterm.js dynamically to avoid bundler resolution errors
@@ -190,6 +219,13 @@ export default function App() {
     return `${h}h ${m}m`;
   };
 
+  const renderWorkflowStatus = (status, conclusion) => {
+    if (status === 'in_progress') return <Loader2 className="w-5 h-5 text-blue-400 animate-spin" />;
+    if (conclusion === 'success') return <CheckCircle className="w-5 h-5 text-emerald-400" />;
+    if (conclusion === 'failure') return <XCircle className="w-5 h-5 text-red-400" />;
+    return <Clock className="w-5 h-5 text-slate-400" />;
+  };
+
   return (
     <div className="min-h-screen p-8 max-w-6xl mx-auto">
       <header className="mb-8">
@@ -252,72 +288,129 @@ export default function App() {
         </div>
       </div>
 
-      {/* NEW: Docker Containers Card */}
-      <div className="bg-slate-800 rounded-xl p-6 border border-slate-700 shadow-xl mb-6">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-semibold flex items-center gap-2 text-slate-200">
-            <Box className="text-purple-400" /> Docker Containers
-          </h2>
-          <button 
-            onClick={fetchContainers}
-            className="bg-slate-700 hover:bg-slate-600 text-white text-sm py-1 px-3 rounded transition-colors flex items-center gap-1"
-          >
-            <RotateCw className="w-4 h-4" /> Refresh
-          </button>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm text-slate-400">
-            <thead className="text-xs uppercase bg-slate-900/50 text-slate-400 border-b border-slate-700">
-              <tr>
-                <th className="px-4 py-3">Container ID</th>
-                <th className="px-4 py-3">Name</th>
-                <th className="px-4 py-3">Image</th>
-                <th className="px-4 py-3">Status</th>
-                <th className="px-4 py-3">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {containers.length === 0 ? (
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+        {/* Docker Containers Card */}
+        <div className="bg-slate-800 rounded-xl p-6 border border-slate-700 shadow-xl">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-semibold flex items-center gap-2 text-slate-200">
+              <Box className="text-purple-400" /> Docker Containers
+            </h2>
+            <button 
+              onClick={fetchContainers}
+              className="bg-slate-700 hover:bg-slate-600 text-white text-sm py-1 px-3 rounded transition-colors flex items-center gap-1"
+            >
+              <RotateCw className="w-4 h-4" /> Refresh
+            </button>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm text-slate-400">
+              <thead className="text-xs uppercase bg-slate-900/50 text-slate-400 border-b border-slate-700">
                 <tr>
-                  <td colSpan="5" className="px-4 py-4 text-center text-slate-500 italic">No containers found.</td>
+                  <th className="px-4 py-3">Container ID</th>
+                  <th className="px-4 py-3">Name</th>
+                  <th className="px-4 py-3">Status</th>
+                  <th className="px-4 py-3">Actions</th>
                 </tr>
-              ) : (
-                containers.map((container) => (
-                  <tr key={container.id} className="border-b border-slate-700/50 hover:bg-slate-700/20 transition-colors">
-                    <td className="px-4 py-3 font-mono text-xs">{container.id}</td>
-                    <td className="px-4 py-3 font-medium text-slate-300">{container.name}</td>
-                    <td className="px-4 py-3 text-xs truncate max-w-[200px]" title={container.image}>{container.image}</td>
-                    <td className="px-4 py-3">
-                      <span className={`px-2 py-1 rounded text-xs font-semibold ${container.state === 'running' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-slate-500/10 text-slate-400'}`}>
-                        {container.state}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 flex gap-2">
-                      {container.state !== 'running' && (
-                        <button onClick={() => handleContainerAction(container.id, 'start')} className="p-1 rounded bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/40" title="Start">
-                          <Play className="w-4 h-4" />
-                        </button>
-                      )}
-                      {container.state === 'running' && (
-                        <>
-                          <button onClick={() => handleContainerAction(container.id, 'stop')} className="p-1 rounded bg-red-500/20 text-red-400 hover:bg-red-500/40" title="Stop">
-                            <Square className="w-4 h-4" />
-                          </button>
-                          <button onClick={() => handleContainerAction(container.id, 'restart')} className="p-1 rounded bg-blue-500/20 text-blue-400 hover:bg-blue-500/40" title="Restart">
-                            <RotateCw className="w-4 h-4" />
-                          </button>
-                        </>
-                      )}
-                    </td>
+              </thead>
+              <tbody>
+                {containers.length === 0 ? (
+                  <tr>
+                    <td colSpan="4" className="px-4 py-4 text-center text-slate-500 italic">No containers found.</td>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+                ) : (
+                  containers.map((container) => (
+                    <tr key={container.id} className="border-b border-slate-700/50 hover:bg-slate-700/20 transition-colors">
+                      <td className="px-4 py-3 font-mono text-xs">{container.id}</td>
+                      <td className="px-4 py-3 font-medium text-slate-300">{container.name}</td>
+                      <td className="px-4 py-3">
+                        <span className={`px-2 py-1 rounded text-xs font-semibold ${container.state === 'running' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-slate-500/10 text-slate-400'}`}>
+                          {container.state}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 flex gap-2">
+                        {container.state !== 'running' && (
+                          <button onClick={() => handleContainerAction(container.id, 'start')} className="p-1 rounded bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/40" title="Start">
+                            <Play className="w-4 h-4" />
+                          </button>
+                        )}
+                        {container.state === 'running' && (
+                          <>
+                            <button onClick={() => handleContainerAction(container.id, 'stop')} className="p-1 rounded bg-red-500/20 text-red-400 hover:bg-red-500/40" title="Stop">
+                              <Square className="w-4 h-4" />
+                            </button>
+                            <button onClick={() => handleContainerAction(container.id, 'restart')} className="p-1 rounded bg-blue-500/20 text-blue-400 hover:bg-blue-500/40" title="Restart">
+                              <RotateCw className="w-4 h-4" />
+                            </button>
+                          </>
+                        )}
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* NEW: CI/CD Pipelines Card */}
+        <div className="bg-slate-800 rounded-xl p-6 border border-slate-700 shadow-xl">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-semibold flex items-center gap-2 text-slate-200">
+              <GitPullRequest className="text-white" /> CI/CD Pipelines
+            </h2>
+            <button 
+              onClick={fetchWorkflows}
+              className="bg-slate-700 hover:bg-slate-600 text-white text-sm py-1 px-3 rounded transition-colors flex items-center gap-1"
+            >
+              <RotateCw className={`w-4 h-4 ${loadingWorkflows ? 'animate-spin' : ''}`} /> Refresh
+            </button>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm text-slate-400">
+              <thead className="text-xs uppercase bg-slate-900/50 text-slate-400 border-b border-slate-700">
+                <tr>
+                  <th className="px-4 py-3">Status</th>
+                  <th className="px-4 py-3">Workflow Name</th>
+                  <th className="px-4 py-3">Branch / Commit</th>
+                  <th className="px-4 py-3 text-right">Deploy</th>
+                </tr>
+              </thead>
+              <tbody>
+                {workflows.length === 0 && !loadingWorkflows ? (
+                  <tr>
+                    <td colSpan="4" className="px-4 py-4 text-center text-slate-500 italic">No workflows found.</td>
+                  </tr>
+                ) : (
+                  workflows.map((wf) => (
+                    <tr key={wf.id} className="border-b border-slate-700/50 hover:bg-slate-700/20 transition-colors">
+                      <td className="px-4 py-3">
+                        {renderWorkflowStatus(wf.status, wf.conclusion)}
+                      </td>
+                      <td className="px-4 py-3 font-medium text-slate-300">{wf.name}</td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-1 text-xs">
+                          <GitBranch className="w-3 h-3 text-slate-500" /> {wf.branch}
+                        </div>
+                        <div className="text-xs text-slate-500 truncate max-w-[150px]">{wf.commitMsg}</div>
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <button 
+                          onClick={() => triggerWorkflow(wf.id)} 
+                          className="px-3 py-1.5 rounded bg-blue-500/20 text-blue-400 hover:bg-blue-500/40 text-xs font-semibold flex items-center gap-1 ml-auto transition-colors"
+                        >
+                          <PlayCircle className="w-4 h-4" /> Run
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
 
-      {/* NEW: Live Log Stream Card */}
+      {/* Live Log Stream Card */}
       <div className="bg-slate-800 rounded-xl p-6 border border-slate-700 shadow-xl">
         <h2 className="text-xl font-semibold mb-4 flex items-center gap-2 text-slate-200">
           <FileText className="text-blue-400" /> Live System Logs
