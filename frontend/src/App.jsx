@@ -1,10 +1,11 @@
 import { useState, useEffect, useRef } from 'react';
-import { Server, Activity, Clock, Terminal as TerminalIcon, FileText } from 'lucide-react';
+import { Server, Activity, Clock, Terminal as TerminalIcon, FileText, Box, Play, Square, RotateCw } from 'lucide-react';
 
 export default function App() {
   const [health, setHealth] = useState(null);
   const [loading, setLoading] = useState(true);
   const [logs, setLogs] = useState([]);
+  const [containers, setContainers] = useState([]);
   const terminalRef = useRef(null);
   const xtermInstance = useRef(null);
   const currentLine = useRef('');
@@ -25,8 +26,30 @@ export default function App() {
     }
   };
 
+  // Fetch Docker Containers
+  const fetchContainers = async () => {
+    try {
+      const response = await fetch('/api/servers/containers');
+      const data = await response.json();
+      setContainers(data);
+    } catch (error) {
+      console.error("Failed to fetch containers", error);
+    }
+  };
+
+  // Perform Container Action
+  const handleContainerAction = async (id, action) => {
+    try {
+      await fetch(`/api/servers/containers/${id}/${action}`, { method: 'POST' });
+      fetchContainers(); // Refresh list after action
+    } catch (error) {
+      console.error(`Failed to ${action} container ${id}`, error);
+    }
+  };
+
   useEffect(() => {
     fetchHealth();
+    fetchContainers();
   }, []);
 
   // Initialize xterm.js dynamically to avoid bundler resolution errors
@@ -226,6 +249,71 @@ export default function App() {
             ref={terminalRef} 
             className="w-full rounded bg-[#0f172a] p-2 border border-slate-900 overflow-hidden flex-grow min-h-[300px]"
           ></div>
+        </div>
+      </div>
+
+      {/* NEW: Docker Containers Card */}
+      <div className="bg-slate-800 rounded-xl p-6 border border-slate-700 shadow-xl mb-6">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-xl font-semibold flex items-center gap-2 text-slate-200">
+            <Box className="text-purple-400" /> Docker Containers
+          </h2>
+          <button 
+            onClick={fetchContainers}
+            className="bg-slate-700 hover:bg-slate-600 text-white text-sm py-1 px-3 rounded transition-colors flex items-center gap-1"
+          >
+            <RotateCw className="w-4 h-4" /> Refresh
+          </button>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-sm text-slate-400">
+            <thead className="text-xs uppercase bg-slate-900/50 text-slate-400 border-b border-slate-700">
+              <tr>
+                <th className="px-4 py-3">Container ID</th>
+                <th className="px-4 py-3">Name</th>
+                <th className="px-4 py-3">Image</th>
+                <th className="px-4 py-3">Status</th>
+                <th className="px-4 py-3">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {containers.length === 0 ? (
+                <tr>
+                  <td colSpan="5" className="px-4 py-4 text-center text-slate-500 italic">No containers found.</td>
+                </tr>
+              ) : (
+                containers.map((container) => (
+                  <tr key={container.id} className="border-b border-slate-700/50 hover:bg-slate-700/20 transition-colors">
+                    <td className="px-4 py-3 font-mono text-xs">{container.id}</td>
+                    <td className="px-4 py-3 font-medium text-slate-300">{container.name}</td>
+                    <td className="px-4 py-3 text-xs truncate max-w-[200px]" title={container.image}>{container.image}</td>
+                    <td className="px-4 py-3">
+                      <span className={`px-2 py-1 rounded text-xs font-semibold ${container.state === 'running' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-slate-500/10 text-slate-400'}`}>
+                        {container.state}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 flex gap-2">
+                      {container.state !== 'running' && (
+                        <button onClick={() => handleContainerAction(container.id, 'start')} className="p-1 rounded bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/40" title="Start">
+                          <Play className="w-4 h-4" />
+                        </button>
+                      )}
+                      {container.state === 'running' && (
+                        <>
+                          <button onClick={() => handleContainerAction(container.id, 'stop')} className="p-1 rounded bg-red-500/20 text-red-400 hover:bg-red-500/40" title="Stop">
+                            <Square className="w-4 h-4" />
+                          </button>
+                          <button onClick={() => handleContainerAction(container.id, 'restart')} className="p-1 rounded bg-blue-500/20 text-blue-400 hover:bg-blue-500/40" title="Restart">
+                            <RotateCw className="w-4 h-4" />
+                          </button>
+                        </>
+                      )}
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
         </div>
       </div>
 

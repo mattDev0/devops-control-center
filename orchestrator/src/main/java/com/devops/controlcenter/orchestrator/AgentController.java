@@ -20,24 +20,31 @@ public class AgentController {
 
     @GetMapping("/health")
     public ResponseEntity<String> getHealth() {
-        String healthData = agentService.fetchAgentHealth();
-        return ResponseEntity.ok(healthData);
+        return ResponseEntity.ok(agentService.fetchAgentHealth());
     }
 
     @PostMapping("/execute")
     public ResponseEntity<String> executeCommand(@RequestBody Map<String, Object> payload) {
         String command = (String) payload.getOrDefault("command", "");
-        
         @SuppressWarnings("unchecked")
         List<String> args = (List<String>) payload.getOrDefault("args", List.of());
-        
-        String response = agentService.executeCommand(command, args);
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(agentService.executeCommand(command, args));
     }
 
-    // NEW: SSE Proxy Endpoint
     @GetMapping(value = "/logs", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public SseEmitter streamLogs() {
         return agentService.streamAgentLogs();
+    }
+
+    // NEW: Docker Controller Endpoints
+    @GetMapping("/containers")
+    public ResponseEntity<String> getContainers() {
+        return ResponseEntity.ok(agentService.getContainers());
+    }
+
+    @PostMapping("/containers/{id}/{action}")
+    public ResponseEntity<Void> containerAction(@PathVariable String id, @PathVariable String action) {
+        agentService.executeContainerAction(id, action);
+        return ResponseEntity.ok().build();
     }
 }

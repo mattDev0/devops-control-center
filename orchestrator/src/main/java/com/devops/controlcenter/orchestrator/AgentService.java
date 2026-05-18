@@ -25,10 +25,7 @@ public class AgentService {
 
     public String fetchAgentHealth() {
         try {
-            return this.restClient.get()
-                    .uri("/ping")
-                    .retrieve()
-                    .body(String.class);
+            return this.restClient.get().uri("/ping").retrieve().body(String.class);
         } catch (Exception e) {
             return "{\"os_name\": \"Offline\", \"os_version\": \"N/A\", \"uptime_seconds\": 0}";
         }
@@ -36,45 +33,47 @@ public class AgentService {
 
     public String executeCommand(String command, List<String> args) {
         try {
-            Map<String, Object> payload = Map.of(
-                "command", command,
-                "args", args != null ? args : List.of()
-            );
-
-            return this.restClient.post()
-                    .uri("/execute")
-                    .body(payload)
-                    .retrieve()
-                    .body(String.class);
+            Map<String, Object> payload = Map.of("command", command, "args", args != null ? args : List.of());
+            return this.restClient.post().uri("/execute").body(payload).retrieve().body(String.class);
         } catch (Exception e) {
-            return "{\"stdout\": \"\", \"stderr\": \"Orchestrator Error: Failed to reach agent. " + e.getMessage() + "\", \"exit_code\": -1}";
+            return "{\"stdout\": \"\", \"stderr\": \"Orchestrator Error\", \"exit_code\": -1}";
         }
     }
 
-    // NEW: Stream logs asynchronously
     public SseEmitter streamAgentLogs() {
-        SseEmitter emitter = new SseEmitter(0L); // Infinite timeout
-        
+        SseEmitter emitter = new SseEmitter(0L);
         Executors.newSingleThreadExecutor().execute(() -> {
             try {
-                this.restClient.get()
-                    .uri("/logs")
-                    .exchange((request, response) -> {
-                        BufferedReader reader = new BufferedReader(new InputStreamReader(response.getBody()));
-                        String line;
-                        while ((line = reader.readLine()) != null) {
-                            if (line.startsWith("data:")) {
-                                emitter.send(line.substring(5).trim());
-                            }
-                        }
-                        return null;
-                    });
+                this.restClient.get().uri("/logs").exchange((request, response) -> {
+                    BufferedReader reader = new BufferedReader(new InputStreamReader(response.getBody()));
+                    String line;
+                    while ((line = reader.readLine()) != null) {
+                        if (line.startsWith("data:")) emitter.send(line.substring(5).trim());
+                    }
+                    return null;
+                });
                 emitter.complete();
             } catch (Exception e) {
                 emitter.completeWithError(e);
             }
         });
-        
         return emitter;
+    }
+
+    // NEW: Docker Proxy Methods
+    public String getContainers() {
+        try {
+            return this.restClient.get().uri("/containers").retrieve().body(String.class);
+        } catch (Exception e) {
+            return "[]";
+        }
+    }
+
+    public void executeContainerAction(String id, String action) {
+        try {
+            this.restClient.post().uri("/containers/" + id + "/" + action).retrieve().toBodilessEntity();
+        } catch (Exception e) {
+            System.err.println("Failed to execute container action: " + e.getMessage());
+        }
     }
 }
