@@ -76,7 +76,7 @@ async fn ping() -> impl IntoResponse {
 }
 
 async fn execute_command(Json(payload): Json<ExecuteRequest>) -> Result<Json<ExecuteResponse>, StatusCode> {
-    let allowed_commands = ["ls", "pwd", "whoami", "echo", "uptime", "date"];
+    let allowed_commands = ["ls", "pwd", "whoami", "echo", "uptime", "date", "terraform"];
     if !allowed_commands.contains(&payload.command.as_str()) {
         return Err(StatusCode::FORBIDDEN);
     }

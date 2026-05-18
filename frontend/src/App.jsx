@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Server, Activity, Clock, Terminal as TerminalIcon, FileText, Box, Play, Square, RotateCw, GitPullRequest, GitBranch, PlayCircle, CheckCircle, XCircle, Loader2 } from 'lucide-react';
+import { Server, Activity, Clock, Terminal as TerminalIcon, FileText, Box, Play, Square, RotateCw, GitPullRequest, GitBranch, PlayCircle, CheckCircle, XCircle, Loader2, Layers } from 'lucide-react';
 
 export default function App() {
   const [health, setHealth] = useState(null);
@@ -81,7 +81,7 @@ export default function App() {
     fetchWorkflows();
   }, []);
 
-  // Initialize xterm.js dynamically to avoid bundler resolution errors
+  // Initialize xterm.js dynamically
   useEffect(() => {
     if (!terminalRef.current) return;
     let isMounted = true;
@@ -92,10 +92,8 @@ export default function App() {
         const { FitAddon } = await import('xterm-addon-fit');
         await import('xterm/css/xterm.css');
 
-        // Abort if the component unmounted while we were fetching the dynamic imports
         if (!isMounted) return;
 
-        // Clear any stray elements in case StrictMode double-mounted before the import finished
         terminalRef.current.innerHTML = '';
 
         const term = new Terminal({
@@ -112,7 +110,7 @@ export default function App() {
         xtermInstance.current = term;
 
         term.writeln('\x1b[1;32mDevOps Control Center Terminal\x1b[0m');
-        term.writeln('Secure remote execution initialized. Allowed commands: ls, pwd, whoami, echo, uptime, date');
+        term.writeln('Secure remote execution initialized. Allowed commands: ls, pwd, whoami, echo, uptime, date, terraform');
         term.write('\r\n$ ');
 
         term.onKey(({ key, domEvent }) => {
@@ -155,7 +153,6 @@ export default function App() {
     eventSource.onmessage = (event) => {
       setLogs((prevLogs) => {
         const newLogs = [...prevLogs, event.data];
-        // Keep only the last 50 lines to prevent memory bloat
         return newLogs.slice(-50);
       });
     };
@@ -169,7 +166,7 @@ export default function App() {
     };
   }, []);
 
-  // Auto-scroll logs to bottom (isolated to the container instead of the whole page)
+  // Auto-scroll logs
   useEffect(() => {
     if (logsContainerRef.current) {
       logsContainerRef.current.scrollTop = logsContainerRef.current.scrollHeight;
@@ -235,9 +232,8 @@ export default function App() {
         </h1>
       </header>
 
+      {/* Row 1: Health & Terminal */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-        
-        {/* Server Health Card */}
         <div className="bg-slate-800 rounded-xl p-6 border border-slate-700 h-fit">
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-xl font-semibold flex items-center gap-2">
@@ -276,7 +272,6 @@ export default function App() {
           </button>
         </div>
 
-        {/* Remote Terminal Card */}
         <div className="bg-slate-800 rounded-xl p-6 border border-slate-700 lg:col-span-2 shadow-xl flex flex-col">
           <h2 className="text-xl font-semibold mb-4 flex items-center gap-2 text-slate-200">
             <TerminalIcon className="text-emerald-400" /> Remote Execution
@@ -288,8 +283,8 @@ export default function App() {
         </div>
       </div>
 
+      {/* Row 2: Docker & CI/CD */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-        {/* Docker Containers Card */}
         <div className="bg-slate-800 rounded-xl p-6 border border-slate-700 shadow-xl">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-xl font-semibold flex items-center gap-2 text-slate-200">
@@ -352,8 +347,7 @@ export default function App() {
           </div>
         </div>
 
-        {/* NEW: CI/CD Pipelines Card */}
-        <div className="bg-slate-800 rounded-xl p-6 border border-slate-700 shadow-xl">
+        <div className="bg-slate-800 rounded-xl p-6 border border-slate-700 shadow-xl flex flex-col">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-xl font-semibold flex items-center gap-2 text-slate-200">
               <GitPullRequest className="text-white" /> CI/CD Pipelines
@@ -365,7 +359,7 @@ export default function App() {
               <RotateCw className={`w-4 h-4 ${loadingWorkflows ? 'animate-spin' : ''}`} /> Refresh
             </button>
           </div>
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto flex-grow">
             <table className="w-full text-left text-sm text-slate-400">
               <thead className="text-xs uppercase bg-slate-900/50 text-slate-400 border-b border-slate-700">
                 <tr>
@@ -410,24 +404,59 @@ export default function App() {
         </div>
       </div>
 
-      {/* Live Log Stream Card */}
-      <div className="bg-slate-800 rounded-xl p-6 border border-slate-700 shadow-xl">
-        <h2 className="text-xl font-semibold mb-4 flex items-center gap-2 text-slate-200">
-          <FileText className="text-blue-400" /> Live System Logs
-        </h2>
-        <div 
-          ref={logsContainerRef}
-          className="bg-[#0f172a] border border-slate-900 rounded p-4 h-64 overflow-y-auto font-mono text-sm text-slate-300"
-        >
-          {logs.length === 0 ? (
-            <p className="text-slate-500 italic">Waiting for log stream...</p>
-          ) : (
-            logs.map((log, index) => (
-              <div key={index} className="py-1 border-b border-slate-800/50">
-                {log}
-              </div>
-            ))
-          )}
+      {/* Row 3: Terraform & Logs */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+        <div className="bg-slate-800 rounded-xl p-6 border border-slate-700 shadow-xl">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-semibold flex items-center gap-2 text-slate-200">
+              <Layers className="text-amber-400" /> Infrastructure (Terraform)
+            </h2>
+          </div>
+          <div className="space-y-4">
+            <p className="text-sm text-slate-400">
+              Execute local Terraform configurations directly through the secure agent tunnel. Output streams to the terminal above.
+            </p>
+            <div className="flex gap-3 mt-4">
+              <button 
+                onClick={() => executeCommand('terraform init')}
+                className="flex-1 bg-slate-700 hover:bg-slate-600 text-white py-2 px-4 rounded text-sm font-semibold transition-colors flex items-center justify-center gap-2"
+              >
+                <PlayCircle className="w-4 h-4" /> Init
+              </button>
+              <button 
+                onClick={() => executeCommand('terraform apply -auto-approve')}
+                className="flex-1 bg-amber-500/20 text-amber-400 hover:bg-amber-500/30 py-2 px-4 rounded text-sm font-semibold transition-colors flex items-center justify-center gap-2"
+              >
+                <PlayCircle className="w-4 h-4" /> Apply
+              </button>
+              <button 
+                onClick={() => executeCommand('terraform destroy -auto-approve')}
+                className="flex-1 bg-red-500/20 text-red-400 hover:bg-red-500/30 py-2 px-4 rounded text-sm font-semibold transition-colors flex items-center justify-center gap-2"
+              >
+                <XCircle className="w-4 h-4" /> Destroy
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-slate-800 rounded-xl p-6 border border-slate-700 shadow-xl flex flex-col">
+          <h2 className="text-xl font-semibold mb-4 flex items-center gap-2 text-slate-200">
+            <FileText className="text-blue-400" /> Live System Logs
+          </h2>
+          <div 
+            ref={logsContainerRef}
+            className="bg-[#0f172a] border border-slate-900 rounded p-4 flex-grow overflow-y-auto font-mono text-sm text-slate-300 min-h-[150px]"
+          >
+            {logs.length === 0 ? (
+              <p className="text-slate-500 italic">Waiting for log stream...</p>
+            ) : (
+              logs.map((log, index) => (
+                <div key={index} className="py-1 border-b border-slate-800/50">
+                  {log}
+                </div>
+              ))
+            )}
+          </div>
         </div>
       </div>
 
