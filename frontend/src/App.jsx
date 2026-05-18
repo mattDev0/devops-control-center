@@ -445,7 +445,7 @@ export default function App() {
           </h2>
           <div 
             ref={logsContainerRef}
-            className="bg-[#0f172a] border border-slate-900 rounded p-4 flex-grow overflow-y-auto font-mono text-sm text-slate-300 min-h-[150px]"
+            className="bg-[#0f172a] border border-slate-900 rounded p-4 overflow-y-auto font-mono text-sm text-slate-300 h-44"
           >
             {logs.length === 0 ? (
               <p className="text-slate-500 italic">Waiting for log stream...</p>
