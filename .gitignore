@@ -1,0 +1,5 @@
+.DS_Store
+*.log
+/agent/target/
+/orchestrator/target/
+/frontend/node_modules/
