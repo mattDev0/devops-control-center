@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Server, Activity, Clock, Terminal as TerminalIcon, FileText, Box, Play, Square, RotateCw, GitPullRequest, GitBranch, PlayCircle, CheckCircle, XCircle, Loader2, Layers } from 'lucide-react';
+import { Server, Activity, Clock, Terminal as TerminalIcon, FileText, Box, Play, Square, RotateCw, GitPullRequest, GitBranch, PlayCircle, CheckCircle, XCircle, Loader2, Layers, LineChart } from 'lucide-react';
 
 export default function App() {
   const [health, setHealth] = useState(null);
@@ -456,6 +456,56 @@ export default function App() {
                 </div>
               ))
             )}
+          </div>
+        </div>
+      </div>
+
+      {/* Row 4: Monitoring (Grafana embedded iframes) */}
+      <div className="mt-6 bg-slate-800 rounded-xl p-6 border border-slate-700 shadow-xl">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-xl font-semibold flex items-center gap-2 text-slate-200">
+            <LineChart className="text-pink-400" /> System Metrics (Grafana)
+          </h2>
+          <span className="text-xs font-semibold text-pink-400 bg-pink-500/10 px-2 py-1 rounded">Live via Prometheus</span>
+        </div>
+        <p className="text-sm text-slate-400 mb-4">
+          Visualizing real-time telemetry from the Rust Agent node_exporter.
+        </p>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* CPU Usage Iframe Container */}
+          <div className="bg-[#0f172a] border border-slate-900 rounded p-1 h-64 relative overflow-hidden flex items-center justify-center">
+            {/* Fallback text hidden behind iframe once loaded */}
+            <div className="absolute inset-0 flex flex-col items-center justify-center text-slate-500 pointer-events-none z-0">
+              <LineChart className="w-8 h-8 mb-2 opacity-50" />
+              <p className="text-sm">CPU Usage Panel</p>
+              <p className="text-xs opacity-50 text-center px-4 mt-1">Requires Grafana running on http://localhost:3000</p>
+            </div>
+            {/* The iframe connects to local Grafana dashboard panel */}
+            <iframe 
+              src="http://localhost:3000/d-solo/rYdddlPWk/node-exporter-full?orgId=1&timezone=browser&var-ds_prometheus=cfmh94yfqwjcwd&var-job=node&var-nodename=ac1f709ef5f4&var-node=node-exporter:9100&refresh=1m&panelId=panel-77" 
+              width="100%" 
+              height="100%" 
+              frameBorder="0" 
+              className="relative z-10"
+              title="CPU Usage"
+            ></iframe>
+          </div>
+
+          {/* Memory Usage Iframe Container */}
+          <div className="bg-[#0f172a] border border-slate-900 rounded p-1 h-64 relative overflow-hidden flex items-center justify-center">
+            <div className="absolute inset-0 flex flex-col items-center justify-center text-slate-500 pointer-events-none z-0">
+              <Activity className="w-8 h-8 mb-2 opacity-50" />
+              <p className="text-sm">Memory Usage Panel</p>
+              <p className="text-xs opacity-50 text-center px-4 mt-1">Requires Grafana running on http://localhost:3000</p>
+            </div>
+            <iframe 
+              src="http://localhost:3000/d-solo/rYdddlPWk/node-exporter-full?orgId=1&timezone=browser&var-ds_prometheus=cfmh94yfqwjcwd&var-job=node&var-nodename=ac1f709ef5f4&var-node=node-exporter:9100&refresh=1m&panelId=panel-78" 
+              width="100%" 
+              height="100%" 
+              frameBorder="0" 
+              className="relative z-10"
+              title="Memory Usage"
+            ></iframe>
           </div>
         </div>
       </div>
