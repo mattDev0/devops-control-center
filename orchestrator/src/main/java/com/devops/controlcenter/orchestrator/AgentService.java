@@ -2,18 +2,23 @@ package com.devops.controlcenter.orchestrator;
 
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
+
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.Executors;
 
 @Service
 public class AgentService {
 
     private final RestClient restClient;
-    // Hardcoded for local testing. In production, this would come from an environment variable!
     private final String agentSecretKey = "devops-secret-key-123";
 
     public AgentService(RestClient.Builder restClientBuilder) {
         this.restClient = restClientBuilder
                 .baseUrl("http://localhost:3001")
-                // This line attaches the key to EVERY request automatically
                 .defaultHeader("X-Agent-Key", agentSecretKey)
                 .build();
     }
@@ -25,8 +30,51 @@ public class AgentService {
                     .retrieve()
                     .body(String.class);
         } catch (Exception e) {
-            // If unauthorized or down, gracefully return a JSON error instead of crashing the UI
             return "{\"os_name\": \"Offline\", \"os_version\": \"N/A\", \"uptime_seconds\": 0}";
         }
+    }
+
+    public String executeCommand(String command, List<String> args) {
+        try {
+            Map<String, Object> payload = Map.of(
+                "command", command,
+                "args", args != null ? args : List.of()
+            );
+
+            return this.restClient.post()
+                    .uri("/execute")
+                    .body(payload)
+                    .retrieve()
+                    .body(String.class);
+        } catch (Exception e) {
+            return "{\"stdout\": \"\", \"stderr\": \"Orchestrator Error: Failed to reach agent. " + e.getMessage() + "\", \"exit_code\": -1}";
+        }
+    }
+
+    // NEW: Stream logs asynchronously
+    public SseEmitter streamAgentLogs() {
+        SseEmitter emitter = new SseEmitter(0L); // Infinite timeout
+        
+        Executors.newSingleThreadExecutor().execute(() -> {
+            try {
+                this.restClient.get()
+                    .uri("/logs")
+                    .exchange((request, response) -> {
+                        BufferedReader reader = new BufferedReader(new InputStreamReader(response.getBody()));
+                        String line;
+                        while ((line = reader.readLine()) != null) {
+                            if (line.startsWith("data:")) {
+                                emitter.send(line.substring(5).trim());
+                            }
+                        }
+                        return null;
+                    });
+                emitter.complete();
+            } catch (Exception e) {
+                emitter.completeWithError(e);
+            }
+        });
+        
+        return emitter;
     }
 }
