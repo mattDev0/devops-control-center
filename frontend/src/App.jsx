@@ -18,7 +18,7 @@ export default function App() {
   const fetchHealth = async () => {
     setLoading(true);
     try {
-      const response = await fetch('/api/servers/health');
+      const response = await fetch('api/servers/health');
       const data = await response.json();
       setHealth(data);
     } catch (error) {
@@ -32,7 +32,7 @@ export default function App() {
   // Fetch Docker Containers
   const fetchContainers = async () => {
     try {
-      const response = await fetch('/api/servers/containers');
+      const response = await fetch('api/servers/containers');
       const data = await response.json();
       setContainers(data);
     } catch (error) {
@@ -43,7 +43,7 @@ export default function App() {
   // Perform Container Action
   const handleContainerAction = async (id, action) => {
     try {
-      await fetch(`/api/servers/containers/${id}/${action}`, { method: 'POST' });
+      await fetch(`api/servers/containers/${id}/${action}`, { method: 'POST' });
       fetchContainers(); // Refresh list after action
     } catch (error) {
       console.error(`Failed to ${action} container ${id}`, error);
@@ -54,7 +54,7 @@ export default function App() {
   const fetchWorkflows = async () => {
     setLoadingWorkflows(true);
     try {
-      const response = await fetch('/api/ci/workflows');
+      const response = await fetch('api/ci/workflows');
       const data = await response.json();
       setWorkflows(data);
     } catch (error) {
@@ -67,7 +67,7 @@ export default function App() {
   // Trigger GitHub Workflow
   const triggerWorkflow = async (id) => {
     try {
-      await fetch(`/api/ci/workflows/${id}/dispatch`, { method: 'POST' });
+      await fetch(`api/ci/workflows/${id}/dispatch`, { method: 'POST' });
       // Refresh the workflow list shortly after triggering
       setTimeout(fetchWorkflows, 1500);
     } catch (error) {
@@ -148,7 +148,7 @@ export default function App() {
 
   // Subscribe to SSE Logs
   useEffect(() => {
-    const eventSource = new EventSource('/api/servers/logs');
+    const eventSource = new EventSource('api/servers/logs');
     
     eventSource.onmessage = (event) => {
       setLogs((prevLogs) => {
@@ -192,7 +192,7 @@ export default function App() {
 
     try {
       console.log(`Sending command: ${command}`, args);
-      const res = await fetch('/api/servers/execute', {
+      const res = await fetch('api/servers/execute', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ command, args })
@@ -467,7 +467,7 @@ export default function App() {
               <p className="text-xs opacity-50 text-center px-4 mt-1">Dashboards proxied via /grafana/</p>
             </div>
             <iframe 
-              src="/grafana/d-solo/rYdddlPWk/node-exporter-full?orgId=1&timezone=browser&var-ds_prometheus=cfmh94yfqwjcwd&var-job=node&var-nodename=ac1f709ef5f4&var-node=node-exporter:9100&refresh=1m&panelId=panel-77" 
+              src="grafana/d-solo/rYdddlPWk/node-exporter-full?orgId=1&timezone=browser&var-ds_prometheus=cfmh94yfqwjcwd&var-job=node&var-nodename=ac1f709ef5f4&var-node=node-exporter:9100&refresh=1m&panelId=panel-77" 
               width="100%" 
               height="100%" 
               frameBorder="0" 
@@ -484,7 +484,7 @@ export default function App() {
               <p className="text-xs opacity-50 text-center px-4 mt-1">Dashboards proxied via /grafana/</p>
             </div>
             <iframe 
-              src="/grafana/d-solo/rYdddlPWk/node-exporter-full?orgId=1&timezone=browser&var-ds_prometheus=cfmh94yfqwjcwd&var-job=node&var-nodename=ac1f709ef5f4&var-node=node-exporter:9100&refresh=1m&panelId=panel-78" 
+              src="grafana/d-solo/rYdddlPWk/node-exporter-full?orgId=1&timezone=browser&var-ds_prometheus=cfmh94yfqwjcwd&var-job=node&var-nodename=ac1f709ef5f4&var-node=node-exporter:9100&refresh=1m&panelId=panel-78" 
               width="100%" 
               height="100%" 
               frameBorder="0" 
