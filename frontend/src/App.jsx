@@ -178,34 +178,54 @@ export default function App() {
     const term = xtermInstance.current;
     if (!term) return;
 
-    if (!cmdStr.trim()) {
+    // Sanitize input: remove control characters and trim
+    const cleanCmd = cmdStr.replace(/[\x00-\x1F\x7F]/g, "").trim();
+
+    if (!cleanCmd) {
       term.write('$ ');
       return;
     }
 
-    const parts = cmdStr.trim().split(' ').filter(p => p);
+    const parts = cleanCmd.split(' ').filter(p => p);
     const command = parts[0];
     const args = parts.slice(1);
 
     try {
+      console.log(`Sending command: ${command}`, args);
       const res = await fetch('/api/servers/execute', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ command, args })
       });
       
-      const data = await res.json();
+      const text = await res.text();
+      console.log(`Received raw response: ${text}`);
+      
+      let data;
+      try {
+        data = JSON.parse(text);
+      } catch (e) {
+        term.writeln(`\x1b[31mError: Orchestrator returned invalid JSON: ${text.substring(0, 100)}\x1b[0m`);
+        term.write('$ ');
+        return;
+      }
       
       if (data.stdout) term.write(data.stdout.replace(/\n/g, '\r\n'));
       if (data.stderr) term.writeln(`\x1b[31m${data.stderr.replace(/\n/g, '\r\n')}\x1b[0m`);
-      if (data.exit_code !== 0 && data.exit_code !== -1) {
-        term.writeln(`\x1b[31mProcess exited with code: ${data.exit_code}\x1b[0m`);
+      
+      if (data.exit_code !== 0 && data.exit_code !== undefined) {
+        // Only show exit code if it's non-zero and not just a default value
+        if (data.exit_code !== -1 || data.stderr) {
+            term.writeln(`\x1b[31mProcess exited with code: ${data.exit_code}\x1b[0m`);
+        }
       }
+      
+      if (data.stdout && !data.stdout.endsWith('\n')) term.write('\r\n');
     } catch (e) {
+      console.error("Fetch error", e);
       term.writeln(`\x1b[31mNetwork Error: Failed to reach Orchestrator\x1b[0m`);
     }
     
-    if (!data?.stdout?.endsWith('\n')) term.write('\r\n');
     term.write('$ ');
   };
 

@@ -18,17 +18,20 @@ public class AgentController {
         this.agentService = agentService;
     }
 
-    @GetMapping("/health")
+    @GetMapping(value = "/health", produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<String> getHealth() {
         return ResponseEntity.ok(agentService.fetchAgentHealth());
     }
 
-    @PostMapping("/execute")
+    @PostMapping(value = "/execute", produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<String> executeCommand(@RequestBody Map<String, Object> payload) {
         String command = (String) payload.getOrDefault("command", "");
         @SuppressWarnings("unchecked")
         List<String> args = (List<String>) payload.getOrDefault("args", List.of());
-        return ResponseEntity.ok(agentService.executeCommand(command, args));
+        System.out.println("Executing command: " + command + " with args: " + args);
+        String response = agentService.executeCommand(command, args);
+        System.out.println("Agent response: " + response);
+        return ResponseEntity.ok(response);
     }
 
     @GetMapping(value = "/logs", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
