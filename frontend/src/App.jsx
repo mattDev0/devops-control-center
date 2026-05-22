@@ -257,7 +257,7 @@ export default function App() {
         <div className="bg-slate-800 rounded-xl p-6 border border-slate-700 h-fit">
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-xl font-semibold flex items-center gap-2">
-              <Server className="text-blue-400" /> Local WSL Agent
+              <Server className="text-blue-400" /> Production Agent
             </h2>
             <div className={`w-3 h-3 rounded-full ${health?.os_name === 'Error' ? 'bg-red-500' : 'bg-emerald-500'}`}></div>
           </div>
