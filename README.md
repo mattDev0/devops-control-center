@@ -1,99 +1,101 @@
 # 🚀 DevOps Control Center
 
-A custom, end-to-end DevOps orchestration and observability platform built from scratch. This project unifies server monitoring, remote terminal execution, Docker container management, CI/CD pipeline tracking, and Infrastructure-as-Code (IaC) provisioning into a single, sleek React dashboard.
+A custom, end-to-end DevOps orchestration and observability platform built from scratch. This project unifies server monitoring, remote terminal execution, Docker container management, and CI/CD pipeline tracking into a single, sleek React dashboard.
+
+---
+
+## 🌐 Live Preview
+**Check out the live dashboard here:**  
+👉 **[https://mattdev0.tech/devops/](https://mattdev0.tech/devops/)**
+
+> ⚠️ **IMPORTANT WARNING FOR VISITORS** ⚠️
+> 
+> This is a live demonstration connected to real infrastructure. 
+> **Please DO NOT stop, restart, or modify any running Docker containers** via the dashboard unless you know what you are doing. Disrupting the containers will bring down the services on the host server.
 
 ---
 
 # 🏗️ Architecture
 
-The platform is built on a modern, secure three-tier architecture:
+The platform is built on a modern, secure microservices architecture deployed via Docker Compose:
 
-## Frontend — React + Vite + Tailwind CSS
-
+## 1. Frontend — React + Vite + Tailwind CSS + Nginx
 A responsive single-page dashboard featuring:
-
-* Embedded `xterm.js` terminals
+* Embedded `xterm.js` terminals with secure input sanitization
 * Live Server-Sent Events (SSE) log streaming
 * Embedded Grafana metric dashboards
 * Real-time infrastructure visibility
 
-## Orchestrator — Java Spring Boot
-
+## 2. Orchestrator — Java Spring Boot
 The central coordination layer responsible for:
+* Securely proxying commands to the Rust agent
+* Integrating with the GitHub API for CI/CD workflow fetching and dispatching
+* Managing backend API communication and SSE streams
 
-* Securely proxying commands to agents
-* Integrating with external APIs (e.g. GitHub)
-* Managing backend API communication
-* Serving as the primary backend for the React frontend
-
-## Agent — Rust + Axum
-
-A lightweight, high-performance system agent running on the target machine or WSL environment.
-
+## 3. Agent — Rust + Axum
+A lightweight, high-performance system agent running directly on the host (mounted via volume).
 Responsibilities include:
+* Executing allowlisted system commands (`ls`, `pwd`, `date`, `uptime`, etc.)
+* Interacting with the host Docker daemon using `bollard`
+* Streaming system logs and telemetry securely using an API key
 
-* Executing allowlisted system commands
-* Interacting with the local Docker daemon using `bollard`
-* Streaming telemetry and logs
-* Performing Terraform operations securely
+## 4. Observability Stack — Prometheus & Grafana
+* `node-exporter` gathering system metrics
+* Prometheus scraping the metrics
+* Grafana providing visual dashboards embedded directly into the React UI
 
 ---
 
 # ✨ Key Features
 
-## 🔒 Secure Remote Execution
-
+### 🔒 Secure Remote Execution
 A fully interactive terminal directly in the browser.
+* Allowlisted command execution.
+* Input sanitization to prevent control-character injection.
+* Live command output streaming.
 
-Features:
-
-* Allowlisted command execution
-* API key middleware protection
-* Live command output streaming
-
-## 🐳 Docker Management
-
+### 🐳 Docker Management
 Manage Docker containers directly from the dashboard.
+* View running/stopped containers.
+* Start, stop, and restart containers remotely.
 
-Capabilities:
+### 🔄 CI/CD Pipeline Monitoring
+Integrated GitHub Actions monitoring fetching real data.
+* Workflow status tracking.
+* Commit and branch visibility.
+* Manual deployment triggers (dispatch).
 
-* View running/stopped containers
-* Start containers
-* Stop containers
-* Restart containers
-
-## 🔄 CI/CD Pipeline Monitoring
-
-Integrated GitHub Actions monitoring.
-
-Includes:
-
-* Workflow status tracking
-* Commit and branch visibility
-* Manual deployment triggers
-
-## 🏗️ Infrastructure-as-Code Provisioning
-
-Execute Terraform workflows remotely through the Rust agent.
-
-Supported operations:
-
-* `terraform init`
-* `terraform apply`
-* `terraform destroy`
-
-All logs stream instantly to the UI.
-
-## 📈 Deep Observability
-
+### 📈 Deep Observability
 Integrated monitoring stack powered by Prometheus and Grafana.
+* Real-time host CPU and Memory monitoring.
+* Secure iframe embedding configured for cross-domain access.
 
-Features:
+---
 
-* `node-exporter` system metrics
-* Prometheus metric scraping
-* Embedded Grafana dashboards
-* Real-time host monitoring
+# 🛠️ Configuration & Deployment
+
+This project uses a flexible runtime configuration strategy allowing it to run easily both locally and in production.
+
+## Local Development
+Clone the repo and run:
+```bash
+docker compose up --build
+```
+It will automatically default to `localhost` configurations, bypassing secure cookie requirements for easy development.
+* Dashboard: `http://localhost:8085`
+
+## Production Deployment
+To deploy to a live server (like the Azure preview), create a `.env` file from the provided example:
+```bash
+cp .env.example .env
+nano .env
+```
+Provide your actual GitHub token, repository details, and public domain. Docker Compose will inject these into the containers, enforcing secure cookies and correct routing for Nginx subpath hosting (`/devops/`).
+
+Then run:
+```bash
+docker compose up -d --build
+```
 
 ---
 
@@ -103,137 +105,22 @@ Features:
 devops-control-center/
 ├── agent/                      # Rust Agent 🦀
 │   ├── src/main.rs
-│   ├── Cargo.toml
-│   └── main.tf
-│
+│   ├── Dockerfile
+│   └── Cargo.toml
 ├── orchestrator/               # Spring Boot Backend ☕
 │   ├── src/main/java/.../
-│   │   ├── AgentController.java
-│   │   ├── AgentService.java
-│   │   ├── GithubController.java
-│   │   └── GithubService.java
+│   ├── Dockerfile
 │   └── pom.xml
-│
 ├── frontend/                   # React Dashboard ⚛️
 │   ├── src/App.jsx
-│   ├── package.json
-│   ├── tailwind.config.js
+│   ├── Dockerfile
+│   ├── nginx.conf              # Subpath proxy configuration
 │   └── vite.config.js
-│
-├── docker-compose.yml
-├── prometheus.yml
-└── README.md
+├── grafana/                    # Provisioning & Dashboards 📊
+├── docker-compose.yml          # Full stack orchestration
+├── .env.example                # Production environment template
+└── prometheus.yml
 ```
-
----
-
-# 🛠️ Prerequisites
-
-Ensure the following are installed locally:
-
-* Node.js & npm
-* Java 21 & Maven
-* Rust & Cargo
-* Docker Desktop
-* Terraform CLI
-
----
-
-# 🚀 Getting Started
-
-To run the full platform locally, open **4 separate terminal windows**.
-
----
-
-## 1️⃣ Start the Rust Agent
-
-```bash
-cd agent
-cargo run
-```
-
-Runs on:
-
-```text
-http://localhost:3001
-```
-
----
-
-## 2️⃣ Start the Java Orchestrator
-
-```bash
-cd orchestrator
-mvn spring-boot:run
-```
-
-Runs on:
-
-```text
-http://localhost:8080
-```
-
----
-
-## 3️⃣ Start the React Frontend
-
-```bash
-cd frontend
-npm install
-npm run dev
-```
-
-Runs on:
-
-```text
-http://localhost:5173
-```
-
----
-
-## 4️⃣ Start the Monitoring Stack
-
-From the project root directory:
-
-```bash
-docker-compose up -d
-```
-
-Grafana runs on:
-
-```text
-http://localhost:3000
-```
-
-Default credentials:
-
-```text
-admin / admin
-```
-
----
-
-# 📊 Grafana Setup
-
-Import Grafana Dashboard:
-
-```text
-1860
-```
-
-Then copy the generated panel embed links into `App.jsx` to display live infrastructure metrics directly in the dashboard.
-
----
-
-# 🔮 Future Enhancements
-
-* Role-Based Access Control (RBAC) via Spring Security
-* Comprehensive audit logging
-* Webhook-triggered deployments
-* Kubernetes cluster integration
-* Multi-agent support
-* WebSocket-based terminal sessions
-* JWT authentication & refresh tokens
 
 ---
 
@@ -242,13 +129,11 @@ Then copy the generated panel embed links into `App.jsx` to display live infrast
 | Layer                | Technology                |
 | -------------------- | ------------------------- |
 | Frontend             | React, Vite, Tailwind CSS |
-| Backend              | Spring Boot               |
-| Agent                | Rust, Axum                |
-| Container Management | Docker, Bollard           |
-| Infrastructure       | Terraform                 |
+| Backend              | Java Spring Boot          |
+| Agent                | Rust, Axum, Bollard       |
+| Container Management | Docker, Docker Compose    |
+| Web Server / Proxy   | Nginx                     |
 | Monitoring           | Prometheus, Grafana       |
-| Streaming            | SSE                       |
-| Terminal             | xterm.js                  |
 
 ---
 
