@@ -110,7 +110,7 @@ export default function App() {
         xtermInstance.current = term;
 
         term.writeln('\x1b[1;32mDevOps Control Center Terminal\x1b[0m');
-        term.writeln('Secure remote execution initialized. Allowed commands: ls, pwd, whoami, echo, uptime, date, terraform');
+        term.writeln('Secure remote execution initialized. Allowed commands: ls, pwd, whoami, echo, uptime, date');
         term.write('\r\n$ ');
 
         term.onKey(({ key, domEvent }) => {
@@ -424,41 +424,8 @@ export default function App() {
         </div>
       </div>
 
-      {/* Row 3: Terraform & Logs */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-        <div className="bg-slate-800 rounded-xl p-6 border border-slate-700 shadow-xl">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-semibold flex items-center gap-2 text-slate-200">
-              <Layers className="text-amber-400" /> Infrastructure (Terraform)
-            </h2>
-          </div>
-          <div className="space-y-4">
-            <p className="text-sm text-slate-400">
-              Execute local Terraform configurations directly through the secure agent tunnel. Output streams to the terminal above.
-            </p>
-            <div className="flex gap-3 mt-4">
-              <button 
-                onClick={() => executeCommand('terraform init')}
-                className="flex-1 bg-slate-700 hover:bg-slate-600 text-white py-2 px-4 rounded text-sm font-semibold transition-colors flex items-center justify-center gap-2"
-              >
-                <PlayCircle className="w-4 h-4" /> Init
-              </button>
-              <button 
-                onClick={() => executeCommand('terraform apply -auto-approve')}
-                className="flex-1 bg-amber-500/20 text-amber-400 hover:bg-amber-500/30 py-2 px-4 rounded text-sm font-semibold transition-colors flex items-center justify-center gap-2"
-              >
-                <PlayCircle className="w-4 h-4" /> Apply
-              </button>
-              <button 
-                onClick={() => executeCommand('terraform destroy -auto-approve')}
-                className="flex-1 bg-red-500/20 text-red-400 hover:bg-red-500/30 py-2 px-4 rounded text-sm font-semibold transition-colors flex items-center justify-center gap-2"
-              >
-                <XCircle className="w-4 h-4" /> Destroy
-              </button>
-            </div>
-          </div>
-        </div>
-
+      {/* Row 3: Logs */}
+      <div className="grid grid-cols-1 gap-6 mb-6">
         <div className="bg-slate-800 rounded-xl p-6 border border-slate-700 shadow-xl flex flex-col">
           <h2 className="text-xl font-semibold mb-4 flex items-center gap-2 text-slate-200">
             <FileText className="text-blue-400" /> Live System Logs
@@ -494,15 +461,13 @@ export default function App() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* CPU Usage Iframe Container */}
           <div className="bg-[#0f172a] border border-slate-900 rounded p-1 h-64 relative overflow-hidden flex items-center justify-center">
-            {/* Fallback text hidden behind iframe once loaded */}
             <div className="absolute inset-0 flex flex-col items-center justify-center text-slate-500 pointer-events-none z-0">
               <LineChart className="w-8 h-8 mb-2 opacity-50" />
               <p className="text-sm">CPU Usage Panel</p>
-              <p className="text-xs opacity-50 text-center px-4 mt-1">Requires Grafana running on http://localhost:3000</p>
+              <p className="text-xs opacity-50 text-center px-4 mt-1">Dashboards proxied via /grafana/</p>
             </div>
-            {/* The iframe connects to local Grafana dashboard panel */}
             <iframe 
-              src="http://localhost:3000/d-solo/rYdddlPWk/node-exporter-full?orgId=1&timezone=browser&var-ds_prometheus=cfmh94yfqwjcwd&var-job=node&var-nodename=ac1f709ef5f4&var-node=node-exporter:9100&refresh=1m&panelId=panel-77" 
+              src="/grafana/d-solo/rYdddlPWk/node-exporter-full?orgId=1&timezone=browser&var-ds_prometheus=cfmh94yfqwjcwd&var-job=node&var-nodename=ac1f709ef5f4&var-node=node-exporter:9100&refresh=1m&panelId=panel-77" 
               width="100%" 
               height="100%" 
               frameBorder="0" 
@@ -516,10 +481,10 @@ export default function App() {
             <div className="absolute inset-0 flex flex-col items-center justify-center text-slate-500 pointer-events-none z-0">
               <Activity className="w-8 h-8 mb-2 opacity-50" />
               <p className="text-sm">Memory Usage Panel</p>
-              <p className="text-xs opacity-50 text-center px-4 mt-1">Requires Grafana running on http://localhost:3000</p>
+              <p className="text-xs opacity-50 text-center px-4 mt-1">Dashboards proxied via /grafana/</p>
             </div>
             <iframe 
-              src="http://localhost:3000/d-solo/rYdddlPWk/node-exporter-full?orgId=1&timezone=browser&var-ds_prometheus=cfmh94yfqwjcwd&var-job=node&var-nodename=ac1f709ef5f4&var-node=node-exporter:9100&refresh=1m&panelId=panel-78" 
+              src="/grafana/d-solo/rYdddlPWk/node-exporter-full?orgId=1&timezone=browser&var-ds_prometheus=cfmh94yfqwjcwd&var-job=node&var-nodename=ac1f709ef5f4&var-node=node-exporter:9100&refresh=1m&panelId=panel-78" 
               width="100%" 
               height="100%" 
               frameBorder="0" 
