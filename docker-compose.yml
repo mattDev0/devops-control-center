@@ -1,6 +1,42 @@
 version: '3.8'
 
 services:
+  # Rust Agent: High-performance system agent
+  agent:
+    build:
+      context: ./agent
+    container_name: agent
+    ports:
+      - "3001:3001"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - .:/app
+    restart: unless-stopped
+
+  # Java Orchestrator: Central coordination layer
+  orchestrator:
+    build:
+      context: ./orchestrator
+    container_name: orchestrator
+    ports:
+      - "8080:8080"
+    environment:
+      - AGENT_URL=http://agent:3001
+    depends_on:
+      - agent
+    restart: unless-stopped
+
+  # React Frontend: Sleek dashboard (served via Nginx)
+  frontend:
+    build:
+      context: ./frontend
+    container_name: frontend
+    ports:
+      - "80:80"
+    depends_on:
+      - orchestrator
+    restart: unless-stopped
+
   # Prometheus server to scrape metrics
   prometheus:
     image: prom/prometheus:latest
@@ -20,12 +56,11 @@ services:
     ports:
       - "3000:3000"
     environment:
-      # Allow embedding in our React app
       - GF_SECURITY_ALLOW_EMBEDDING=true
       - GF_AUTH_ANONYMOUS_ENABLED=true
     restart: unless-stopped
 
-  # Node Exporter to gather system metrics (Memory, CPU, etc.)
+  # Node Exporter to gather system metrics
   node-exporter:
     image: prom/node-exporter:latest
     container_name: node-exporter

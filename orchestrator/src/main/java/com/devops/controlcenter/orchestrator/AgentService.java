@@ -1,5 +1,6 @@
 package com.devops.controlcenter.orchestrator;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
@@ -16,9 +17,9 @@ public class AgentService {
     private final RestClient restClient;
     private final String agentSecretKey = "devops-secret-key-123";
 
-    public AgentService(RestClient.Builder restClientBuilder) {
+    public AgentService(RestClient.Builder restClientBuilder, @Value("${agent.url:http://localhost:3001}") String agentUrl) {
         this.restClient = restClientBuilder
-                .baseUrl("http://localhost:3001")
+                .baseUrl(agentUrl)
                 .defaultHeader("X-Agent-Key", agentSecretKey)
                 .build();
     }
