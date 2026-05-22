@@ -61,11 +61,12 @@ services:
       - GF_SECURITY_ALLOW_EMBEDDING=true
       - GF_AUTH_ANONYMOUS_ENABLED=true
       - GF_AUTH_ANONYMOUS_ORG_ROLE=Admin
-      - GF_SERVER_DOMAIN=mattdev0.tech
-      - GF_SERVER_ROOT_URL=https://mattdev0.tech/devops/grafana/
+      # Runtime Flags: Use .env variables in production, fallback to local dev defaults
+      - GF_SERVER_DOMAIN=${DOMAIN:-localhost}
+      - GF_SERVER_ROOT_URL=${GRAFANA_ROOT_URL:-http://localhost:8085/devops/grafana/}
       - GF_SERVER_SERVE_FROM_SUB_PATH=true
-      - GF_SECURITY_COOKIE_SAMESITE=none
-      - GF_SECURITY_COOKIE_SECURE=true
+      - GF_SECURITY_COOKIE_SAMESITE=${COOKIE_SAMESITE:-lax}
+      - GF_SECURITY_COOKIE_SECURE=${COOKIE_SECURE:-false}
       - GF_SERVER_ENFORCE_DOMAIN=false
     volumes:
       - grafana-data:/var/lib/grafana
