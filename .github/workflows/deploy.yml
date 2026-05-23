@@ -1,0 +1,64 @@
+name: Production Deployment
+
+# Trigger the workflow only when pushing to the main branch
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Executing Remote SSH Commands to Deploy
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.AZURE_HOST }}
+          username: ${{ secrets.AZURE_USER }}
+          key: ${{ secrets.AZURE_SSH_KEY }}
+          port: 22
+          script: |
+            set -e
+            echo "Successfully connected to Azure Production Server."
+            
+            # Navigate to your devops-control-center directory
+            cd ~/devops-control-center
+            
+            # Ensure the server is locked to the correct branch and fetch the latest code
+            git fetch origin main
+            git checkout main
+            git reset --hard origin/main
+            
+            # Detect docker-compose command (V1 vs V2)
+            if command -v docker-compose >/dev/null 2>&1; then
+              DOCKER_COMPOSE="sudo docker-compose"
+            else
+              DOCKER_COMPOSE="sudo docker compose"
+            fi
+            
+            echo "Using Docker Compose command: $DOCKER_COMPOSE"
+            
+            # 1. THE PERMANENT FIX: Always wipe the slate clean to prevent zombie ports
+            $DOCKER_COMPOSE down || true
+            
+            # 2. FORCE KILL any lingering processes on the microservice ports 
+            # (Prevents port-binding failures that leave old code running)
+            echo "Checking for zombie processes on exposed ports..."
+            sudo fuser -k 3011/tcp || true
+            sudo fuser -k 8090/tcp || true
+            sudo fuser -k 8085/tcp || true
+            sudo fuser -k 9091/tcp || true
+            sudo fuser -k 3010/tcp || true
+            sudo fuser -k 9101/tcp || true
+            
+            # 3. Boot the new cluster with forced build
+            $DOCKER_COMPOSE up -d --build
+            
+            # Prune dangling layers to prevent the server disk from filling up over time
+            sudo docker image prune -f
+            
+            echo "Deployment successfully executed!"
