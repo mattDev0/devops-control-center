@@ -28,40 +28,74 @@ public class GithubService {
     }
 
     public List<Map<String, Object>> getRecentWorkflows() {
-        try {
-            Map<String, Object> response = this.restClient.get()
-                    .uri("/repos/" + owner + "/" + repo + "/actions/runs?per_page=5")
-                    .retrieve()
-                    .body(Map.class);
+        List<Map<String, Object>> allRuns = new java.util.ArrayList<>();
+        String[] repos = {"portfolio-monorepo", "devops-control-center"};
 
-            if (response != null && response.containsKey("workflow_runs")) {
-                List<Map<String, Object>> runs = (List<Map<String, Object>>) response.get("workflow_runs");
-                return runs.stream().map(run -> {
-                    Map<String, Object> headCommit = (Map<String, Object>) run.get("head_commit");
-                    return Map.of(
-                            "id", run.get("id"),
-                            "name", run.get("name"),
-                            "status", run.get("status"),
-                            "conclusion", run.get("conclusion") != null ? run.get("conclusion") : "null",
-                            "branch", run.get("head_branch"),
-                            "commitMsg", headCommit != null ? headCommit.get("message") : "N/A"
-                    );
-                }).collect(Collectors.toList());
+        for (String r : repos) {
+            try {
+                Map<String, Object> response = this.restClient.get()
+                        .uri("/repos/" + owner + "/" + r + "/actions/runs?per_page=5")
+                        .retrieve()
+                        .body(Map.class);
+
+                if (response != null && response.containsKey("workflow_runs")) {
+                    List<Map<String, Object>> runs = (List<Map<String, Object>>) response.get("workflow_runs");
+                    for (Map<String, Object> run : runs) {
+                        Map<String, Object> headCommit = (Map<String, Object>) run.get("head_commit");
+                        
+                        Object workflowId = run.get("workflow_id");
+                        String idStr = r + ":" + (workflowId != null ? workflowId.toString() : "");
+                        
+                        String runName = run.get("name") != null ? run.get("name").toString() : "Workflow";
+                        String displayName = "[" + r + "] " + runName;
+
+                        // Create mutable map or use Map.of if values are non-null
+                        String createdAt = run.get("created_at") != null ? run.get("created_at").toString() : "";
+                        
+                        java.util.Map<String, Object> runMap = new java.util.HashMap<>();
+                        runMap.put("id", idStr);
+                        runMap.put("name", displayName);
+                        runMap.put("status", run.get("status"));
+                        runMap.put("conclusion", run.get("conclusion") != null ? run.get("conclusion") : "null");
+                        runMap.put("branch", run.get("head_branch"));
+                        runMap.put("commitMsg", headCommit != null ? headCommit.get("message") : "N/A");
+                        runMap.put("createdAt", createdAt);
+                        
+                        allRuns.add(runMap);
+                    }
+                }
+            } catch (Exception e) {
+                System.err.println("Failed to fetch GitHub workflows for " + r + ": " + e.getMessage());
             }
-        } catch (Exception e) {
-            System.err.println("Failed to fetch GitHub workflows: " + e.getMessage());
         }
-        return List.of();
+
+        // Sort by createdAt descending
+        allRuns.sort((a, b) -> {
+            String c1 = a.get("createdAt") != null ? a.get("createdAt").toString() : "";
+            String c2 = b.get("createdAt") != null ? b.get("createdAt").toString() : "";
+            return c2.compareTo(c1);
+        });
+
+        return allRuns.stream().limit(5).collect(Collectors.toList());
     }
 
     public void triggerWorkflow(String workflowId) {
         try {
+            String targetRepo = this.repo;
+            String targetWorkflowId = workflowId;
+
+            if (workflowId.contains(":")) {
+                String[] parts = workflowId.split(":", 2);
+                targetRepo = parts[0];
+                targetWorkflowId = parts[1];
+            }
+
             this.restClient.post()
-                    .uri("/repos/" + owner + "/" + repo + "/actions/workflows/" + workflowId + "/dispatches")
+                    .uri("/repos/" + owner + "/" + targetRepo + "/actions/workflows/" + targetWorkflowId + "/dispatches")
                     .body(Map.of("ref", "main"))
                     .retrieve()
                     .toBodilessEntity();
-            System.out.println("🚀 Triggered GitHub Action workflow ID: " + workflowId);
+            System.out.println("🚀 Triggered GitHub Action workflow ID: " + targetWorkflowId + " in repo: " + targetRepo);
         } catch (Exception e) {
             System.err.println("Failed to trigger GitHub workflow: " + e.getMessage());
         }
