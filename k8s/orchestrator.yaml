@@ -1,0 +1,53 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: devops-orchestrator
+  namespace: devops
+  labels:
+    app: devops-orchestrator
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: devops-orchestrator
+  template:
+    metadata:
+      labels:
+        app: devops-orchestrator
+    spec:
+      containers:
+      - name: devops-orchestrator
+        image: devops-orchestrator:latest
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 8080
+        env:
+        - name: AGENT_URL
+          value: "http://devops-agent:3001"
+        - name: JAVA_TOOL_OPTIONS
+          value: "-Xms128m -Xmx256m"
+        envFrom:
+        - secretRef:
+            name: devops-secrets
+            optional: true
+        resources:
+          requests:
+            memory: "192Mi"
+            cpu: "50m"
+          limits:
+            memory: "384Mi"
+            cpu: "300m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: devops-orchestrator
+  namespace: devops
+spec:
+  type: ClusterIP
+  ports:
+  - port: 8080
+    targetPort: 8080
+    protocol: TCP
+  selector:
+    app: devops-orchestrator
