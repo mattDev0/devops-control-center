@@ -33,32 +33,39 @@ jobs:
             git checkout main
             git reset --hard origin/main
             
-            # Detect docker-compose command (V1 vs V2)
-            if command -v docker-compose >/dev/null 2>&1; then
-              DOCKER_COMPOSE="sudo docker-compose"
-            else
-              DOCKER_COMPOSE="sudo docker compose"
+            echo "Building Docker images locally..."
+            sudo docker build -t devops-agent:latest ./agent
+            sudo docker build -t devops-orchestrator:latest ./orchestrator
+            sudo docker build -t devops-frontend:latest ./frontend
+            
+            echo "Importing images into K3s..."
+            sudo docker save devops-agent:latest -o /tmp/devops-agent.tar && sudo k3s ctr images import /tmp/devops-agent.tar && rm /tmp/devops-agent.tar
+            sudo docker save devops-orchestrator:latest -o /tmp/devops-orchestrator.tar && sudo k3s ctr images import /tmp/devops-orchestrator.tar && rm /tmp/devops-orchestrator.tar
+            sudo docker save devops-frontend:latest -o /tmp/devops-frontend.tar && sudo k3s ctr images import /tmp/devops-frontend.tar && rm /tmp/devops-frontend.tar
+            
+            echo "Applying namespaces..."
+            sudo kubectl apply -f k8s/namespace.yaml
+            
+            echo "Configuring environment secrets..."
+            if [ -f ./.env ]; then
+              sudo kubectl create secret generic devops-secrets \
+                --from-env-file=./.env \
+                -n devops \
+                --dry-run=client -o yaml | sudo kubectl apply -f -
             fi
             
-            echo "Using Docker Compose command: $DOCKER_COMPOSE"
+            echo "Deploying applications and observability to K3s..."
+            sudo kubectl apply -f k8s/agent.yaml
+            sudo kubectl apply -f k8s/orchestrator.yaml
+            sudo kubectl apply -f k8s/frontend.yaml
+            sudo kubectl apply -f k8s/prometheus.yaml
+            sudo kubectl apply -f k8s/grafana.yaml
+            sudo kubectl apply -f k8s/node-exporter.yaml
             
-            # 1. THE PERMANENT FIX: Always wipe the slate clean to prevent zombie ports
-            $DOCKER_COMPOSE down || true
+            echo "Triggering rolling restart to pick up new images..."
+            sudo kubectl rollout restart deployment/devops-agent deployment/devops-orchestrator deployment/devops-frontend -n devops
             
-            # 2. FORCE KILL any lingering processes on the microservice ports 
-            # (Prevents port-binding failures that leave old code running)
-            echo "Checking for zombie processes on exposed ports..."
-            sudo fuser -k 3011/tcp || true
-            sudo fuser -k 8090/tcp || true
-            sudo fuser -k 8085/tcp || true
-            sudo fuser -k 9091/tcp || true
-            sudo fuser -k 3010/tcp || true
-            sudo fuser -k 9101/tcp || true
-            
-            # 3. Boot the new cluster with forced build
-            $DOCKER_COMPOSE up -d --build
-            
-            # Prune dangling layers to prevent the server disk from filling up over time
+            # Prune docker images to save space
             sudo docker image prune -f
             
-            echo "Deployment successfully executed!"
+            echo "K8s Deployment successfully executed!"
