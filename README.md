@@ -17,32 +17,32 @@ A custom, end-to-end DevOps orchestration and observability platform built from 
 
 # 🏗️ Architecture
 
-The platform is built on a modern, secure microservices architecture deployed via Docker Compose:
+The platform is built on a modern, secure microservices architecture deployed via Kubernetes (K3s) inside the `devops` namespace:
 
 ## 1. Frontend — React + Vite + Tailwind CSS + Nginx
 A responsive single-page dashboard featuring:
 * Embedded `xterm.js` terminals with secure input sanitization
 * Live Server-Sent Events (SSE) log streaming
 * Embedded Grafana metric dashboards
-* Real-time infrastructure visibility
+* Real-time infrastructure and pod visibility
 
 ## 2. Orchestrator — Java Spring Boot
 The central coordination layer responsible for:
 * Securely proxying commands to the Rust agent
-* Integrating with the GitHub API for CI/CD workflow fetching and dispatching
+* Integrating with the GitHub API for multi-repository CI/CD workflow fetching and dispatching
 * Managing backend API communication and SSE streams
 
-## 3. Agent — Rust + Axum
-A lightweight, high-performance system agent running directly on the host (mounted via volume).
+## 3. Agent — Rust + Axum + kube-rs
+A lightweight, high-performance system agent running as a Kubernetes pod.
 Responsibilities include:
 * Executing allowlisted system commands (`ls`, `pwd`, `date`, `uptime`, etc.)
-* Interacting with the host Docker daemon using `bollard`
+* Interacting with the Kubernetes API using `kube-rs` to manage deployments (list status, rolling restart, scale up/down)
 * Streaming system logs and telemetry securely using an API key
 
 ## 4. Observability Stack — Prometheus & Grafana
-* `node-exporter` gathering system metrics
-* Prometheus scraping the metrics
-* Grafana providing visual dashboards embedded directly into the React UI
+* `node-exporter` gathering host metrics as a DaemonSet
+* Prometheus scraping node-exporter and Spring Boot actuator metrics inside K3s
+* Grafana providing visual dashboards (persistent via PVC) embedded directly into the React UI
 
 ---
 
@@ -85,17 +85,24 @@ It will automatically default to `localhost` configurations, bypassing secure co
 * Dashboard: `http://localhost:8085`
 
 ## Production Deployment
-To deploy to a live server (like the Azure preview), create a `.env` file from the provided example:
+To deploy to a live server, create a `.env` file from the provided example:
 ```bash
 cp .env.example .env
 nano .env
 ```
-Provide your actual GitHub token, repository details, and public domain. Docker Compose will inject these into the containers, enforcing secure cookies and correct routing for Nginx subpath hosting (`/devops/`).
+Provide your GitHub token and public domain. The GitHub Action will convert this `.env` file into a Kubernetes Secret (`devops-secrets`) automatically during deploy.
 
-Then run:
-```bash
-docker compose up -d --build
-```
+The automated GitHub Action runs:
+1. Connects to the Azure VM via SSH
+2. Pulls the latest code changes
+3. Builds the Docker images locally:
+   - `devops-agent`
+   - `devops-orchestrator`
+   - `devops-frontend`
+4. Imports them into K3s containerd cache
+5. Generates/applies the Kubernetes Secret
+6. Applies K8s manifests in the `k8s/` folder
+7. Restarts the pods to apply updates
 
 ---
 
@@ -116,8 +123,16 @@ devops-control-center/
 │   ├── Dockerfile
 │   ├── nginx.conf              # Subpath proxy configuration
 │   └── vite.config.js
-├── grafana/                    # Provisioning & Dashboards 📊
-├── docker-compose.yml          # Full stack orchestration
+├── k8s/                        # Kubernetes Manifests ☸️
+│   ├── namespace.yaml
+│   ├── agent.yaml
+│   ├── orchestrator.yaml
+│   ├── frontend.yaml
+│   ├── prometheus.yaml
+│   ├── grafana.yaml
+│   └── node-exporter.yaml
+├── grafana/                    # Local Provisioning & Dashboards 📊
+├── docker-compose.yml          # Local stack orchestration
 ├── .env.example                # Production environment template
 └── prometheus.yml
 ```
