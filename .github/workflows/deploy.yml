@@ -39,9 +39,9 @@ jobs:
             sudo docker build -t devops-frontend:latest ./frontend
             
             echo "Importing images into K3s..."
-            sudo docker save devops-agent:latest -o /tmp/devops-agent.tar && sudo k3s ctr images import /tmp/devops-agent.tar && rm /tmp/devops-agent.tar
-            sudo docker save devops-orchestrator:latest -o /tmp/devops-orchestrator.tar && sudo k3s ctr images import /tmp/devops-orchestrator.tar && rm /tmp/devops-orchestrator.tar
-            sudo docker save devops-frontend:latest -o /tmp/devops-frontend.tar && sudo k3s ctr images import /tmp/devops-frontend.tar && rm /tmp/devops-frontend.tar
+            sudo docker save devops-agent:latest -o /tmp/devops-agent.tar && sudo k3s ctr images import /tmp/devops-agent.tar && sudo rm -f /tmp/devops-agent.tar
+            sudo docker save devops-orchestrator:latest -o /tmp/devops-orchestrator.tar && sudo k3s ctr images import /tmp/devops-orchestrator.tar && sudo rm -f /tmp/devops-orchestrator.tar
+            sudo docker save devops-frontend:latest -o /tmp/devops-frontend.tar && sudo k3s ctr images import /tmp/devops-frontend.tar && sudo rm -f /tmp/devops-frontend.tar
             
             echo "Applying namespaces..."
             sudo kubectl apply -f k8s/namespace.yaml
