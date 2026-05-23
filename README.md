@@ -19,6 +19,32 @@ A custom, end-to-end DevOps orchestration and observability platform built from 
 
 The platform is built on a modern, secure microservices architecture deployed via Kubernetes (K3s) inside the `devops` namespace:
 
+```mermaid
+graph TD
+    Client[Client Browser] -->|HTTPS 443| Nginx[Host Nginx Reverse Proxy]
+    
+    subgraph "Azure Virtual Machine (Host)"
+        Nginx -->|Proxy to Port 30085| K8sDevOpsFE[Service: devops-frontend NodePort]
+        Nginx -->|Proxy to Port 30010| K8sGrafana[Service: devops-grafana NodePort]
+
+        subgraph "Namespace: devops"
+            K8sDevOpsFE --> DevOpsFE[devops-frontend Pod]
+            DevOpsFE --> Orchestrator[devops-orchestrator Pod]
+            Orchestrator --> Agent[devops-agent Pod]
+            Agent -->|kube-rs API Calls| K8sAPI[K3s API Server]
+            
+            K8sGrafana --> Grafana[devops-grafana Pod]
+            Grafana -->|Query Metrics| Prom[devops-prometheus Pod]
+            Prom -->|Scrape Telemetry| NodeExp[node-exporter DaemonSet]
+        end
+    end
+
+    Orchestrator -->|GitHub Actions API| GitHub[GitHub API]
+
+    classDef devops fill:#0f172a,stroke:#8b5cf6,stroke-width:2px,color:#f8fafc;
+    class DevOpsFE,Orchestrator,Agent,Grafana,Prom,NodeExp devops;
+```
+
 ## 1. Frontend — React + Vite + Tailwind CSS + Nginx
 A responsive single-page dashboard featuring:
 * Embedded `xterm.js` terminals with secure input sanitization
@@ -91,6 +117,28 @@ cp .env.example .env
 nano .env
 ```
 Provide your GitHub token and public domain. The GitHub Action will convert this `.env` file into a Kubernetes Secret (`devops-secrets`) automatically during deploy.
+
+```mermaid
+sequenceDiagram
+    actor Developer
+    participant GitHub as GitHub Repository (devops-control-center)
+    participant Runner as GitHub Actions Runner
+    participant VM as Azure VM Host
+    participant K3s as K3s Cluster
+
+    Developer->>GitHub: git push origin main
+    GitHub->>Runner: Trigger Production Deployment Workflow
+    Runner->>VM: SSH Connection (using AZURE_SSH_KEY)
+    Note over VM: Pulls latest commits<br/>git reset --hard origin/main
+    VM->>VM: Build Docker images locally:<br/>- devops-agent<br/>- devops-orchestrator<br/>- devops-frontend
+    VM->>K3s: Save images & Import to containerd store
+    VM->>K3s: Apply environment Secrets (devops-secrets)
+    VM->>K3s: Apply manifests in k8s/ folder
+    VM->>K3s: Trigger zero-downtime rolling update (rollout restart)
+    K3s-->>VM: Rollout Complete
+    VM-->>Runner: Pipeline Complete
+    Runner-->>GitHub: Update Status to Green
+```
 
 The automated GitHub Action runs:
 1. Connects to the Azure VM via SSH
