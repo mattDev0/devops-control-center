@@ -60,7 +60,8 @@ async fn auth_middleware(
     req: Request<axum::body::Body>,
     next: Next,
 ) -> Result<Response, StatusCode> {
-    let secret_key = "devops-secret-key-123";
+    let secret_key = std::env::var("AGENT_SECRET_KEY")
+        .unwrap_or_else(|_| "devops-secret-key-123".to_string());
     if let Some(auth_header) = req.headers().get("X-Agent-Key") {
         if let Ok(auth_str) = auth_header.to_str() {
             if auth_str == secret_key {
