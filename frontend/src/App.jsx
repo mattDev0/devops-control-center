@@ -198,6 +198,7 @@ export default function App() {
   useEffect(() => {
     if (!token || !terminalRef.current) return;
     let isMounted = true;
+    let ws = null;
 
     const initTerminal = async () => {
       try {
@@ -228,28 +229,59 @@ export default function App() {
           term.writeln('\x1b[1;33mGuest Mode: Remote terminal execution is read-only.\x1b[0m');
           term.writeln('Please log in as an administrator to run commands.');
           term.write('\r\n$ ');
-          // No key handlers registered for guests to make it strictly read-only
         } else {
-          term.writeln('Secure remote execution initialized. Allowed commands: ls, pwd, whoami, echo, uptime, date, terraform');
-          term.write('\r\n$ ');
+          // Connect to PTY WebSocket
+          const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+          const wsUrl = `${protocol}//${window.location.host}/devops/ws/terminal?token=${encodeURIComponent(token)}`;
+          
+          ws = new WebSocket(wsUrl);
 
-          term.onKey(({ key, domEvent }) => {
-            const printable = !domEvent.altKey && !domEvent.altGraphKey && !domEvent.ctrlKey && !domEvent.metaKey;
+          ws.onopen = () => {
+            // Send initial PTY resize
+            const dims = fitAddon.proposeDimensions();
+            if (dims && ws.readyState === WebSocket.OPEN) {
+              ws.send(JSON.stringify({ event: 'resize', cols: dims.cols, rows: dims.rows }));
+            }
+          };
 
-            if (domEvent.key === 'Enter') {
-              term.writeln('');
-              executeCommand(currentLine.current);
-              currentLine.current = '';
-            } else if (domEvent.key === 'Backspace') {
-              if (currentLine.current.length > 0) {
-                currentLine.current = currentLine.current.slice(0, -1);
-                term.write('\b \b');
+          ws.onmessage = (event) => {
+            if (isMounted) term.write(event.data);
+          };
+
+          ws.onclose = (event) => {
+            if (isMounted) {
+              if (event.code === 4003 || event.code === 4001 || event.status === 401) {
+                term.writeln('\r\n\x1b[31mSession expired. Please log in again.\x1b[0m');
+                handleLogout();
+              } else {
+                term.writeln('\r\n\x1b[31mTerminal connection closed.\x1b[0m');
               }
-            } else if (printable) {
-              currentLine.current += key;
-              term.write(key);
+            }
+          };
+
+          ws.onerror = () => {
+            if (isMounted) term.writeln('\r\n\x1b[31mTerminal connection error.\x1b[0m');
+          };
+
+          // Pipe user typing to PTY
+          term.onData((data) => {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+              ws.send(data);
             }
           });
+
+          // Handle resizing
+          const handleResize = () => {
+            fitAddon.fit();
+            const dims = fitAddon.proposeDimensions();
+            if (dims && ws && ws.readyState === WebSocket.OPEN) {
+              ws.send(JSON.stringify({ event: 'resize', cols: dims.cols, rows: dims.rows }));
+            }
+          };
+
+          window.addEventListener('resize', handleResize);
+          // Store resize handler for cleanup
+          term._resizeHandler = handleResize;
         }
       } catch (err) {
         console.error("Failed to load terminal modules", err);
@@ -260,7 +292,14 @@ export default function App() {
 
     return () => {
       isMounted = false;
+      if (ws) {
+        ws.close();
+      }
       if (xtermInstance.current) {
+        const handler = xtermInstance.current._resizeHandler;
+        if (handler) {
+          window.removeEventListener('resize', handler);
+        }
         xtermInstance.current.dispose();
         xtermInstance.current = null;
       }
@@ -295,66 +334,6 @@ export default function App() {
     }
   }, [logs]);
 
-  // Execute Command via Java Backend
-  const executeCommand = async (cmdStr) => {
-    const term = xtermInstance.current;
-    if (!term || !token || role === 'ROLE_GUEST') return;
-
-    // Sanitize input: remove control characters and trim
-    const cleanCmd = cmdStr.replace(/[\x00-\x1F\x7F]/g, "").trim();
-
-    if (!cleanCmd) {
-      term.write('$ ');
-      return;
-    }
-
-    const parts = cleanCmd.split(' ').filter(p => p);
-    const command = parts[0];
-    const args = parts.slice(1);
-
-    try {
-      const res = await fetch('api/servers/execute', {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({ command, args })
-      });
-      
-      if (res.status === 401) {
-        term.writeln('\r\n\x1b[31mSession expired. Logging out...\x1b[0m');
-        handleLogout();
-        return;
-      }
-
-      const text = await res.text();
-      let data;
-      try {
-        data = JSON.parse(text);
-      } catch (e) {
-        term.writeln(`\x1b[31mError: Orchestrator returned invalid JSON: ${text.substring(0, 100)}\x1b[0m`);
-        term.write('$ ');
-        return;
-      }
-      
-      if (data.stdout) term.write(data.stdout.replace(/\n/g, '\r\n'));
-      if (data.stderr) term.writeln(`\x1b[31m${data.stderr.replace(/\n/g, '\r\n')}\x1b[0m`);
-      
-      if (data.exit_code !== 0 && data.exit_code !== undefined) {
-        if (data.exit_code !== -1 || data.stderr) {
-            term.writeln(`\x1b[31mProcess exited with code: ${data.exit_code}\x1b[0m`);
-        }
-      }
-      
-      if (data.stdout && !data.stdout.endsWith('\n')) term.write('\r\n');
-    } catch (e) {
-      console.error("Fetch error", e);
-      term.writeln(`\x1b[31mNetwork Error: Failed to reach Orchestrator\x1b[0m`);
-    }
-    
-    term.write('$ ');
-  };
 
   const formatUptime = (seconds) => {
     if (!seconds) return '0h 0m';
