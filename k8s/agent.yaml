@@ -53,6 +53,10 @@ spec:
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 3001
+        envFrom:
+        - secretRef:
+            name: devops-secrets
+            optional: true
         resources:
           requests:
             memory: "16Mi"
