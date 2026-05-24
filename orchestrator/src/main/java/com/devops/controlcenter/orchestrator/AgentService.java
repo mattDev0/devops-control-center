@@ -15,9 +15,10 @@ import java.util.concurrent.Executors;
 public class AgentService {
 
     private final RestClient restClient;
-    private final String agentSecretKey = "devops-secret-key-123";
-
-    public AgentService(RestClient.Builder restClientBuilder, @Value("${agent.url:http://localhost:3001}") String agentUrl) {
+    public AgentService(
+            RestClient.Builder restClientBuilder,
+            @Value("${agent.url:http://localhost:3001}") String agentUrl,
+            @Value("${agent.secret-key}") String agentSecretKey) {
         this.restClient = restClientBuilder
                 .baseUrl(agentUrl)
                 .defaultHeader("X-Agent-Key", agentSecretKey)
