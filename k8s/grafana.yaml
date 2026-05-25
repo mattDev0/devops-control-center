@@ -340,10 +340,10 @@ spec:
           value: "false"
         resources:
           requests:
-            memory: "64Mi"
+            memory: "128Mi"
             cpu: "20m"
           limits:
-            memory: "192Mi"
+            memory: "512Mi"
             cpu: "200m"
         volumeMounts:
         - name: grafana-storage
