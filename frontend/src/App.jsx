@@ -95,9 +95,12 @@ export default function App() {
       const response = await fetch('api/servers/health', {
         headers: { 'Authorization': `Bearer ${activeToken}` }
       });
-      if (response.status === 401) {
+      if (response.status === 401 || response.status === 403) {
         handleLogout();
         return;
+      }
+      if (!response.ok) {
+        throw new Error(`Health fetch failed with status: ${response.status}`);
       }
       const data = await response.json();
       setHealth(data);
@@ -116,12 +119,19 @@ export default function App() {
       const response = await fetch('api/servers/containers', {
         headers: { 'Authorization': `Bearer ${activeToken}` }
       });
-      if (response.status === 401) {
+      if (response.status === 401 || response.status === 403) {
         handleLogout();
         return;
       }
+      if (!response.ok) {
+        throw new Error(`Containers fetch failed with status: ${response.status}`);
+      }
       const data = await response.json();
-      setContainers(data);
+      if (Array.isArray(data)) {
+        setContainers(data);
+      } else {
+        console.error("Containers response is not an array:", data);
+      }
     } catch (error) {
       console.error("Failed to fetch containers", error);
     }
@@ -135,7 +145,7 @@ export default function App() {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}` }
       });
-      if (response.status === 401) {
+      if (response.status === 401 || response.status === 403) {
         handleLogout();
         return;
       }
@@ -153,12 +163,19 @@ export default function App() {
       const response = await fetch('api/ci/workflows', {
         headers: { 'Authorization': `Bearer ${activeToken}` }
       });
-      if (response.status === 401) {
+      if (response.status === 401 || response.status === 403) {
         handleLogout();
         return;
       }
+      if (!response.ok) {
+        throw new Error(`Workflows fetch failed with status: ${response.status}`);
+      }
       const data = await response.json();
-      setWorkflows(data);
+      if (Array.isArray(data)) {
+        setWorkflows(data);
+      } else {
+        console.error("Workflows response is not an array:", data);
+      }
     } catch (error) {
       console.error("Failed to fetch workflows", error);
     } finally {
@@ -174,7 +191,7 @@ export default function App() {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}` }
       });
-      if (response.status === 401) {
+      if (response.status === 401 || response.status === 403) {
         handleLogout();
         return;
       }
