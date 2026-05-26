@@ -7,15 +7,15 @@ export default function App() {
   const [health, setHealth] = useState(null);
   const [loading, setLoading] = useState(true);
   const [logs, setLogs] = useState([]);
-  const [containers, setContainers] = useState([]);
+  const [deployments, setDeployments] = useState([]);
   const [workflows, setWorkflows] = useState([]);
   const [loadingWorkflows, setLoadingWorkflows] = useState(true);
 
-  // Container Logs Modal State
-  const [activeLogContainer, setActiveLogContainer] = useState(null);
-  const [activeContainerLogs, setActiveContainerLogs] = useState([]);
+  // Deployment Logs Modal State
+  const [activeLogDeployment, setActiveLogDeployment] = useState(null);
+  const [activeDeploymentLogs, setActiveDeploymentLogs] = useState([]);
   const [showLogsModal, setShowLogsModal] = useState(false);
-  const containerLogsRef = useRef(null);
+  const deploymentLogsRef = useRef(null);
 
   // Authentication UI State
   const [username, setUsername] = useState('');
@@ -87,7 +87,7 @@ export default function App() {
     setToken('');
     setRole('');
     setHealth(null);
-    setContainers([]);
+    setDeployments([]);
     setWorkflows([]);
     setUsername('');
     setPassword('');
@@ -118,11 +118,11 @@ export default function App() {
     }
   };
 
-  // Fetch Docker Containers
-  const fetchContainers = async (activeToken = token) => {
+  // Fetch Kubernetes Deployments
+  const fetchDeployments = async (activeToken = token) => {
     if (!activeToken) return;
     try {
-      const response = await fetch('api/servers/containers', {
+      const response = await fetch('api/servers/deployments', {
         headers: { 'Authorization': `Bearer ${activeToken}` }
       });
       if (response.status === 401 || response.status === 403) {
@@ -130,24 +130,24 @@ export default function App() {
         return;
       }
       if (!response.ok) {
-        throw new Error(`Containers fetch failed with status: ${response.status}`);
+        throw new Error(`Deployments fetch failed with status: ${response.status}`);
       }
       const data = await response.json();
       if (Array.isArray(data)) {
-        setContainers(data);
+        setDeployments(data);
       } else {
-        console.error("Containers response is not an array:", data);
+        console.error("Deployments response is not an array:", data);
       }
     } catch (error) {
-      console.error("Failed to fetch containers", error);
+      console.error("Failed to fetch deployments", error);
     }
   };
 
-  // Perform Container Action
-  const handleContainerAction = async (id, action) => {
+  // Perform Deployment Action
+  const handleDeploymentAction = async (id, action) => {
     if (!token || role === 'ROLE_GUEST') return;
     try {
-      const response = await fetch(`api/servers/containers/${id}/${action}`, { 
+      const response = await fetch(`api/servers/deployments/${id}/${action}`, { 
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}` }
       });
@@ -155,9 +155,9 @@ export default function App() {
         handleLogout();
         return;
       }
-      fetchContainers(); // Refresh list after action
+      fetchDeployments(); // Refresh list after action
     } catch (error) {
-      console.error(`Failed to ${action} container ${id}`, error);
+      console.error(`Failed to ${action} deployment ${id}`, error);
     }
   };
 
@@ -212,7 +212,7 @@ export default function App() {
   useEffect(() => {
     if (token) {
       fetchHealth(token);
-      fetchContainers(token);
+      fetchDeployments(token);
       fetchWorkflows(token);
     }
   }, [token]);
@@ -357,36 +357,36 @@ export default function App() {
     }
   }, [logs]);
 
-  // Container Logs Stream
+  // Deployment Logs Stream
   useEffect(() => {
-    if (!showLogsModal || !activeLogContainer || !token) return;
+    if (!showLogsModal || !activeLogDeployment || !token) return;
 
-    setActiveContainerLogs([]);
-    const eventSource = new EventSource(`api/servers/logs?id=${encodeURIComponent(activeLogContainer.id)}&token=${encodeURIComponent(token)}`);
+    setActiveDeploymentLogs([]);
+    const eventSource = new EventSource(`api/servers/logs?id=${encodeURIComponent(activeLogDeployment.id)}&token=${encodeURIComponent(token)}`);
 
     eventSource.onmessage = (event) => {
-      setActiveContainerLogs((prevLogs) => {
+      setActiveDeploymentLogs((prevLogs) => {
         const newLogs = [...prevLogs, event.data];
         return newLogs.slice(-150); // limit to 150 lines
       });
     };
 
     eventSource.onerror = (err) => {
-      console.error("Container log stream error:", err);
-      setActiveContainerLogs((prevLogs) => [...prevLogs, "⚠️ Log stream disconnected. Retrying..."]);
+      console.error("Deployment log stream error:", err);
+      setActiveDeploymentLogs((prevLogs) => [...prevLogs, "⚠️ Log stream disconnected. Retrying..."]);
     };
 
     return () => {
       eventSource.close();
     };
-  }, [showLogsModal, activeLogContainer, token]);
+  }, [showLogsModal, activeLogDeployment, token]);
 
-  // Auto-scroll container logs
+  // Auto-scroll deployment logs
   useEffect(() => {
-    if (containerLogsRef.current) {
-      containerLogsRef.current.scrollTop = containerLogsRef.current.scrollHeight;
+    if (deploymentLogsRef.current) {
+      deploymentLogsRef.current.scrollTop = deploymentLogsRef.current.scrollHeight;
     }
-  }, [activeContainerLogs]);
+  }, [activeDeploymentLogs]);
 
 
   const formatUptime = (seconds) => {
@@ -576,15 +576,15 @@ export default function App() {
         </div>
       </div>
 
-      {/* Row 2: Docker & CI/CD */}
+      {/* Row 2: Deployments & CI/CD */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
         <div className="bg-slate-800 rounded-xl p-6 border border-slate-700 shadow-xl">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-xl font-semibold flex items-center gap-2 text-slate-200">
-              <Box className="text-purple-400" /> Docker Containers
+              <Layers className="text-purple-400" /> Kubernetes Deployments
             </h2>
             <button 
-              onClick={() => fetchContainers()}
+              onClick={() => fetchDeployments()}
               className="bg-slate-700 hover:bg-slate-600 text-white text-sm py-1 px-3 rounded transition-colors flex items-center gap-1"
             >
               <RotateCw className="w-4 h-4" /> Refresh
@@ -594,31 +594,31 @@ export default function App() {
             <table className="w-full text-left text-sm text-slate-400">
               <thead className="text-xs uppercase bg-slate-900/50 text-slate-400 border-b border-slate-700">
                 <tr>
-                  <th className="px-4 py-3">Container ID</th>
+                  <th className="px-4 py-3">Deployment ID</th>
                   <th className="px-4 py-3">Name</th>
                   <th className="px-4 py-3">Status</th>
                   <th className="px-4 py-3">Actions</th>
                 </tr>
               </thead>
               <tbody>
-                {containers.length === 0 ? (
+                {deployments.length === 0 ? (
                   <tr>
-                    <td colSpan="4" className="px-4 py-4 text-center text-slate-500 italic">No containers found.</td>
+                    <td colSpan="4" className="px-4 py-4 text-center text-slate-500 italic">No deployments found.</td>
                   </tr>
                 ) : (
-                  containers.map((container) => (
-                    <tr key={container.id} className="border-b border-slate-700/50 hover:bg-slate-700/20 transition-colors">
-                      <td className="px-4 py-3 font-mono text-xs">{container.id}</td>
-                      <td className="px-4 py-3 font-medium text-slate-300">{container.name}</td>
+                  deployments.map((deployment) => (
+                    <tr key={deployment.id} className="border-b border-slate-700/50 hover:bg-slate-700/20 transition-colors">
+                      <td className="px-4 py-3 font-mono text-xs">{deployment.id}</td>
+                      <td className="px-4 py-3 font-medium text-slate-300">{deployment.name}</td>
                       <td className="px-4 py-3">
-                        <span className={`px-2 py-1 rounded text-xs font-semibold ${container.state === 'running' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-slate-500/10 text-slate-400'}`}>
-                          {container.state}
+                        <span className={`px-2 py-1 rounded text-xs font-semibold ${deployment.state === 'running' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-slate-500/10 text-slate-400'}`}>
+                          {deployment.state}
                         </span>
                       </td>
                       <td className="px-4 py-3 flex gap-2">
                         <button 
                           onClick={() => {
-                            setActiveLogContainer(container);
+                            setActiveLogDeployment(deployment);
                             setShowLogsModal(true);
                           }}
                           className="p-1 rounded bg-slate-700/50 hover:bg-slate-700/80 text-slate-300 transition-all border border-slate-600/50"
@@ -626,9 +626,9 @@ export default function App() {
                         >
                           <FileText className="w-4 h-4" />
                         </button>
-                        {container.state !== 'running' && (
+                        {deployment.state !== 'running' && (
                           <button 
-                            onClick={() => handleContainerAction(container.id, 'start')} 
+                            onClick={() => handleDeploymentAction(deployment.id, 'start')} 
                             disabled={role === 'ROLE_GUEST'}
                             className={`p-1 rounded transition-all ${role === 'ROLE_GUEST' ? 'bg-slate-800 text-slate-600 cursor-not-allowed opacity-40' : 'bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/40'}`} 
                             title={role === 'ROLE_GUEST' ? "Requires Admin" : "Start"}
@@ -636,10 +636,10 @@ export default function App() {
                             <Play className="w-4 h-4" />
                           </button>
                         )}
-                        {container.state === 'running' && (
+                        {deployment.state === 'running' && (
                           <>
                             <button 
-                              onClick={() => handleContainerAction(container.id, 'stop')} 
+                              onClick={() => handleDeploymentAction(deployment.id, 'stop')} 
                               disabled={role === 'ROLE_GUEST'}
                               className={`p-1 rounded transition-all ${role === 'ROLE_GUEST' ? 'bg-slate-800 text-slate-600 cursor-not-allowed opacity-40' : 'bg-red-500/20 text-red-400 hover:bg-red-500/40'}`}
                               title={role === 'ROLE_GUEST' ? "Requires Admin" : "Stop"}
@@ -647,7 +647,7 @@ export default function App() {
                               <Square className="w-4 h-4" />
                             </button>
                             <button 
-                              onClick={() => handleContainerAction(container.id, 'restart')} 
+                              onClick={() => handleDeploymentAction(deployment.id, 'restart')} 
                               disabled={role === 'ROLE_GUEST'}
                               className={`p-1 rounded transition-all ${role === 'ROLE_GUEST' ? 'bg-slate-800 text-slate-600 cursor-not-allowed opacity-40' : 'bg-blue-500/20 text-blue-400 hover:bg-blue-500/40'}`}
                               title={role === 'ROLE_GUEST' ? "Requires Admin" : "Restart"}
@@ -799,8 +799,8 @@ export default function App() {
         </div>
       </div>
 
-      {/* Container Logs Modal */}
-      {showLogsModal && activeLogContainer && (
+      {/* Deployment Logs Modal */}
+      {showLogsModal && activeLogDeployment && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/75 backdrop-blur-xs transition-opacity duration-300">
           <div className="bg-slate-900/95 border border-slate-700/80 rounded-2xl w-full max-w-4xl max-h-[85vh] flex flex-col shadow-2xl overflow-hidden glassmorphism">
             {/* Modal Header */}
@@ -809,18 +809,18 @@ export default function App() {
                 <FileText className="text-purple-400 w-5 h-5" />
                 <div>
                   <h3 className="font-semibold text-slate-200">
-                    Live Pod Logs: {activeLogContainer.name}
+                    Live Deployment Logs: {activeLogDeployment.name}
                   </h3>
                   <p className="text-xs text-slate-500 font-mono">
-                    ID: {activeLogContainer.id}
+                    ID: {activeLogDeployment.id}
                   </p>
                 </div>
               </div>
               <button
                 onClick={() => {
                   setShowLogsModal(false);
-                  setActiveLogContainer(null);
-                  setActiveContainerLogs([]);
+                  setActiveLogDeployment(null);
+                  setActiveDeploymentLogs([]);
                 }}
                 className="text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 w-8 h-8 rounded-full flex items-center justify-center transition-colors text-xl font-bold"
               >
@@ -831,15 +831,15 @@ export default function App() {
             {/* Modal Content */}
             <div className="flex-grow p-6 overflow-hidden flex flex-col">
               <div 
-                ref={containerLogsRef}
+                ref={deploymentLogsRef}
                 className="flex-grow overflow-y-auto bg-slate-950 border border-slate-800 rounded-lg p-4 font-mono text-xs text-slate-300 leading-relaxed shadow-inner max-h-[50vh] min-h-[30vh]"
               >
-                {activeContainerLogs.length === 0 ? (
+                {activeDeploymentLogs.length === 0 ? (
                   <div className="flex items-center justify-center h-full text-slate-500 italic gap-2 py-8">
                     <Loader2 className="w-4 h-4 animate-spin text-purple-400" /> Connecting to stream...
                   </div>
                 ) : (
-                  activeContainerLogs.map((log, index) => (
+                  activeDeploymentLogs.map((log, index) => (
                     <div key={index} className="whitespace-pre-wrap border-l-2 border-slate-800 hover:border-purple-500/50 pl-3 py-0.5 hover:bg-slate-900/30 transition-colors">
                       {log}
                     </div>
@@ -856,8 +856,8 @@ export default function App() {
               <button
                 onClick={() => {
                   setShowLogsModal(false);
-                  setActiveLogContainer(null);
-                  setActiveContainerLogs([]);
+                  setActiveLogDeployment(null);
+                  setActiveDeploymentLogs([]);
                 }}
                 className="bg-purple-600 hover:bg-purple-500 text-white font-medium text-sm py-2 px-5 rounded-lg shadow-lg shadow-purple-600/20 transition-all duration-300 transform active:scale-95"
               >
