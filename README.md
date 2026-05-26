@@ -1,6 +1,6 @@
 # 🚀 DevOps Control Center
 
-A custom, end-to-end DevOps orchestration and observability platform built from scratch. This project unifies server monitoring, remote terminal execution, Docker container management, and CI/CD pipeline tracking into a single, sleek React dashboard.
+A custom, end-to-end DevOps orchestration and observability platform built from scratch. This project unifies server monitoring, remote terminal execution, Kubernetes deployment management, and CI/CD pipeline tracking into a single, sleek React dashboard.
 
 ---
 
@@ -11,7 +11,7 @@ A custom, end-to-end DevOps orchestration and observability platform built from 
 > ⚠️ **IMPORTANT WARNING FOR VISITORS** ⚠️
 > 
 > This is a live demonstration connected to real infrastructure. 
-> **Please DO NOT stop, restart, or modify any running Docker containers** via the dashboard unless you know what you are doing. Disrupting the containers will bring down the services on the host server.
+> **Please DO NOT stop, restart, or modify any running deployments or pods** via the dashboard unless you know what you are doing. Disrupting the deployments will bring down the services on the host server.
 
 ---
 
@@ -80,10 +80,10 @@ A fully interactive terminal directly in the browser.
 * Input sanitization to prevent control-character injection.
 * Live command output streaming.
 
-### 🐳 Docker Management
-Manage Docker containers directly from the dashboard.
-* View running/stopped containers.
-* Start, stop, and restart containers remotely.
+### ☸️ Kubernetes Deployment Management
+Manage Kubernetes deployments directly from the dashboard.
+* View running/stopped deployments.
+* Start, stop, and restart deployments remotely.
 
 ### 🔄 CI/CD Pipeline Monitoring
 Integrated GitHub Actions monitoring fetching real data.
@@ -193,8 +193,8 @@ devops-control-center/
 | -------------------- | ------------------------- |
 | Frontend             | React, Vite, Tailwind CSS |
 | Backend              | Java Spring Boot          |
-| Agent                | Rust, Axum, Bollard       |
-| Container Management | Docker, Docker Compose    |
+| Agent                | Rust, Axum, kube-rs       |
+| Orchestration / K8s  | Kubernetes, Docker Compose|
 | Web Server / Proxy   | Nginx                     |
 | Monitoring           | Prometheus, Grafana       |
 
