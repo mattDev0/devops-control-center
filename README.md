@@ -47,23 +47,25 @@ graph TD
 
 ## 1. Frontend — React + Vite + Tailwind CSS + Nginx
 A responsive single-page dashboard featuring:
-* Embedded `xterm.js` terminals with secure input sanitization
-* Live Server-Sent Events (SSE) log streaming
+* Real-time interactive terminal powered by `xterm.js` and WebSockets
+* Live Server-Sent Events (SSE) log streaming for deployments and system logs
+* Embedded glassmorphic modals for deployment logs and terminal views
 * Embedded Grafana metric dashboards
-* Real-time infrastructure and pod visibility
+* Real-time infrastructure status and pod visibility
 
 ## 2. Orchestrator — Java Spring Boot
 The central coordination layer responsible for:
-* Securely proxying commands to the Rust agent
+* Proxying WebSocket terminal traffic bidirectionally between the browser and the Rust agent
+* Validating JWT signatures and restricting terminal access to admin users
 * Integrating with the GitHub API for multi-repository CI/CD workflow fetching and dispatching
-* Managing backend API communication and SSE streams
+* Proxy-streaming SSE logs from the agent (including Spring Security async dispatch fixes)
 
 ## 3. Agent — Rust + Axum + kube-rs
 A lightweight, high-performance system agent running as a Kubernetes pod.
 Responsibilities include:
-* Executing allowlisted system commands (`ls`, `pwd`, `date`, `uptime`, etc.)
-* Interacting with the Kubernetes API using `kube-rs` to manage deployments (list status, rolling restart, scale up/down)
-* Streaming system logs and telemetry securely using an API key
+* Spawning interactive PTY shell bridges (`/bin/bash` or `/bin/sh`) using `portable-pty` over WebSockets
+* Streaming real-time, multi-pod merged logs from Kubernetes namespaces using `kube-rs`
+* Managing Kubernetes deployments (listing status, scaling replicas, triggering rolling restarts) via `kube-rs`
 
 ## 4. Observability Stack — Prometheus & Grafana
 * `node-exporter` gathering host metrics as a DaemonSet
@@ -74,11 +76,18 @@ Responsibilities include:
 
 # ✨ Key Features
 
-### 🔒 Secure Remote Execution
-A fully interactive terminal directly in the browser.
-* Allowlisted command execution.
-* Input sanitization to prevent control-character injection.
-* Live command output streaming.
+### 🐚 Real-Time Interactive PTY Terminal
+A fully functional remote terminal directly in your web browser.
+* Real WebSocket connection proxied securely through the Orchestrator.
+* Pseudo-Terminal (PTY) shell bridge (`portable-pty`) running on the target server/pod.
+* Bidirectional data stream with dynamic terminal resizing events (`cols`/`rows`) mapped to `xterm.js`.
+* Admin-only access enforced by JSON Web Token (JWT) validation.
+
+### 🪵 Real-Time Pod Log Streaming
+Stream logs dynamically from Kubernetes deployments inside the cluster.
+* Streams real-time, merged logs from all pods matching the deployment.
+* Pre-pends color-coded pod names in a premium, glassmorphic UI modal.
+* Provides global cluster log streams or targeted deployment-specific logs.
 
 ### ☸️ Kubernetes Deployment Management
 Manage Kubernetes deployments directly from the dashboard.
