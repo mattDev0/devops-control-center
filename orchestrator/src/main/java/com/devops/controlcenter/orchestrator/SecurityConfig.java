@@ -36,7 +36,7 @@ public class SecurityConfig {
                 .dispatcherTypeMatchers(jakarta.servlet.DispatcherType.ASYNC).permitAll()
                 .requestMatchers("/api/auth/login", "/api/auth/guest").permitAll()
                 .requestMatchers(org.springframework.http.HttpMethod.POST, "/api/servers/execute").hasAuthority("ROLE_ADMIN")
-                .requestMatchers(org.springframework.http.HttpMethod.POST, "/api/servers/containers/**").hasAuthority("ROLE_ADMIN")
+                .requestMatchers(org.springframework.http.HttpMethod.POST, "/api/servers/deployments/**").hasAuthority("ROLE_ADMIN")
                 .requestMatchers(org.springframework.http.HttpMethod.POST, "/api/ci/workflows/**").hasAuthority("ROLE_ADMIN")
                 .requestMatchers("/api/**").hasAnyAuthority("ROLE_GUEST", "ROLE_ADMIN")
                 .anyRequest().permitAll()
