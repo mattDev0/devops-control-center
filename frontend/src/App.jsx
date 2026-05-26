@@ -11,6 +11,12 @@ export default function App() {
   const [workflows, setWorkflows] = useState([]);
   const [loadingWorkflows, setLoadingWorkflows] = useState(true);
 
+  // Container Logs Modal State
+  const [activeLogContainer, setActiveLogContainer] = useState(null);
+  const [activeContainerLogs, setActiveContainerLogs] = useState([]);
+  const [showLogsModal, setShowLogsModal] = useState(false);
+  const containerLogsRef = useRef(null);
+
   // Authentication UI State
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -351,6 +357,37 @@ export default function App() {
     }
   }, [logs]);
 
+  // Container Logs Stream
+  useEffect(() => {
+    if (!showLogsModal || !activeLogContainer || !token) return;
+
+    setActiveContainerLogs([]);
+    const eventSource = new EventSource(`api/servers/logs?id=${encodeURIComponent(activeLogContainer.id)}&token=${encodeURIComponent(token)}`);
+
+    eventSource.onmessage = (event) => {
+      setActiveContainerLogs((prevLogs) => {
+        const newLogs = [...prevLogs, event.data];
+        return newLogs.slice(-150); // limit to 150 lines
+      });
+    };
+
+    eventSource.onerror = (err) => {
+      console.error("Container log stream error:", err);
+      setActiveContainerLogs((prevLogs) => [...prevLogs, "⚠️ Log stream disconnected. Retrying..."]);
+    };
+
+    return () => {
+      eventSource.close();
+    };
+  }, [showLogsModal, activeLogContainer, token]);
+
+  // Auto-scroll container logs
+  useEffect(() => {
+    if (containerLogsRef.current) {
+      containerLogsRef.current.scrollTop = containerLogsRef.current.scrollHeight;
+    }
+  }, [activeContainerLogs]);
+
 
   const formatUptime = (seconds) => {
     if (!seconds) return '0h 0m';
@@ -579,6 +616,16 @@ export default function App() {
                         </span>
                       </td>
                       <td className="px-4 py-3 flex gap-2">
+                        <button 
+                          onClick={() => {
+                            setActiveLogContainer(container);
+                            setShowLogsModal(true);
+                          }}
+                          className="p-1 rounded bg-slate-700/50 hover:bg-slate-700/80 text-slate-300 transition-all border border-slate-600/50"
+                          title="View Logs"
+                        >
+                          <FileText className="w-4 h-4" />
+                        </button>
                         {container.state !== 'running' && (
                           <button 
                             onClick={() => handleContainerAction(container.id, 'start')} 
@@ -751,6 +798,75 @@ export default function App() {
           </div>
         </div>
       </div>
+
+      {/* Container Logs Modal */}
+      {showLogsModal && activeLogContainer && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/75 backdrop-blur-xs transition-opacity duration-300">
+          <div className="bg-slate-900/95 border border-slate-700/80 rounded-2xl w-full max-w-4xl max-h-[85vh] flex flex-col shadow-2xl overflow-hidden glassmorphism">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-700/80 bg-slate-900/50">
+              <div className="flex items-center gap-3">
+                <FileText className="text-purple-400 w-5 h-5" />
+                <div>
+                  <h3 className="font-semibold text-slate-200">
+                    Live Pod Logs: {activeLogContainer.name}
+                  </h3>
+                  <p className="text-xs text-slate-500 font-mono">
+                    ID: {activeLogContainer.id}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  setShowLogsModal(false);
+                  setActiveLogContainer(null);
+                  setActiveContainerLogs([]);
+                }}
+                className="text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 w-8 h-8 rounded-full flex items-center justify-center transition-colors text-xl font-bold"
+              >
+                &times;
+              </button>
+            </div>
+
+            {/* Modal Content */}
+            <div className="flex-grow p-6 overflow-hidden flex flex-col">
+              <div 
+                ref={containerLogsRef}
+                className="flex-grow overflow-y-auto bg-slate-950 border border-slate-800 rounded-lg p-4 font-mono text-xs text-slate-300 leading-relaxed shadow-inner max-h-[50vh] min-h-[30vh]"
+              >
+                {activeContainerLogs.length === 0 ? (
+                  <div className="flex items-center justify-center h-full text-slate-500 italic gap-2 py-8">
+                    <Loader2 className="w-4 h-4 animate-spin text-purple-400" /> Connecting to stream...
+                  </div>
+                ) : (
+                  activeContainerLogs.map((log, index) => (
+                    <div key={index} className="whitespace-pre-wrap border-l-2 border-slate-800 hover:border-purple-500/50 pl-3 py-0.5 hover:bg-slate-900/30 transition-colors">
+                      {log}
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="px-6 py-4 border-t border-slate-700/80 bg-slate-900/50 flex justify-between items-center">
+              <span className="text-xs text-slate-500 flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-purple-500 animate-pulse"></span> Streaming logs in real-time
+              </span>
+              <button
+                onClick={() => {
+                  setShowLogsModal(false);
+                  setActiveLogContainer(null);
+                  setActiveContainerLogs([]);
+                }}
+                className="bg-purple-600 hover:bg-purple-500 text-white font-medium text-sm py-2 px-5 rounded-lg shadow-lg shadow-purple-600/20 transition-all duration-300 transform active:scale-95"
+              >
+                Close Logs
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
