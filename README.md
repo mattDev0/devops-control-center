@@ -47,63 +47,69 @@ graph TD
 
 ## 1. Frontend — React + Vite + Tailwind CSS + Nginx
 A responsive single-page dashboard featuring:
-* Real-time interactive terminal powered by `xterm.js` and WebSockets
-* Live Server-Sent Events (SSE) log streaming for deployments and system logs
-* Embedded glassmorphic modals for deployment logs and terminal views
-* Embedded Grafana metric dashboards
-* Real-time infrastructure status and pod visibility
+* **Interactive PTY Terminal:** Embedded `xterm.js` terminal connected to a backend WebSocket stream.
+* **Role-Based UI Control:** Displays custom action controls based on the logged-in user's role (Admin vs. Guest).
+* **Live SSE Log Viewer:** Seamlessly pulls logs via Server-Sent Events, complete with auto-scrolling and pod color headers in a premium glassmorphic modal.
+* **Observability Dashboards:** Embedded real-time Grafana system metrics.
+* **Robust Session Management:** Enforces automatic frontend logout if the authentication token expires or gets rejected with `401`/`403`.
 
 ## 2. Orchestrator — Java Spring Boot
-The central coordination layer responsible for:
-* Proxying WebSocket terminal traffic bidirectionally between the browser and the Rust agent
-* Validating JWT signatures and restricting terminal access to admin users
-* Integrating with the GitHub API for multi-repository CI/CD workflow fetching and dispatching
-* Proxy-streaming SSE logs from the agent (including Spring Security async dispatch fixes)
+The central gateway and security dispatcher responsible for:
+* **Authentication Provider:** Issues signed JWT tokens for authenticating login requests (`/api/auth/login`) and guest access.
+* **Spring Security & RBAC:** Enforces strict path authorization (e.g. restricting deployment scaling, CI/CD dispatch, and terminal execution to `ROLE_ADMIN`).
+* **WebSocket Bidirectional Proxy:** Validates JWT authorization during handshakes and forwards raw terminal traffic directly to the Rust agent.
+* **Async Log Proxying:** Handles long-running SSE log queries with Spring Security async dispatches configured to prevent context-clearance.
+* **GitHub API Client:** Connects to GitHub Actions to list and trigger repository workflows.
 
 ## 3. Agent — Rust + Axum + kube-rs
 A lightweight, high-performance system agent running as a Kubernetes pod.
 Responsibilities include:
-* Spawning interactive PTY shell bridges (`/bin/bash` or `/bin/sh`) using `portable-pty` over WebSockets
-* Streaming real-time, multi-pod merged logs from Kubernetes namespaces using `kube-rs`
-* Managing Kubernetes deployments (listing status, scaling replicas, triggering rolling restarts) via `kube-rs`
+* **PTY Bridge (WebSockets):** Spawns `/bin/bash` or `/bin/sh` shell sessions inside a pseudo-terminal (`portable-pty` crate) and streams stdout/stdin bidirectionally over WebSockets. Handles JSON-based terminal resize payloads.
+* **Merged Kubernetes Logs:** Streams logs from pods in `portfolio` and `devops` namespaces using the `kube-rs` API. Concurrently merges and logs multi-pod deployments using async `tokio::sync::mpsc::channel` streams.
+* **Deployment Orchestrator:** Interacts directly with the local K3s API server via `kube-rs` to fetch deployment lists, scale replica sizes (start/stop), or patch timestamps to trigger zero-downtime rolling updates (restart).
 
 ## 4. Observability Stack — Prometheus & Grafana
-* `node-exporter` gathering host metrics as a DaemonSet
-* Prometheus scraping node-exporter and Spring Boot actuator metrics inside K3s
-* Grafana providing visual dashboards (persistent via PVC) embedded directly into the React UI
+* **Node Exporter:** Gathers host telemetry as a DaemonSet inside the cluster.
+* **Prometheus:** Pulls metrics from the exporter and Java Spring Boot actuator points.
+* **Grafana:** Displays visual CPU and Memory dashboard panels embedded as iframes in the UI (configured with persistent volumes for metrics retention).
 
 ---
 
 # ✨ Key Features
 
+### 🔒 Secure JWT Authentication & RBAC
+Enforces role-based permissions to protect platform modifications:
+* **User Authentication:** Sign in using credentials or enter as a guest with one click.
+* **Access Controls:** Read-only access for guests (monitoring only), with mutating actions (executing commands, scaling deployments, running pipelines) restricted strictly to `ROLE_ADMIN` users.
+* **Automatic Expiration Handling:** The frontend automatically cleans up cookies and forces user logouts upon receiving API authentication failures.
+
 ### 🐚 Real-Time Interactive PTY Terminal
 A fully functional remote terminal directly in your web browser.
-* Real WebSocket connection proxied securely through the Orchestrator.
-* Pseudo-Terminal (PTY) shell bridge (`portable-pty`) running on the target server/pod.
-* Bidirectional data stream with dynamic terminal resizing events (`cols`/`rows`) mapped to `xterm.js`.
-* Admin-only access enforced by JSON Web Token (JWT) validation.
+* **Pseudo-Terminal (PTY):** Runs a live shell bridge via the Rust agent, allowing you to run interactive commands (e.g. `top`, `nano`, CLI prompts) and capture standard signals (e.g. `Ctrl+C`).
+* **Bidirectional WebSockets:** Sends keystrokes and streams terminal outputs in real-time, proxied securely through the Spring Boot orchestrator.
+* **Dynamic Grid Resizing:** Automatically synchronizes local viewport width and height to resize the remote shell's dimension.
 
 ### 🪵 Real-Time Pod Log Streaming
 Stream logs dynamically from Kubernetes deployments inside the cluster.
-* Streams real-time, merged logs from all pods matching the deployment.
-* Pre-pends color-coded pod names in a premium, glassmorphic UI modal.
-* Provides global cluster log streams or targeted deployment-specific logs.
+* **Kube-rs Integration:** Directly queries pod logs from Kubernetes namespaces, replacing dummy simulated logs with real-time system logs.
+* **Multi-Pod Aggregation:** Automatically merges log streams from all running replicas within a deployment.
+* **Glassmorphic Viewer:** Displays log streams in a styled window, color-coding and labeling lines by pod name with auto-scrolling features.
 
 ### ☸️ Kubernetes Deployment Management
 Manage Kubernetes deployments directly from the dashboard.
-* View running/stopped deployments.
-* Start, stop, and restart deployments remotely.
+* **Live Status List:** Checks replication readiness and runtime states across all namespaces.
+* **Scaling Controls:** Spin up deployments (start) or scale them down to zero (stop).
+* **Rolling Updates:** Trigger clean rolling restarts of your deployments with a single click.
 
 ### 🔄 CI/CD Pipeline Monitoring
 Integrated GitHub Actions monitoring fetching real data.
-* Workflow status tracking.
-* Commit and branch visibility.
-* Manual deployment triggers (dispatch).
+* **Workflow Run Tracking:** View run logs, branches, and commit messages.
+* **Manual Dispatch Triggers:** Trigger workflows manually from the dashboard.
 
 ### 📈 Deep Observability
 Integrated monitoring stack powered by Prometheus and Grafana.
-* Real-time host CPU and Memory monitoring.
-* Secure iframe embedding configured for cross-domain access.
+* **Live Resource Telemetry:** Displays CPU and Memory metrics of the Azure host.
+* **Secure Embeds:** Serves dashboards via Nginx proxy subpaths to prevent cross-origin blockages.
 
 ---
 
@@ -198,14 +204,14 @@ devops-control-center/
 
 # 🤝 Tech Stack
 
-| Layer                | Technology                |
-| -------------------- | ------------------------- |
-| Frontend             | React, Vite, Tailwind CSS |
-| Backend              | Java Spring Boot          |
-| Agent                | Rust, Axum, kube-rs       |
-| Orchestration / K8s  | Kubernetes, Docker Compose|
-| Web Server / Proxy   | Nginx                     |
-| Monitoring           | Prometheus, Grafana       |
+| Layer                | Technology / Key Libraries |
+| -------------------- | -------------------------- |
+| **Frontend**         | React, Vite, Tailwind CSS, `xterm.js`, `lucide-react` |
+| **Backend**          | Java Spring Boot, Spring Security, JWT (io.jsonwebtoken), WebSockets |
+| **Agent**            | Rust, Axum, `kube-rs`, `tokio`, `portable-pty` |
+| **Orchestration**    | Kubernetes (K3s), Docker Compose (Local Dev) |
+| **Web Server / Proxy**| Nginx (with WebSocket & SSE upgrades) |
+| **Observability**    | Prometheus, Grafana, Node Exporter |
 
 ---
 
