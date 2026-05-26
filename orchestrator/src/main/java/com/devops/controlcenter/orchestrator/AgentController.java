@@ -35,8 +35,8 @@ public class AgentController {
     }
 
     @GetMapping(value = "/logs", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-    public SseEmitter streamLogs() {
-        return agentService.streamAgentLogs();
+    public SseEmitter streamLogs(@RequestParam(required = false) String id) {
+        return agentService.streamAgentLogs(id);
     }
 
     // NEW: Docker Controller Endpoints

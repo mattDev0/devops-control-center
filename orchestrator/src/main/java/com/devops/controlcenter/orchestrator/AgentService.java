@@ -42,11 +42,12 @@ public class AgentService {
         }
     }
 
-    public SseEmitter streamAgentLogs() {
+    public SseEmitter streamAgentLogs(String containerId) {
         SseEmitter emitter = new SseEmitter(0L);
         Executors.newSingleThreadExecutor().execute(() -> {
             try {
-                this.restClient.get().uri("/logs").exchange((request, response) -> {
+                String uri = "/logs" + (containerId != null ? "?id=" + containerId : "");
+                this.restClient.get().uri(uri).exchange((request, response) -> {
                     BufferedReader reader = new BufferedReader(new InputStreamReader(response.getBody()));
                     String line;
                     while ((line = reader.readLine()) != null) {
@@ -56,6 +57,8 @@ public class AgentService {
                 });
                 emitter.complete();
             } catch (Exception e) {
+                System.err.println("Error occurred during log streaming: " + e.getMessage());
+                e.printStackTrace();
                 emitter.completeWithError(e);
             }
         });
