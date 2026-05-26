@@ -55,7 +55,7 @@ struct ExecuteResponse {
 }
 
 #[derive(Serialize)]
-struct ContainerDto {
+struct DeploymentDto {
     id: String,
     name: String,
     image: String,
@@ -292,8 +292,8 @@ async fn stream_logs(
     Sse::new(stream).keep_alive(KeepAlive::new()).into_response()
 }
 
-// Adapted: List Deployments in portfolio & devops namespaces as "Containers"
-async fn list_containers() -> Result<Json<Vec<ContainerDto>>, StatusCode> {
+// Adapted: List Deployments in portfolio & devops namespaces
+async fn list_deployments() -> Result<Json<Vec<DeploymentDto>>, StatusCode> {
     let client = Client::try_default()
         .await
         .map_err(|e| {
@@ -341,7 +341,7 @@ async fn list_containers() -> Result<Json<Vec<ContainerDto>>, StatusCode> {
                 "pending".to_string()
             };
 
-            result.push(ContainerDto {
+            result.push(DeploymentDto {
                 id,
                 name,
                 image,
@@ -354,7 +354,7 @@ async fn list_containers() -> Result<Json<Vec<ContainerDto>>, StatusCode> {
 }
 
 // Adapted: Scale Deployments or trigger a rolling restart
-async fn container_action(
+async fn deployment_action(
     Path((id, action)): Path<(String, String)>,
 ) -> Result<StatusCode, StatusCode> {
     let client = Client::try_default()
@@ -574,8 +574,8 @@ async fn main() {
         .route("/ping", get(ping))
         .route("/execute", post(execute_command))
         .route("/logs", get(stream_logs))
-        .route("/containers", get(list_containers))
-        .route("/containers/:id/:action", post(container_action))
+        .route("/deployments", get(list_deployments))
+        .route("/deployments/:id/:action", post(deployment_action))
         .route("/ws/terminal", get(ws_terminal_handler))
         .route_layer(middleware::from_fn(auth_middleware));
 
