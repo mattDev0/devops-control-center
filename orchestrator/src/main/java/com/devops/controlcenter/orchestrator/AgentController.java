@@ -39,15 +39,15 @@ public class AgentController {
         return agentService.streamAgentLogs(id);
     }
 
-    // NEW: Docker Controller Endpoints
-    @GetMapping("/containers")
-    public ResponseEntity<String> getContainers() {
-        return ResponseEntity.ok(agentService.getContainers());
+    // NEW: Kubernetes Deployment Endpoints
+    @GetMapping("/deployments")
+    public ResponseEntity<String> getDeployments() {
+        return ResponseEntity.ok(agentService.getDeployments());
     }
 
-    @PostMapping("/containers/{id}/{action}")
-    public ResponseEntity<Void> containerAction(@PathVariable String id, @PathVariable String action) {
-        agentService.executeContainerAction(id, action);
+    @PostMapping("/deployments/{id}/{action}")
+    public ResponseEntity<Void> deploymentAction(@PathVariable String id, @PathVariable String action) {
+        agentService.executeDeploymentAction(id, action);
         return ResponseEntity.ok().build();
     }
 }

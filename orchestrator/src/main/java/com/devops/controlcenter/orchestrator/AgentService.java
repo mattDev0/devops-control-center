@@ -42,11 +42,11 @@ public class AgentService {
         }
     }
 
-    public SseEmitter streamAgentLogs(String containerId) {
+    public SseEmitter streamAgentLogs(String deploymentId) {
         SseEmitter emitter = new SseEmitter(0L);
         Executors.newSingleThreadExecutor().execute(() -> {
             try {
-                String uri = "/logs" + (containerId != null ? "?id=" + containerId : "");
+                String uri = "/logs" + (deploymentId != null ? "?id=" + deploymentId : "");
                 this.restClient.get().uri(uri).exchange((request, response) -> {
                     BufferedReader reader = new BufferedReader(new InputStreamReader(response.getBody()));
                     String line;
@@ -65,20 +65,20 @@ public class AgentService {
         return emitter;
     }
 
-    // NEW: Docker Proxy Methods
-    public String getContainers() {
+    // NEW: Kubernetes Deployment Proxy Methods
+    public String getDeployments() {
         try {
-            return this.restClient.get().uri("/containers").retrieve().body(String.class);
+            return this.restClient.get().uri("/deployments").retrieve().body(String.class);
         } catch (Exception e) {
             return "[]";
         }
     }
 
-    public void executeContainerAction(String id, String action) {
+    public void executeDeploymentAction(String id, String action) {
         try {
-            this.restClient.post().uri("/containers/" + id + "/" + action).retrieve().toBodilessEntity();
+            this.restClient.post().uri("/deployments/" + id + "/" + action).retrieve().toBodilessEntity();
         } catch (Exception e) {
-            System.err.println("Failed to execute container action: " + e.getMessage());
+            System.err.println("Failed to execute deployment action: " + e.getMessage());
         }
     }
 }
