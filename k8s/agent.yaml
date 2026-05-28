@@ -49,8 +49,8 @@ spec:
       serviceAccountName: devops-agent-sa
       containers:
       - name: devops-agent
-        image: devops-agent:latest
-        imagePullPolicy: IfNotPresent
+        image: ghcr.io/mattdev0/devops-control-center/devops-agent:latest
+        imagePullPolicy: Always
         ports:
         - containerPort: 3001
         envFrom:
