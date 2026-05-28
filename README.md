@@ -70,7 +70,7 @@ Responsibilities include:
 
 ## 4. Observability Stack — Prometheus & Grafana
 * **Node Exporter:** Gathers host telemetry as a DaemonSet inside the cluster.
-* **Prometheus:** Pulls metrics from the exporter and Java Spring Boot actuator points.
+* **Prometheus:** Pulls metrics from the exporter and Java Spring Boot actuator points, backed by a PersistentVolumeClaim (PVC) for persistent metrics data retention.
 * **Grafana:** Displays visual CPU and Memory dashboard panels embedded as iframes in the UI (configured with persistent volumes for metrics retention).
 
 ---
@@ -80,7 +80,7 @@ Responsibilities include:
 ### 🔒 Secure JWT Authentication & RBAC
 Enforces role-based permissions to protect platform modifications:
 * **User Authentication:** Sign in using credentials or enter as a guest with one click.
-* **Access Controls:** Read-only access for guests (monitoring only), with mutating actions (executing commands, scaling deployments, running pipelines) restricted strictly to `ROLE_ADMIN` users.
+* **Access Controls:** Read-only access for guests (monitoring only), with mutating actions (executing commands, scaling deployments, running pipelines) restricted strictly to `ROLE_ADMIN` users. Terminal stdin is explicitly disabled for guest users to prevent remote keystroke transmission.
 * **Automatic Expiration Handling:** The frontend automatically cleans up cookies and forces user logouts upon receiving API authentication failures.
 
 ### 🐚 Real-Time Interactive PTY Terminal
@@ -126,46 +126,44 @@ It will automatically default to `localhost` configurations, bypassing secure co
 * Dashboard: `http://localhost:8085`
 
 ## Production Deployment
-To deploy to a live server, create a `.env` file from the provided example:
+To deploy to a live server, create a `.env` file on the VM from the provided example:
 ```bash
 cp .env.example .env
 nano .env
 ```
-Provide your GitHub token and public domain. The GitHub Action will convert this `.env` file into a Kubernetes Secret (`devops-secrets`) automatically during deploy.
+Provide your GitHub token and public domain. The deployment steps on the VM will convert this `.env` file into a Kubernetes Secret (`devops-secrets`) automatically.
 
 ```mermaid
 sequenceDiagram
     actor Developer
     participant GitHub as GitHub Repository (devops-control-center)
     participant Runner as GitHub Actions Runner
+    participant GHCR as GitHub Container Registry (ghcr.io)
     participant VM as Azure VM Host
     participant K3s as K3s Cluster
 
     Developer->>GitHub: git push origin main
     GitHub->>Runner: Trigger Production Deployment Workflow
+    Runner->>Runner: Build Docker images using Buildx & GHA Cache
+    Runner->>GHCR: Push built images: devops-agent, devops-orchestrator, devops-frontend
     Runner->>VM: SSH Connection (using AZURE_SSH_KEY)
     Note over VM: Pulls latest commits<br/>git reset --hard origin/main
-    VM->>VM: Build Docker images locally:<br/>- devops-agent<br/>- devops-orchestrator<br/>- devops-frontend
-    VM->>K3s: Save images & Import to containerd store
     VM->>K3s: Apply environment Secrets (devops-secrets)
-    VM->>K3s: Apply manifests in k8s/ folder
+    VM->>K3s: Apply manifests in k8s/ folder (pulls from GHCR)
     VM->>K3s: Trigger zero-downtime rolling update (rollout restart)
-    K3s-->>VM: Rollout Complete
+    K3s-->>VM: Pull new images & Rollout Complete
     VM-->>Runner: Pipeline Complete
     Runner-->>GitHub: Update Status to Green
 ```
 
 The automated GitHub Action runs:
-1. Connects to the Azure VM via SSH
-2. Pulls the latest code changes
-3. Builds the Docker images locally:
-   - `devops-agent`
-   - `devops-orchestrator`
-   - `devops-frontend`
-4. Imports them into K3s containerd cache
-5. Generates/applies the Kubernetes Secret
-6. Applies K8s manifests in the `k8s/` folder
-7. Restarts the pods to apply updates
+1. Builds the Docker images on the GitHub Actions runner using Docker Buildx and GHA caching.
+2. Pushes the built images to GitHub Container Registry (GHCR) at `ghcr.io/mattdev0/devops-control-center/...`.
+3. Connects to the Azure VM via SSH.
+4. Pulls the latest code changes (specifically updating the Kubernetes manifests).
+5. Generates/applies the Kubernetes Secret from the local `.env` file on the VM.
+6. Applies the Kubernetes manifests in the `k8s/` folder, instructing K3s to pull the pre-built images from GHCR.
+7. Restarts the pods to load the updated images.
 
 ---
 
