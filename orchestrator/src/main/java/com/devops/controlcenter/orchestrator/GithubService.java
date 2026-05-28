@@ -20,11 +20,15 @@ public class GithubService {
     private String repo;
 
     public GithubService(RestClient.Builder restClientBuilder, @Value("${github.token:}") String githubToken) {
-        this.restClient = restClientBuilder
+        RestClient.Builder builder = restClientBuilder
                 .baseUrl("https://api.github.com")
-                .defaultHeader("Authorization", "Bearer " + githubToken)
-                .defaultHeader("Accept", "application/vnd.github.v3+json")
-                .build();
+                .defaultHeader("Accept", "application/vnd.github.v3+json");
+        
+        if (githubToken != null && !githubToken.trim().isEmpty()) {
+            builder.defaultHeader("Authorization", "Bearer " + githubToken.trim());
+        }
+        
+        this.restClient = builder.build();
     }
 
     public List<Map<String, Object>> getRecentWorkflows() {
