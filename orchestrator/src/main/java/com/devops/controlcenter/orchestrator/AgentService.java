@@ -1,5 +1,6 @@
 package com.devops.controlcenter.orchestrator;
 
+import jakarta.annotation.PreDestroy;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
@@ -9,12 +10,15 @@ import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 @Service
 public class AgentService {
 
     private final RestClient restClient;
+    private final ExecutorService executorService = Executors.newCachedThreadPool();
+
     public AgentService(
             RestClient.Builder restClientBuilder,
             @Value("${agent.url:http://localhost:3001}") String agentUrl,
@@ -44,7 +48,7 @@ public class AgentService {
 
     public SseEmitter streamAgentLogs(String deploymentId) {
         SseEmitter emitter = new SseEmitter(0L);
-        Executors.newSingleThreadExecutor().execute(() -> {
+        executorService.execute(() -> {
             try {
                 String uri = "/logs" + (deploymentId != null ? "?id=" + deploymentId : "");
                 this.restClient.get().uri(uri).exchange((request, response) -> {
@@ -80,5 +84,10 @@ public class AgentService {
         } catch (Exception e) {
             System.err.println("Failed to execute deployment action: " + e.getMessage());
         }
+    }
+
+    @PreDestroy
+    public void shutdown() {
+        this.executorService.shutdown();
     }
 }
