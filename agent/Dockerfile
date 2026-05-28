@@ -9,15 +9,15 @@ RUN apt-get update && apt-get install -y \
 
 WORKDIR /app
 
-# Copy dependency definitions and build dummy project to cache dependencies
-RUN mkdir src && echo "fn main() {}" > src/main.rs
+# Copy dependency definitions and source files
 COPY Cargo.toml Cargo.lock* ./
-RUN cargo build --release
-
-# Copy the real source files and compile
 COPY src ./src
-RUN touch src/main.rs
-RUN cargo build --release
+
+# Build the application using BuildKit cache mounts
+RUN --mount=type=cache,target=/usr/local/cargo/registry \
+    --mount=type=cache,target=/app/target \
+    cargo build --release && \
+    cp target/release/agent /usr/local/bin/agent
 
 # --- Final Stage ---
 FROM debian:bookworm-slim
@@ -35,7 +35,7 @@ RUN apt-get update && apt-get install -y \
 WORKDIR /app
 
 # Copy the binary from the builder
-COPY --from=builder /app/target/release/agent /usr/local/bin/agent
+COPY --from=builder /usr/local/bin/agent /usr/local/bin/agent
 
 # Expose the agent port
 EXPOSE 3001
