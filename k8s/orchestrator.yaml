@@ -17,8 +17,8 @@ spec:
     spec:
       containers:
       - name: devops-orchestrator
-        image: devops-orchestrator:latest
-        imagePullPolicy: IfNotPresent
+        image: ghcr.io/mattdev0/devops-control-center/devops-orchestrator:latest
+        imagePullPolicy: Always
         ports:
         - containerPort: 8080
         env:
