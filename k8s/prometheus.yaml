@@ -71,7 +71,8 @@ spec:
         configMap:
           name: prometheus-config
       - name: prometheus-storage
-        emptyDir: {}
+        persistentVolumeClaim:
+          claimName: prometheus-pvc
 ---
 apiVersion: v1
 kind: Service
@@ -85,3 +86,15 @@ spec:
     protocol: TCP
   selector:
     app: prometheus
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: prometheus-pvc
+  namespace: devops
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 2Gi
