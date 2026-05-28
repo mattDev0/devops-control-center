@@ -237,6 +237,7 @@ export default function App() {
           theme: { background: '#0f172a', foreground: '#f8fafc', cursor: '#10b981' },
           fontFamily: 'monospace',
           cursorBlink: role !== 'ROLE_GUEST',
+          disableStdin: role === 'ROLE_GUEST',
           rows: 15,
         });
         
