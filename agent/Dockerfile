@@ -8,9 +8,15 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
-COPY . .
 
-# Build the application
+# Copy dependency definitions and build dummy project to cache dependencies
+RUN mkdir src && echo "fn main() {}" > src/main.rs
+COPY Cargo.toml Cargo.lock* ./
+RUN cargo build --release
+
+# Copy the real source files and compile
+COPY src ./src
+RUN touch src/main.rs
 RUN cargo build --release
 
 # --- Final Stage ---

@@ -2,10 +2,14 @@
 FROM maven:3.9-eclipse-temurin-21 AS builder
 
 WORKDIR /app
-COPY . .
 
-# Build the application, skipping tests for speed
-RUN mvn clean package -DskipTests
+# Copy pom.xml and cache dependencies
+COPY pom.xml .
+RUN mvn dependency:go-offline -B
+
+# Copy source and build the application
+COPY src ./src
+RUN mvn package -DskipTests
 
 # --- Final Stage ---
 FROM eclipse-temurin:21-jre-jammy
