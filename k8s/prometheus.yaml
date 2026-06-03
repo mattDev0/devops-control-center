@@ -27,6 +27,23 @@ data:
         metrics_path: '/actuator/prometheus'
         static_configs:
           - targets: ['devops-orchestrator.devops.svc:8080']
+
+      - job_name: 'network_latency_ping'
+        metrics_path: /probe
+        params:
+          module: [icmp]
+        static_configs:
+          - targets:
+            - 8.8.8.8
+            - 1.1.1.1
+            - 104.160.131.3
+        relabel_configs:
+          - source_labels: [__address__]
+            target_label: __param_target
+          - source_labels: [__param_target]
+            target_label: instance
+          - target_label: __address__
+            replacement: blackbox-exporter.portfolio.svc.cluster.local:9115
 ---
 apiVersion: apps/v1
 kind: Deployment
