@@ -37,9 +37,15 @@ graph TD
             Grafana -->|Query Metrics| Prom[devops-prometheus Pod]
             Prom -->|Scrape Telemetry| NodeExp[node-exporter DaemonSet]
         end
+
+        subgraph "Namespace: portfolio"
+            Blackbox[blackbox-exporter Pod]
+        end
     end
 
     Orchestrator -->|GitHub Actions API| GitHub[GitHub API]
+    Prom -->|Scrapes ICMP Probes| Blackbox
+    Blackbox -->|Pings ICMP| Internet[External Internet: Google / Cloudflare / Riot Games]
 
     classDef devops fill:#0f172a,stroke:#8b5cf6,stroke-width:2px,color:#f8fafc;
     class DevOpsFE,Orchestrator,Agent,Grafana,Prom,NodeExp devops;
@@ -70,7 +76,7 @@ Responsibilities include:
 
 ## 4. Observability Stack — Prometheus & Grafana
 * **Node Exporter:** Gathers host telemetry as a DaemonSet inside the cluster.
-* **Prometheus:** Pulls metrics from the exporter and Java Spring Boot actuator points, backed by a PersistentVolumeClaim (PVC) for persistent metrics data retention.
+* **Prometheus:** Pulls metrics from the exporter, Java Spring Boot actuator endpoints, and external network pings (via Blackbox Exporter in the `portfolio` namespace). Backed by a PersistentVolumeClaim (PVC) for persistent metrics data retention.
 * **Grafana:** Displays visual CPU and Memory dashboard panels embedded as iframes in the UI (configured with persistent volumes for metrics retention).
 
 ---
@@ -109,6 +115,7 @@ Integrated GitHub Actions monitoring fetching real data.
 ### 📈 Deep Observability
 Integrated monitoring stack powered by Prometheus and Grafana.
 * **Live Resource Telemetry:** Displays CPU and Memory metrics of the Azure host.
+* **Synthetic Network Monitoring:** Prometheus scrapes ICMP pings to Google DNS, Cloudflare DNS, and Riot Games NA via Blackbox Exporter to track network latency, packet loss, and connection availability.
 * **Secure Embeds:** Serves dashboards via Nginx proxy subpaths to prevent cross-origin blockages.
 
 ---
@@ -209,7 +216,7 @@ devops-control-center/
 | **Agent**            | Rust, Axum, `kube-rs`, `tokio`, `portable-pty` |
 | **Orchestration**    | Kubernetes (K3s), Docker Compose (Local Dev) |
 | **Web Server / Proxy**| Nginx (with WebSocket & SSE upgrades) |
-| **Observability**    | Prometheus, Grafana, Node Exporter |
+| **Observability**    | Prometheus, Grafana, Node Exporter, Blackbox Exporter |
 
 ---
 
