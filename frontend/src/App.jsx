@@ -256,7 +256,7 @@ export default function App() {
         } else {
           // Connect to PTY WebSocket
           const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-          const wsUrl = `${protocol}//${window.location.host}/devops/ws/terminal?token=${encodeURIComponent(token)}`;
+          const wsUrl = `${protocol}//${window.location.host}/ws/terminal?token=${encodeURIComponent(token)}`;
           
           ws = new WebSocket(wsUrl);
 
