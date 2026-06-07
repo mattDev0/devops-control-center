@@ -17,8 +17,14 @@ FROM eclipse-temurin:21-jre-jammy
 
 WORKDIR /app
 
-# Copy the built jar from the builder
-COPY --from=builder /app/app.jar app.jar
+# Create a non-root user and group
+RUN groupadd -r appuser && useradd -r -g appuser appuser
+
+# Copy the built jar from the builder and assign ownership to appuser
+COPY --from=builder --chown=appuser:appuser /app/app.jar app.jar
+
+# Switch to the non-root user
+USER appuser
 
 # Expose the orchestrator port
 EXPOSE 8080
