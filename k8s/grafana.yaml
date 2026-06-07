@@ -317,6 +317,11 @@ spec:
       containers:
       - name: grafana
         image: grafana/grafana:latest
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+              - ALL
         ports:
         - containerPort: 3000
         env:

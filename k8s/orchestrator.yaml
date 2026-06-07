@@ -21,6 +21,11 @@ spec:
       - name: devops-orchestrator
         image: ghcr.io/mattdev0/devops-control-center/devops-orchestrator:latest
         imagePullPolicy: Always
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+              - ALL
         ports:
         - containerPort: 8080
         env:

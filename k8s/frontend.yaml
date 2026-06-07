@@ -21,6 +21,11 @@ spec:
       - name: devops-frontend
         image: ghcr.io/mattdev0/devops-control-center/devops-frontend:latest
         imagePullPolicy: Always
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+              - ALL
         ports:
         - containerPort: 8080
         resources:
