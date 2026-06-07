@@ -184,7 +184,7 @@ The automated GitHub Action runs:
 devops-control-center/
 ├── infrastructure/             # Reverse Proxy Configurations 🌐
 │   └── nginx/
-│       └── devops-locations.conf
+│       └── devops.mattdev0.tech.conf
 ├── agent/                      # Rust Agent 🦀
 │   ├── src/main.rs
 │   ├── Dockerfile
@@ -196,7 +196,7 @@ devops-control-center/
 ├── frontend/                   # React Dashboard ⚛️
 │   ├── src/App.jsx
 │   ├── Dockerfile
-│   ├── nginx.conf              # Subpath proxy configuration
+│   ├── nginx.conf              # Proxy configuration
 │   └── vite.config.js
 ├── k8s/                        # Kubernetes Manifests ☸️
 │   ├── namespace.yaml
