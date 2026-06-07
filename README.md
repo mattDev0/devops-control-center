@@ -79,6 +79,10 @@ Responsibilities include:
 * **Prometheus:** Pulls metrics from the exporter, Java Spring Boot actuator endpoints, and external network pings (via Blackbox Exporter in the `portfolio` namespace). Backed by a PersistentVolumeClaim (PVC) for persistent metrics data retention.
 * **Grafana:** Displays visual CPU and Memory dashboard panels embedded as iframes in the UI (configured with persistent volumes for metrics retention).
 
+## 5. Security & Hardening
+* All microservices (Agent, Orchestrator, Frontend) explicitly drop privileges to run as non-root users inside the containers.
+* Kubernetes deployments strictly enforce `securityContext.runAsNonRoot: true` to prevent container runtime privilege escalation.
+
 ---
 
 # ✨ Key Features
@@ -178,6 +182,9 @@ The automated GitHub Action runs:
 
 ```text
 devops-control-center/
+├── infrastructure/             # Reverse Proxy Configurations 🌐
+│   └── nginx/
+│       └── devops-locations.conf
 ├── agent/                      # Rust Agent 🦀
 │   ├── src/main.rs
 │   ├── Dockerfile
