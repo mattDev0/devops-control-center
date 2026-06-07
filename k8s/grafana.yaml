@@ -327,9 +327,9 @@ spec:
         - name: GF_AUTH_ANONYMOUS_ORG_ROLE
           value: "Admin"
         - name: GF_SERVER_DOMAIN
-          value: "mattdev0.tech"
+          value: "devops.mattdev0.tech"
         - name: GF_SERVER_ROOT_URL
-          value: "https://mattdev0.tech/devops/grafana/"
+          value: "https://devops.mattdev0.tech/grafana/"
         - name: GF_SERVER_SERVE_FROM_SUB_PATH
           value: "true"
         - name: GF_SECURITY_COOKIE_SAMESITE
