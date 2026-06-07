@@ -69,7 +69,7 @@ services:
       - GF_AUTH_ANONYMOUS_ORG_ROLE=Admin
       # Runtime Flags: Use .env variables in production, fallback to local dev defaults
       - GF_SERVER_DOMAIN=${DOMAIN:-localhost}
-      - GF_SERVER_ROOT_URL=${GRAFANA_ROOT_URL:-http://localhost:8085/devops/grafana/}
+      - GF_SERVER_ROOT_URL=${GRAFANA_ROOT_URL:-http://localhost:8085/grafana/}
       - GF_SERVER_SERVE_FROM_SUB_PATH=true
       - GF_SECURITY_COOKIE_SAMESITE=${COOKIE_SAMESITE:-lax}
       - GF_SECURITY_COOKIE_SECURE=${COOKIE_SECURE:-false}

@@ -6,7 +6,7 @@ A custom, end-to-end DevOps orchestration and observability platform built from 
 
 ## 🌐 Live Preview
 **Check out the live dashboard here:**  
-👉 **[https://mattdev0.tech/devops/](https://mattdev0.tech/devops/)**
+👉 **[https://devops.mattdev0.tech](https://devops.mattdev0.tech)**
 
 > ⚠️ **IMPORTANT WARNING FOR VISITORS** ⚠️
 > 
