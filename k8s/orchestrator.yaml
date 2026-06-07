@@ -15,6 +15,8 @@ spec:
       labels:
         app: devops-orchestrator
     spec:
+      securityContext:
+        runAsNonRoot: true
       containers:
       - name: devops-orchestrator
         image: ghcr.io/mattdev0/devops-control-center/devops-orchestrator:latest

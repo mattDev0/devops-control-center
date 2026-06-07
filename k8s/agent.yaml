@@ -47,6 +47,8 @@ spec:
         app: devops-agent
     spec:
       serviceAccountName: devops-agent-sa
+      securityContext:
+        runAsNonRoot: true
       containers:
       - name: devops-agent
         image: ghcr.io/mattdev0/devops-control-center/devops-agent:latest
