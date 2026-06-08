@@ -34,14 +34,14 @@ RUN apt-get update && apt-get install -y \
 
 WORKDIR /app
 
-# Create a non-root user and group
-RUN groupadd -r appuser && useradd -r -g appuser appuser
+# Create a non-root user and group with numeric UID/GID
+RUN groupadd -g 10001 -r appuser && useradd -u 10001 -r -g appuser appuser
 
 # Copy the binary from the builder and set ownership
 COPY --from=builder --chown=appuser:appuser /usr/local/bin/agent /usr/local/bin/agent
 
-# Switch to the non-root user
-USER appuser
+# Switch to the non-root user (using numeric ID for Kubernetes runAsNonRoot verification)
+USER 10001
 
 # Expose the agent port
 EXPOSE 3001
