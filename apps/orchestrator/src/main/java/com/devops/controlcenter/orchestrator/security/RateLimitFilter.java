@@ -59,4 +59,8 @@ public class RateLimitFilter implements Filter {
         }
         return xfHeader.split(",")[0].trim();
     }
+
+    public void reset() {
+        requestTimestamps.clear();
+    }
 }
