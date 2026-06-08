@@ -17,7 +17,7 @@ public class RateLimitFilter implements Filter {
     private static final long WINDOW_SIZE_MS = 60 * 1000L; // 1 minute
 
     // Map IP to list of request timestamps
-    private final Map<String, List<Long>> requestTimestamps = new ConcurrentHashMap<>();
+    private static final Map<String, List<Long>> requestTimestamps = new ConcurrentHashMap<>();
 
     @Override
     public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain)
