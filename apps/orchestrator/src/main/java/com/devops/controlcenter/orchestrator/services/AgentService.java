@@ -1,7 +1,15 @@
 package com.devops.controlcenter.orchestrator.services;
 
+import com.devops.controlcenter.orchestrator.dto.AgentHealthDto;
+import com.devops.controlcenter.orchestrator.dto.DeploymentDto;
+import com.devops.controlcenter.orchestrator.dto.ExecuteRequestDto;
+import com.devops.controlcenter.orchestrator.dto.ExecuteResponseDto;
+import com.devops.controlcenter.orchestrator.exceptions.AgentUnreachableException;
 import jakarta.annotation.PreDestroy;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
@@ -9,12 +17,13 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 @Service
 public class AgentService {
+
+    private static final Logger logger = LoggerFactory.getLogger(AgentService.class);
 
     private final RestClient restClient;
     private final ExecutorService executorService = Executors.newFixedThreadPool(10);
@@ -29,24 +38,28 @@ public class AgentService {
                 .build();
     }
 
-    public String fetchAgentHealth() {
+    public AgentHealthDto fetchAgentHealth() {
         try {
-            return this.restClient.get().uri("/ping").retrieve().body(String.class);
+            logger.info("Fetching agent health status...");
+            return this.restClient.get().uri("/health").retrieve().body(AgentHealthDto.class);
         } catch (Exception e) {
-            return "{\"os_name\": \"Offline\", \"os_version\": \"N/A\", \"uptime_seconds\": 0}";
+            logger.error("Agent is unreachable on /health: {}", e.getMessage());
+            throw new AgentUnreachableException("Agent is unreachable", e);
         }
     }
 
-    public String executeCommand(String command, List<String> args) {
+    public ExecuteResponseDto executeCommand(ExecuteRequestDto requestDto) {
         try {
-            Map<String, Object> payload = Map.of("command", command, "args", args != null ? args : List.of());
-            return this.restClient.post().uri("/execute").body(payload).retrieve().body(String.class);
+            logger.info("Requesting agent execution of command: {}", requestDto.getCommand());
+            return this.restClient.post().uri("/execute").body(requestDto).retrieve().body(ExecuteResponseDto.class);
         } catch (Exception e) {
-            return "{\"stdout\": \"\", \"stderr\": \"Orchestrator Error\", \"exit_code\": -1}";
+            logger.error("Agent is unreachable on /execute: {}", e.getMessage());
+            throw new AgentUnreachableException("Agent is unreachable", e);
         }
     }
 
     public SseEmitter streamAgentLogs(String deploymentId) {
+        logger.info("Initiating log streaming for deployment: {}", deploymentId);
         SseEmitter emitter = new SseEmitter(0L);
         executorService.execute(() -> {
             try {
@@ -61,33 +74,36 @@ public class AgentService {
                 });
                 emitter.complete();
             } catch (Exception e) {
-                System.err.println("Error occurred during log streaming: " + e.getMessage());
-                e.printStackTrace();
+                logger.error("Error occurred during log streaming: {}", e.getMessage(), e);
                 emitter.completeWithError(e);
             }
         });
         return emitter;
     }
 
-    // NEW: Kubernetes Deployment Proxy Methods
-    public String getDeployments() {
+    public List<DeploymentDto> getDeployments() {
         try {
-            return this.restClient.get().uri("/deployments").retrieve().body(String.class);
+            logger.info("Fetching all deployments from agent...");
+            return this.restClient.get().uri("/deployments").retrieve().body(new ParameterizedTypeReference<List<DeploymentDto>>() {});
         } catch (Exception e) {
-            return "[]";
+            logger.error("Agent is unreachable on /deployments: {}", e.getMessage());
+            throw new AgentUnreachableException("Agent is unreachable", e);
         }
     }
 
     public void executeDeploymentAction(String id, String action) {
         try {
+            logger.info("Executing deployment action {} for deployment ID {}", action, id);
             this.restClient.post().uri("/deployments/" + id + "/" + action).retrieve().toBodilessEntity();
         } catch (Exception e) {
-            System.err.println("Failed to execute deployment action: " + e.getMessage());
+            logger.error("Agent is unreachable on /deployments/{}/{}: {}", id, action, e.getMessage());
+            throw new AgentUnreachableException("Agent is unreachable", e);
         }
     }
 
     @PreDestroy
     public void shutdown() {
+        logger.info("Shutting down AgentService executor service.");
         this.executorService.shutdown();
     }
 }
