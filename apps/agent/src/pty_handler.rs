@@ -32,6 +32,7 @@ async fn handle_socket(socket: WebSocket) {
     };
 
     let mut cmd = CommandBuilder::new(shell);
+    cmd.cwd("/app");
     cmd.env("TERM", "xterm-256color");
     
     let child_res = pair.slave.spawn_command(cmd);
