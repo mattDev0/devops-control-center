@@ -193,26 +193,13 @@ pub async fn stream_logs(
     Sse::new(stream).keep_alive(KeepAlive::new()).into_response()
 }
 
-pub async fn list_deployments() -> Result<Json<Vec<DeploymentDto>>, StatusCode> {
-    let client = Client::try_default()
-        .await
-        .map_err(|e| {
-            eprintln!("Failed to initialize K8s client: {:?}", e);
-            StatusCode::INTERNAL_SERVER_ERROR
-        })?;
-        
+pub async fn get_all_deployments_internal(client: Client) -> Result<Vec<DeploymentDto>, kube::Error> {
     let namespaces = vec!["portfolio", "devops"];
     let mut result = Vec::new();
 
     for ns in namespaces {
         let api: Api<Deployment> = Api::namespaced(client.clone(), ns);
-        let deps = api
-            .list(&ListParams::default())
-            .await
-            .map_err(|e| {
-                eprintln!("Failed to list deployments in namespace {}: {:?}", ns, e);
-                StatusCode::INTERNAL_SERVER_ERROR
-            })?;
+        let deps = api.list(&ListParams::default()).await?;
 
         for d in deps {
             let name = d.metadata.name.clone().unwrap_or_default();
@@ -232,9 +219,51 @@ pub async fn list_deployments() -> Result<Json<Vec<DeploymentDto>>, StatusCode> 
             let ready_replicas = d.status.as_ref().and_then(|s| s.ready_replicas).unwrap_or(0);
             let status = format!("Ready: {}/{}", ready_replicas, replicas);
 
+            let mut error_message = None;
+            let mut updated_at = None;
+            let mut is_failed = false;
+
+            if let Some(status_obj) = &d.status {
+                if let Some(conditions) = &status_obj.conditions {
+                    for cond in conditions {
+                        if let Some(time) = &cond.last_update_time {
+                            let time_str = time.0.to_rfc3339();
+                            if updated_at.is_none() || updated_at.as_ref() < Some(&time_str) {
+                                updated_at = Some(time_str);
+                            }
+                        } else if let Some(time) = &cond.last_transition_time {
+                            let time_str = time.0.to_rfc3339();
+                            if updated_at.is_none() || updated_at.as_ref() < Some(&time_str) {
+                                updated_at = Some(time_str);
+                            }
+                        }
+
+                        // Check for failure conditions:
+                        // 1. ReplicaFailure: status == "True"
+                        if cond.type_ == "ReplicaFailure" && cond.status == "True" {
+                            is_failed = true;
+                            error_message = cond.message.clone();
+                        }
+                        // 2. Progressing: status == "False" and reason == "ProgressDeadlineExceeded"
+                        if cond.type_ == "Progressing" && cond.status == "False" && cond.reason.as_deref() == Some("ProgressDeadlineExceeded") {
+                            is_failed = true;
+                            error_message = cond.message.clone();
+                        }
+                    }
+                }
+            }
+
+            if updated_at.is_none() {
+                if let Some(time) = &d.metadata.creation_timestamp {
+                    updated_at = Some(time.0.to_rfc3339());
+                }
+            }
+
             // Determine State
             let state = if replicas == 0 {
                 "stopped".to_string()
+            } else if is_failed {
+                "failed".to_string()
             } else if ready_replicas == replicas {
                 "running".to_string()
             } else {
@@ -247,10 +276,117 @@ pub async fn list_deployments() -> Result<Json<Vec<DeploymentDto>>, StatusCode> 
                 image,
                 state,
                 status,
+                error_message,
+                updated_at,
             });
         }
     }
+    Ok(result)
+}
+
+pub async fn list_deployments() -> Result<Json<Vec<DeploymentDto>>, StatusCode> {
+    let client = Client::try_default()
+        .await
+        .map_err(|e| {
+            eprintln!("Failed to initialize K8s client: {:?}", e);
+            StatusCode::INTERNAL_SERVER_ERROR
+        })?;
+    let result = get_all_deployments_internal(client).await.map_err(|e| {
+        eprintln!("Failed to fetch deployments: {:?}", e);
+        StatusCode::INTERNAL_SERVER_ERROR
+    })?;
     Ok(Json(result))
+}
+
+async fn send_discord_notification(webhook_url: &str, content: &str) -> Result<(), reqwest::Error> {
+    let client = reqwest::Client::new();
+    let payload = serde_json::json!({
+        "content": content
+    });
+    client.post(webhook_url)
+        .json(&payload)
+        .send()
+        .await?;
+    Ok(())
+}
+
+pub fn start_deployment_monitor() {
+    tokio::spawn(async move {
+        let client = match Client::try_default().await {
+            Ok(c) => c,
+            Err(e) => {
+                eprintln!("Failed to initialize K8s client for background monitoring: {:?}", e);
+                return;
+            }
+        };
+
+        let webhook_url = std::env::var("DISCORD_WEBHOOK_URL").ok();
+        if webhook_url.is_none() {
+            println!("📢 DISCORD_WEBHOOK_URL environment variable is not set. Discord notifications are disabled.");
+        }
+
+        // Cache for storing the last seen state of deployments.
+        // Key: id (namespace:name), Value: (state, updated_at)
+        let mut last_known_states = std::collections::HashMap::<String, (String, Option<String>)>::new();
+        
+        // Populate the initial states to avoid spamming alerts on startup
+        if let Ok(initial_deps) = get_all_deployments_internal(client.clone()).await {
+            for dep in initial_deps {
+                last_known_states.insert(dep.id, (dep.state, dep.updated_at));
+            }
+        }
+
+        println!("🚀 Background Deployment Monitor started.");
+
+        loop {
+            tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
+            
+            let current_deps = match get_all_deployments_internal(client.clone()).await {
+                Ok(deps) => deps,
+                Err(e) => {
+                    eprintln!("Background monitor: error fetching deployments: {:?}", e);
+                    continue;
+                }
+            };
+
+            for dep in current_deps {
+                let id = dep.id.clone();
+                let new_state = dep.state.clone();
+                let new_time = dep.updated_at.clone();
+
+                if let Some((old_state, _old_time)) = last_known_states.get(&id) {
+                    if old_state != &new_state {
+                        // State transition!
+                        println!("📢 Deployment {} transitioned from {} to {}", id, old_state, new_state);
+                        
+                        // Notify on success (transition to running) or failure (transition to failed)
+                        if new_state == "running" || new_state == "failed" {
+                            if let Some(url) = &webhook_url {
+                                let status_icon = if new_state == "running" { "🟢" } else { "🔴" };
+                                let error_text = if new_state == "failed" {
+                                    format!("\n**Error:** `{}`", dep.error_message.as_deref().unwrap_or("Unknown error"))
+                                } else {
+                                    "\nDeployment completed successfully!".to_string()
+                                };
+                                let msg = format!(
+                                    "{} **Deployment Alert**\n**Service:** `{}`\n**Status:** `{}`\n**Time:** `{}`{}",
+                                    status_icon,
+                                    id,
+                                    new_state.to_uppercase(),
+                                    new_time.as_deref().unwrap_or("N/A"),
+                                    error_text
+                                );
+                                if let Err(e) = send_discord_notification(url, &msg).await {
+                                    eprintln!("Failed to send Discord notification: {:?}", e);
+                                }
+                            }
+                        }
+                    }
+                }
+                last_known_states.insert(id, (new_state, new_time));
+            }
+        }
+    });
 }
 
 pub async fn deployment_action(

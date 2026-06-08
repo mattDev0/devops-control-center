@@ -32,6 +32,8 @@ async fn auth_middleware(
 
 #[tokio::main]
 async fn main() {
+    kubernetes::start_deployment_monitor();
+
     let app = Router::new()
         .route("/ping", get(system::ping))
         .route("/execute", post(system::execute_command))

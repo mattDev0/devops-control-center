@@ -27,6 +27,8 @@ pub struct DeploymentDto {
     pub image: String,
     pub state: String,
     pub status: String,
+    pub error_message: Option<String>,
+    pub updated_at: Option<String>,
 }
 
 #[derive(Deserialize)]
