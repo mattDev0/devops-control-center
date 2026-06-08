@@ -18,6 +18,6 @@ public class WebSocketConfig implements WebSocketConfigurer {
     @Override
     public void registerWebSocketHandlers(WebSocketHandlerRegistry registry) {
         registry.addHandler(terminalWebSocketHandler, "/ws/terminal")
-                .setAllowedOriginPatterns("*");
+                .setAllowedOriginPatterns("https://devops.mattdev0.tech", "http://localhost:8085");
     }
 }

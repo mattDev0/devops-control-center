@@ -17,7 +17,7 @@ import java.util.concurrent.Executors;
 public class AgentService {
 
     private final RestClient restClient;
-    private final ExecutorService executorService = Executors.newCachedThreadPool();
+    private final ExecutorService executorService = Executors.newFixedThreadPool(10);
 
     public AgentService(
             RestClient.Builder restClientBuilder,

@@ -4,6 +4,7 @@ import com.devops.controlcenter.orchestrator.security.JwtUtil;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
@@ -13,15 +14,16 @@ import java.util.Map;
 public class AuthController {
 
     private final String expectedUsername;
-    private final String expectedPassword;
+    private final String hashedExpectedPassword;
     private final JwtUtil jwtUtil;
+    private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
 
     public AuthController(
             @Value("${admin.username}") String expectedUsername,
             @Value("${admin.password}") String expectedPassword,
             JwtUtil jwtUtil) {
         this.expectedUsername = expectedUsername;
-        this.expectedPassword = expectedPassword;
+        this.hashedExpectedPassword = this.passwordEncoder.encode(expectedPassword);
         this.jwtUtil = jwtUtil;
     }
 
@@ -30,7 +32,7 @@ public class AuthController {
         String username = request.get("username");
         String password = request.get("password");
 
-        if (expectedUsername.equals(username) && expectedPassword.equals(password)) {
+        if (expectedUsername.equals(username) && passwordEncoder.matches(password, hashedExpectedPassword)) {
             String token = jwtUtil.generateToken(username, "ROLE_ADMIN");
             return ResponseEntity.ok(Map.of("token", token, "role", "ROLE_ADMIN"));
         }
