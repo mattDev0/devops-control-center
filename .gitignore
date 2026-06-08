@@ -1,6 +1,7 @@
 .DS_Store
 *.log
-/agent/target/
-/orchestrator/target/
-/frontend/node_modules/
-/agent/.terraform/
+/apps/agent/target/
+/apps/orchestrator/target/
+/apps/frontend/node_modules/
+/apps/frontend/dist/
+/infrastructure/terraform/.terraform/

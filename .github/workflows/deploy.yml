@@ -33,7 +33,7 @@ jobs:
       - name: Build and Push Devops Agent
         uses: docker/build-push-action@v5
         with:
-          context: ./agent
+          context: ./apps/agent
           push: true
           tags: ghcr.io/mattdev0/devops-control-center/devops-agent:latest
           cache-from: type=gha
@@ -42,7 +42,7 @@ jobs:
       - name: Build and Push Devops Orchestrator
         uses: docker/build-push-action@v5
         with:
-          context: ./orchestrator
+          context: ./apps/orchestrator
           push: true
           tags: ghcr.io/mattdev0/devops-control-center/devops-orchestrator:latest
           cache-from: type=gha
@@ -51,7 +51,7 @@ jobs:
       - name: Build and Push Devops Frontend
         uses: docker/build-push-action@v5
         with:
-          context: ./frontend
+          context: ./apps/frontend
           push: true
           tags: ghcr.io/mattdev0/devops-control-center/devops-frontend:latest
           cache-from: type=gha
@@ -77,7 +77,7 @@ jobs:
             git reset --hard origin/main
             
             echo "Applying namespaces..."
-            sudo kubectl apply -f k8s/namespace.yaml
+            sudo kubectl apply -f infrastructure/k8s/namespace.yaml
             
             echo "Configuring environment secrets..."
             if [ -f ./.env ]; then
@@ -88,12 +88,12 @@ jobs:
             fi
             
             echo "Deploying applications and observability to K3s..."
-            sudo kubectl apply -f k8s/agent.yaml
-            sudo kubectl apply -f k8s/orchestrator.yaml
-            sudo kubectl apply -f k8s/frontend.yaml
-            sudo kubectl apply -f k8s/prometheus.yaml
-            sudo kubectl apply -f k8s/grafana.yaml
-            sudo kubectl apply -f k8s/node-exporter.yaml
+            sudo kubectl apply -f infrastructure/k8s/agent.yaml
+            sudo kubectl apply -f infrastructure/k8s/orchestrator.yaml
+            sudo kubectl apply -f infrastructure/k8s/frontend.yaml
+            sudo kubectl apply -f infrastructure/k8s/prometheus.yaml
+            sudo kubectl apply -f infrastructure/k8s/grafana.yaml
+            sudo kubectl apply -f infrastructure/k8s/node-exporter.yaml
             
             echo "Triggering rolling restart to pick up new images..."
             sudo kubectl rollout restart deployment/devops-agent deployment/devops-orchestrator deployment/devops-frontend -n devops

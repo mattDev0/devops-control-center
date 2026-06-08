@@ -160,7 +160,7 @@ sequenceDiagram
     Runner->>VM: SSH Connection (using AZURE_SSH_KEY)
     Note over VM: Pulls latest commits<br/>git reset --hard origin/main
     VM->>K3s: Apply environment Secrets (devops-secrets)
-    VM->>K3s: Apply manifests in k8s/ folder (pulls from GHCR)
+    VM->>K3s: Apply manifests in infrastructure/k8s/ folder (pulls from GHCR)
     VM->>K3s: Trigger zero-downtime rolling update (rollout restart)
     K3s-->>VM: Pull new images & Rollout Complete
     VM-->>Runner: Pipeline Complete
@@ -173,7 +173,7 @@ The automated GitHub Action runs:
 3. Connects to the Azure VM via SSH.
 4. Pulls the latest code changes (specifically updating the Kubernetes manifests).
 5. Generates/applies the Kubernetes Secret from the local `.env` file on the VM.
-6. Applies the Kubernetes manifests in the `k8s/` folder, instructing K3s to pull the pre-built images from GHCR.
+6. Applies the Kubernetes manifests in the `infrastructure/k8s/` folder, instructing K3s to pull the pre-built images from GHCR.
 7. Restarts the pods to load the updated images.
 
 ---
@@ -182,34 +182,40 @@ The automated GitHub Action runs:
 
 ```text
 devops-control-center/
-├── infrastructure/             # Reverse Proxy Configurations 🌐
-│   └── nginx/
-│       └── devops.mattdev0.tech.conf
-├── agent/                      # Rust Agent 🦀
-│   ├── src/main.rs
-│   ├── Dockerfile
-│   └── Cargo.toml
-├── orchestrator/               # Spring Boot Backend ☕
-│   ├── src/main/java/.../
-│   ├── Dockerfile
-│   └── pom.xml
-├── frontend/                   # React Dashboard ⚛️
-│   ├── src/App.jsx
-│   ├── Dockerfile
-│   ├── nginx.conf              # Proxy configuration
-│   └── vite.config.js
-├── k8s/                        # Kubernetes Manifests ☸️
-│   ├── namespace.yaml
-│   ├── agent.yaml
-│   ├── orchestrator.yaml
-│   ├── frontend.yaml
-│   ├── prometheus.yaml
-│   ├── grafana.yaml
-│   └── node-exporter.yaml
-├── grafana/                    # Local Provisioning & Dashboards 📊
+├── apps/                       # Monorepo Applications Grouped 📂
+│   ├── agent/                  # Rust Agent 🦀
+│   │   ├── src/                # Modular Rust code (main, system, kubernetes, pty_handler, models)
+│   │   ├── Dockerfile
+│   │   └── Cargo.toml
+│   ├── orchestrator/           # Spring Boot Backend ☕
+│   │   ├── src/main/java/.../  # Reorganized packages by layer
+│   │   ├── Dockerfile
+│   │   └── pom.xml
+│   └── frontend/               # React Dashboard ⚛️
+│       ├── src/                # Refactored components, services, and hooks
+│       ├── Dockerfile
+│       ├── nginx.conf          # Proxy configuration
+│       └── vite.config.js
+├── infrastructure/             # Reverse Proxy & Deployments 🌐
+│   ├── nginx/                  # Nginx configuration
+│   │   └── devops.mattdev0.tech.conf
+│   ├── k8s/                    # Kubernetes Manifests ☸️
+│   │   ├── namespace.yaml
+│   │   ├── agent.yaml
+│   │   ├── orchestrator.yaml
+│   │   ├── frontend.yaml
+│   │   ├── prometheus.yaml
+│   │   ├── grafana.yaml
+│   │   └── node-exporter.yaml
+│   ├── monitoring/             # Monitoring config (Grafana dashboards, Prometheus config)
+│   │   ├── grafana/            # Dashboards & Provisioning
+│   │   └── prometheus/
+│   │       └── prometheus.yml
+│   └── terraform/              # Terraform scripts (Moved from agent/)
+│       └── main.tf
 ├── docker-compose.yml          # Local stack orchestration
 ├── .env.example                # Production environment template
-└── prometheus.yml
+└── README.md
 ```
 
 ---
