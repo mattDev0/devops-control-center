@@ -5,3 +5,6 @@
 /apps/frontend/node_modules/
 /apps/frontend/dist/
 /infrastructure/terraform/.terraform/
+.env
+.env.local
+

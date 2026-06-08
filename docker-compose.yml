@@ -8,9 +8,6 @@ services:
     container_name: devops-agent
     ports:
       - "3011:3001"
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-      - .:/app
     environment:
       - AGENT_SECRET_KEY=${AGENT_SECRET_KEY:-devops-secret-key-123}
     restart: unless-stopped
@@ -47,7 +44,7 @@ services:
 
   # Prometheus server to scrape metrics
   prometheus:
-    image: prom/prometheus:latest
+    image: prom/prometheus:v2.51.0
     container_name: devops-prometheus
     ports:
       - "9091:9090"
@@ -59,14 +56,14 @@ services:
 
   # Grafana dashboard for visualization
   grafana:
-    image: grafana/grafana:latest
+    image: grafana/grafana:11.0.0
     container_name: devops-grafana
     ports:
       - "3010:3000"
     environment:
       - GF_SECURITY_ALLOW_EMBEDDING=true
       - GF_AUTH_ANONYMOUS_ENABLED=true
-      - GF_AUTH_ANONYMOUS_ORG_ROLE=Admin
+      - GF_AUTH_ANONYMOUS_ORG_ROLE=Viewer
       # Runtime Flags: Use .env variables in production, fallback to local dev defaults
       - GF_SERVER_DOMAIN=${DOMAIN:-localhost}
       - GF_SERVER_ROOT_URL=${GRAFANA_ROOT_URL:-http://localhost:8085/grafana/}
@@ -82,7 +79,7 @@ services:
 
   # Node Exporter to gather system metrics
   node-exporter:
-    image: prom/node-exporter:latest
+    image: prom/node-exporter:v1.8.0
     container_name: devops-node-exporter
     ports:
       - "9101:9100"
