@@ -80,7 +80,18 @@ public class TerminalWebSocketHandler extends TextWebSocketHandler {
                         clientSession.close(status);
                     }
                 }
-            }, headers, java.net.URI.create(agentWsUrl));
+            }, headers, java.net.URI.create(agentWsUrl))
+            .whenComplete((session, ex) -> {
+                if (ex != null) {
+                    System.err.println("Asynchronous WebSocket connection to agent failed: " + ex.getMessage());
+                    ex.printStackTrace();
+                    try {
+                        clientSession.close(CloseStatus.SERVER_ERROR);
+                    } catch (IOException e) {
+                        System.err.println("Failed to close client session: " + e.getMessage());
+                    }
+                }
+            });
         } catch (Exception e) {
             System.err.println("Failed to connect to agent PTY WebSocket: " + e.getMessage());
             clientSession.close(CloseStatus.SERVER_ERROR);
