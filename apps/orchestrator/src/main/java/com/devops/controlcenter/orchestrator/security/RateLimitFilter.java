@@ -10,8 +10,10 @@ import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
+import org.springframework.web.filter.OncePerRequestFilter;
+
 @Component
-public class RateLimitFilter implements Filter {
+public class RateLimitFilter extends OncePerRequestFilter {
 
     private static final int MAX_REQUESTS_PER_MINUTE = 5;
     private static final long WINDOW_SIZE_MS = 60 * 1000L; // 1 minute
@@ -20,36 +22,34 @@ public class RateLimitFilter implements Filter {
     private static final Map<String, List<Long>> requestTimestamps = new ConcurrentHashMap<>();
 
     @Override
-    public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain)
-            throws IOException, ServletException {
+    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
+            throws ServletException, IOException {
         
-        if (request instanceof HttpServletRequest httpRequest && response instanceof HttpServletResponse httpResponse) {
-            String path = httpRequest.getRequestURI();
+        String path = request.getRequestURI();
+        
+        // Only rate limit /api/auth/login and /api/auth/guest
+        if ("/api/auth/login".equals(path) || "/api/auth/guest".equals(path)) {
+            String ip = getClientIp(request);
+            long now = System.currentTimeMillis();
             
-            // Only rate limit /api/auth/login and /api/auth/guest
-            if ("/api/auth/login".equals(path) || "/api/auth/guest".equals(path)) {
-                String ip = getClientIp(httpRequest);
-                long now = System.currentTimeMillis();
+            List<Long> timestamps = requestTimestamps.computeIfAbsent(ip, k -> Collections.synchronizedList(new ArrayList<>()));
+            
+            synchronized (timestamps) {
+                // Remove timestamps older than 1 minute
+                timestamps.removeIf(timestamp -> now - timestamp > WINDOW_SIZE_MS);
                 
-                List<Long> timestamps = requestTimestamps.computeIfAbsent(ip, k -> Collections.synchronizedList(new ArrayList<>()));
-                
-                synchronized (timestamps) {
-                    // Remove timestamps older than 1 minute
-                    timestamps.removeIf(timestamp -> now - timestamp > WINDOW_SIZE_MS);
-                    
-                    if (timestamps.size() >= MAX_REQUESTS_PER_MINUTE) {
-                        httpResponse.setStatus(HttpStatus.TOO_MANY_REQUESTS.value());
-                        httpResponse.setContentType("application/json");
-                        httpResponse.getWriter().write("{\"error\": \"Too many requests. Please try again later.\"}");
-                        return;
-                    }
-                    
-                    timestamps.add(now);
+                if (timestamps.size() >= MAX_REQUESTS_PER_MINUTE) {
+                    response.setStatus(HttpStatus.TOO_MANY_REQUESTS.value());
+                    response.setContentType("application/json");
+                    response.getWriter().write("{\"error\": \"Too many requests. Please try again later.\"}");
+                    return;
                 }
+                
+                timestamps.add(now);
             }
         }
         
-        chain.doFilter(request, response);
+        filterChain.doFilter(request, response);
     }
 
     private String getClientIp(HttpServletRequest request) {
