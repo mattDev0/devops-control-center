@@ -16,6 +16,7 @@ import DeploymentsTable from './components/dashboard/DeploymentsTable';
 import LogsModal from './components/dashboard/LogsModal';
 import WorkflowsTable from './components/dashboard/WorkflowsTable';
 import MetricsCards from './components/dashboard/MetricsCards';
+import ErrorBoundary from './components/ErrorBoundary';
 
 export default function App() {
   const [token, setToken] = useState(localStorage.getItem('token') || '');
@@ -242,39 +243,49 @@ export default function App() {
 
       {/* Row 1: Health & Terminal */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-        <MetricsCards
-          health={health}
-          loading={loading}
-          fetchHealth={() => fetchHealth()}
-          token={token}
-        />
-        <Terminal terminalRef={terminalRef} />
+        <ErrorBoundary>
+          <MetricsCards
+            health={health}
+            loading={loading}
+            fetchHealth={() => fetchHealth()}
+            token={token}
+          />
+        </ErrorBoundary>
+        <ErrorBoundary>
+          <Terminal terminalRef={terminalRef} />
+        </ErrorBoundary>
       </div>
 
       {/* Row 2: Deployments & CI/CD */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-        <DeploymentsTable
-          deployments={deployments}
-          role={role}
-          fetchDeployments={() => fetchDeployments()}
-          handleDeploymentAction={handleDeploymentAction}
-          onViewLogs={(deployment) => {
-            setActiveLogDeployment(deployment);
-            setShowLogsModal(true);
-          }}
-        />
-        <WorkflowsTable
-          workflows={workflows}
-          loadingWorkflows={loadingWorkflows}
-          role={role}
-          fetchWorkflows={() => fetchWorkflows()}
-          triggerWorkflow={triggerWorkflow}
-        />
+        <ErrorBoundary>
+          <DeploymentsTable
+            deployments={deployments}
+            role={role}
+            fetchDeployments={() => fetchDeployments()}
+            handleDeploymentAction={handleDeploymentAction}
+            onViewLogs={(deployment) => {
+              setActiveLogDeployment(deployment);
+              setShowLogsModal(true);
+            }}
+          />
+        </ErrorBoundary>
+        <ErrorBoundary>
+          <WorkflowsTable
+            workflows={workflows}
+            loadingWorkflows={loadingWorkflows}
+            role={role}
+            fetchWorkflows={() => fetchWorkflows()}
+            triggerWorkflow={triggerWorkflow}
+          />
+        </ErrorBoundary>
       </div>
 
       {/* Row 3: Logs */}
       <div className="grid grid-cols-1 gap-6 mb-6">
-        <LogViewer logs={logs} logsContainerRef={logsContainerRef} />
+        <ErrorBoundary>
+          <LogViewer logs={logs} logsContainerRef={logsContainerRef} />
+        </ErrorBoundary>
       </div>
 
       {/* Deployment Logs Modal */}
