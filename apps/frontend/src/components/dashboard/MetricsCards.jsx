@@ -74,7 +74,7 @@ export default function MetricsCards({
             </div>
             {token && (
               <iframe 
-                src="grafana/d-solo/rYdddlPWk/node-exporter-full?orgId=1&timezone=browser&var-ds_prometheus=cfmh94yfqwjcwd&var-job=node&var-nodename=ac1f709ef5f4&var-node=node-exporter:9100&refresh=1m&panelId=panel-77" 
+                src="grafana/d-solo/rYdddlPWk/node-exporter-full?orgId=1&timezone=browser&var-ds_prometheus=cfmh94yfqwjcwd&var-job=node&var-nodename=ac1f709ef5f4&var-node=node-exporter:9100&refresh=1m&panelId=77" 
                 width="100%" 
                 height="100%" 
                 frameBorder="0" 
@@ -92,7 +92,7 @@ export default function MetricsCards({
             </div>
             {token && (
               <iframe 
-                src="grafana/d-solo/rYdddlPWk/node-exporter-full?orgId=1&timezone=browser&var-ds_prometheus=cfmh94yfqwjcwd&var-job=node&var-nodename=ac1f709ef5f4&var-node=node-exporter:9100&refresh=1m&panelId=panel-78" 
+                src="grafana/d-solo/rYdddlPWk/node-exporter-full?orgId=1&timezone=browser&var-ds_prometheus=cfmh94yfqwjcwd&var-job=node&var-nodename=ac1f709ef5f4&var-node=node-exporter:9100&refresh=1m&panelId=78" 
                 width="100%" 
                 height="100%" 
                 frameBorder="0" 
