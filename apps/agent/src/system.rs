@@ -53,3 +53,33 @@ pub async fn execute_command(
         exit_code: output.status.code().unwrap_or(-1),
     }))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::models::ExecuteRequest;
+
+    #[tokio::test]
+    async fn test_execute_allowed_command() {
+        let req = ExecuteRequest {
+            command: "echo".to_string(),
+            args: vec!["hello".to_string()],
+        };
+        let res = execute_command(Json(req)).await;
+        assert!(res.is_ok());
+        let val = res.unwrap().0;
+        assert_eq!(val.exit_code, 0);
+        assert!(val.stdout.contains("hello"));
+    }
+
+    #[tokio::test]
+    async fn test_execute_forbidden_command() {
+        let req = ExecuteRequest {
+            command: "rm".to_string(),
+            args: vec!["-rf".to_string(), "/".to_string()],
+        };
+        let res = execute_command(Json(req)).await;
+        assert_eq!(res.unwrap_err(), StatusCode::FORBIDDEN);
+    }
+}
+

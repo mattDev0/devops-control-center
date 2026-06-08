@@ -9,7 +9,7 @@ use axum::{
 use std::net::SocketAddr;
 
 mod models;
-mod kubernetes;
+mod k8s;
 mod pty_handler;
 mod system;
 
@@ -31,13 +31,21 @@ async fn auth_middleware(
             }
         }
     }
-    println!("⚠️ Blocked unauthorized request!");
+    tracing::warn!("⚠️ Blocked unauthorized request!");
     Err(StatusCode::UNAUTHORIZED)
 }
 
 #[tokio::main]
 async fn main() {
-    kubernetes::start_deployment_monitor();
+    // Initialize tracing subscriber
+    tracing_subscriber::fmt()
+        .with_env_filter(
+            tracing_subscriber::EnvFilter::try_from_default_env()
+                .unwrap_or_else(|_| "info".into()),
+        )
+        .init();
+
+    k8s::start_deployment_monitor();
 
     let state = AppState {
         secret_key: std::env::var("AGENT_SECRET_KEY")
@@ -47,17 +55,69 @@ async fn main() {
     let app = Router::new()
         .route("/ping", get(system::ping))
         .route("/execute", post(system::execute_command))
-        .route("/logs", get(kubernetes::stream_logs))
-        .route("/deployments", get(kubernetes::list_deployments))
-        .route("/deployments/:id/:action", post(kubernetes::deployment_action))
+        .route("/logs", get(k8s::stream_logs))
+        .route("/deployments", get(k8s::list_deployments))
+        .route("/deployments/:id/:action", post(k8s::deployment_action))
         .route("/ws/terminal", get(pty_handler::ws_terminal_handler))
         .route_layer(middleware::from_fn_with_state(state.clone(), auth_middleware))
         .route("/health", get(system::health))
         .with_state(state);
 
     let addr = SocketAddr::from(([0, 0, 0, 0], 3001));
-    println!("🛡️ Secure K8s-Native Rust Agent running on http://{}", addr);
+    tracing::info!("🛡️ Secure K8s-Native Rust Agent running on http://{}", addr);
 
     let listener = tokio::net::TcpListener::bind(addr).await.unwrap();
     axum::serve(listener, app).await.unwrap();
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use axum::{
+        body::Body,
+        http::{Request, StatusCode},
+        routing::get,
+        Router,
+    };
+    use tower::ServiceExt;
+
+    #[tokio::test]
+    async fn test_auth_middleware_authorized() {
+        let state = AppState {
+            secret_key: "secret-123".to_string(),
+        };
+        let app = Router::new()
+            .route("/test", get(|| async { "ok" }))
+            .route_layer(middleware::from_fn_with_state(state.clone(), auth_middleware))
+            .with_state(state);
+
+        let req = Request::builder()
+            .uri("/test")
+            .header("X-Agent-Key", "secret-123")
+            .body(Body::empty())
+            .unwrap();
+
+        let response = app.oneshot(req).await.unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+    }
+
+    #[tokio::test]
+    async fn test_auth_middleware_unauthorized() {
+        let state = AppState {
+            secret_key: "secret-123".to_string(),
+        };
+        let app = Router::new()
+            .route("/test", get(|| async { "ok" }))
+            .route_layer(middleware::from_fn_with_state(state.clone(), auth_middleware))
+            .with_state(state);
+
+        let req = Request::builder()
+            .uri("/test")
+            .header("X-Agent-Key", "wrong-key")
+            .body(Body::empty())
+            .unwrap();
+
+        let response = app.oneshot(req).await.unwrap();
+        assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
+    }
 }
