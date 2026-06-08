@@ -18,9 +18,11 @@ import java.util.List;
 public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
+    private final RateLimitFilter rateLimitFilter;
 
-    public SecurityConfig(JwtAuthenticationFilter jwtAuthenticationFilter) {
+    public SecurityConfig(JwtAuthenticationFilter jwtAuthenticationFilter, RateLimitFilter rateLimitFilter) {
         this.jwtAuthenticationFilter = jwtAuthenticationFilter;
+        this.rateLimitFilter = rateLimitFilter;
     }
 
     @Bean
@@ -34,13 +36,14 @@ public class SecurityConfig {
             ))
             .authorizeHttpRequests(auth -> auth
                 .dispatcherTypeMatchers(jakarta.servlet.DispatcherType.ASYNC).permitAll()
-                .requestMatchers("/api/auth/login", "/api/auth/guest", "/health").permitAll()
+                .requestMatchers("/api/auth/login", "/api/auth/guest", "/health", "/actuator/**").permitAll()
                 .requestMatchers(org.springframework.http.HttpMethod.POST, "/api/servers/execute").hasAuthority("ROLE_ADMIN")
                 .requestMatchers(org.springframework.http.HttpMethod.POST, "/api/servers/deployments/**").hasAuthority("ROLE_ADMIN")
                 .requestMatchers(org.springframework.http.HttpMethod.POST, "/api/ci/workflows/**").hasAuthority("ROLE_ADMIN")
                 .requestMatchers("/api/**").hasAnyAuthority("ROLE_GUEST", "ROLE_ADMIN")
                 .anyRequest().permitAll()
             )
+            .addFilterBefore(rateLimitFilter, UsernamePasswordAuthenticationFilter.class)
             .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
