@@ -316,7 +316,7 @@ spec:
         fsGroup: 472
       containers:
       - name: grafana
-        image: grafana/grafana:latest
+        image: grafana/grafana:11.0.0
         securityContext:
           allowPrivilegeEscalation: false
           capabilities:
@@ -330,7 +330,7 @@ spec:
         - name: GF_AUTH_ANONYMOUS_ENABLED
           value: "true"
         - name: GF_AUTH_ANONYMOUS_ORG_ROLE
-          value: "Admin"
+          value: "Viewer"
         - name: GF_SERVER_DOMAIN
           value: "devops.mattdev0.tech"
         - name: GF_SERVER_ROOT_URL
