@@ -1,4 +1,4 @@
-package com.devops.controlcenter.orchestrator;
+package com.devops.controlcenter.orchestrator.services;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;

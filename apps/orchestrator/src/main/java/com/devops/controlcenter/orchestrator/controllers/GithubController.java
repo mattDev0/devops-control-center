@@ -1,4 +1,5 @@
-package com.devops.controlcenter.orchestrator;
+package com.devops.controlcenter.orchestrator.controllers;
+import com.devops.controlcenter.orchestrator.services.GithubService;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;

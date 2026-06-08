@@ -1,4 +1,4 @@
-package com.devops.controlcenter.orchestrator;
+package com.devops.controlcenter.orchestrator.websocket;
 
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.socket.config.annotation.EnableWebSocket;
