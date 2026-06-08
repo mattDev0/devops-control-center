@@ -20,7 +20,7 @@ async fn handle_socket(socket: WebSocket) {
     let pair = match pair_res {
         Ok(p) => p,
         Err(e) => {
-            eprintln!("Failed to open PTY: {:?}", e);
+            tracing::error!("Failed to open PTY: {:?}", e);
             return;
         }
     };
@@ -39,7 +39,7 @@ async fn handle_socket(socket: WebSocket) {
     let mut child = match child_res {
         Ok(c) => c,
         Err(e) => {
-            eprintln!("Failed to spawn shell in PTY: {:?}", e);
+            tracing::error!("Failed to spawn shell in PTY: {:?}", e);
             return;
         }
     };
@@ -47,7 +47,7 @@ async fn handle_socket(socket: WebSocket) {
     let mut pty_reader = match pair.master.try_clone_reader() {
         Ok(r) => r,
         Err(e) => {
-            eprintln!("Failed to clone PTY reader: {:?}", e);
+            tracing::error!("Failed to clone PTY reader: {:?}", e);
             return;
         }
     };
@@ -55,7 +55,7 @@ async fn handle_socket(socket: WebSocket) {
     let mut pty_writer = match pair.master.take_writer() {
         Ok(w) => w,
         Err(e) => {
-            eprintln!("Failed to get PTY writer: {:?}", e);
+            tracing::error!("Failed to get PTY writer: {:?}", e);
             return;
         }
     };
