@@ -1,18 +1,89 @@
 name: Production Deployment
 
-# Trigger the workflow only when pushing to the main branch
 on:
   push:
     branches:
       - main
 
 jobs:
-  deploy:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Lint Agent Dockerfile
+        uses: hadolint/hadolint-action@v3.1.0
+        with:
+          dockerfile: "apps/agent/Dockerfile"
+
+      - name: Lint Orchestrator Dockerfile
+        uses: hadolint/hadolint-action@v3.1.0
+        with:
+          dockerfile: "apps/orchestrator/Dockerfile"
+
+      - name: Lint Frontend Dockerfile
+        uses: hadolint/hadolint-action@v3.1.0
+        with:
+          dockerfile: "apps/frontend/Dockerfile"
+
+      - name: Set up Go (for Kubeconform)
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.21'
+
+      - name: Install Kubeconform
+        run: go install github.com/yannh/kubeconform/cmd/kubeconform@v0.6.3
+
+      - name: Run Kubeconform Manifest Validation
+        run: |
+          ~/go/bin/kubeconform -strict infrastructure/k8s/
+
+      - name: Set up Rust Toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: apps/agent -> target
+
+      - name: Run Agent Tests
+        run: |
+          cd apps/agent
+          cargo test
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+          cache: 'maven'
+
+      - name: Run Orchestrator Tests
+        run: |
+          cd apps/orchestrator
+          mvn test
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: apps/frontend/package-lock.json
+
+      - name: Run Frontend Lint & Build Test
+        run: |
+          cd apps/frontend
+          npm ci
+          npm run lint
+          npm run build
+
+  build:
+    needs: test
     runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
-
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -35,7 +106,9 @@ jobs:
         with:
           context: ./apps/agent
           push: true
-          tags: ghcr.io/mattdev0/devops-control-center/devops-agent:latest
+          tags: |
+            ghcr.io/mattdev0/devops-control-center/devops-agent:latest
+            ghcr.io/mattdev0/devops-control-center/devops-agent:${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -44,7 +117,9 @@ jobs:
         with:
           context: ./apps/orchestrator
           push: true
-          tags: ghcr.io/mattdev0/devops-control-center/devops-orchestrator:latest
+          tags: |
+            ghcr.io/mattdev0/devops-control-center/devops-orchestrator:latest
+            ghcr.io/mattdev0/devops-control-center/devops-orchestrator:${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -53,10 +128,16 @@ jobs:
         with:
           context: ./apps/frontend
           push: true
-          tags: ghcr.io/mattdev0/devops-control-center/devops-frontend:latest
+          tags: |
+            ghcr.io/mattdev0/devops-control-center/devops-frontend:latest
+            ghcr.io/mattdev0/devops-control-center/devops-frontend:${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
       - name: Executing Remote SSH Commands to Deploy
         uses: appleboy/ssh-action@v1.0.3
         with:
@@ -75,6 +156,11 @@ jobs:
             git fetch origin main
             git checkout main
             git reset --hard origin/main
+            
+            echo "Replacing image tags with Git SHA in manifests..."
+            sed -i "s|devops-agent:latest|devops-agent:${{ github.sha }}|g" infrastructure/k8s/agent.yaml
+            sed -i "s|devops-orchestrator:latest|devops-orchestrator:${{ github.sha }}|g" infrastructure/k8s/orchestrator.yaml
+            sed -i "s|devops-frontend:latest|devops-frontend:${{ github.sha }}|g" infrastructure/k8s/frontend.yaml
             
             echo "Applying namespaces..."
             sudo kubectl apply -f infrastructure/k8s/namespace.yaml
