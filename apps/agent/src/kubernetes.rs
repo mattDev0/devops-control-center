@@ -1,121 +1,22 @@
 use axum::{
-    extract::{
-        ws::{Message, WebSocket, WebSocketUpgrade},
-        Path,
-    },
-    http::{Request, StatusCode},
-    middleware::{self, Next},
+    extract::{Path, Query},
+    http::StatusCode,
     response::{
         sse::{Event, KeepAlive, Sse},
-        IntoResponse, Response,
+        IntoResponse,
     },
-    routing::{get, post},
-    Json, Router,
+    Json,
 };
-use chrono;
-use serde::{Deserialize, Serialize};
-use std::{
-    convert::Infallible,
-    io::{Read, Write},
-    net::SocketAddr,
-    process::Command,
-};
-use sysinfo::System;
-use futures::{SinkExt, StreamExt};
-use portable_pty::{native_pty_system, CommandBuilder, PtySize};
-
-// Kubernetes imports
+use futures::StreamExt;
 use k8s_openapi::api::apps::v1::Deployment;
 use k8s_openapi::api::core::v1::Pod;
 use kube::{
-    api::{ListParams, Patch, PatchParams, LogParams},
+    api::{ListParams, LogParams, Patch, PatchParams},
     Api, Client,
 };
 use serde_json::json;
-
-// --- Models ---
-#[derive(Serialize)]
-struct SystemInfo {
-    os_name: String,
-    os_version: String,
-    uptime_seconds: u64,
-}
-
-#[derive(Deserialize)]
-struct ExecuteRequest {
-    command: String,
-    args: Vec<String>,
-}
-
-#[derive(Serialize)]
-struct ExecuteResponse {
-    stdout: String,
-    stderr: String,
-    exit_code: i32,
-}
-
-#[derive(Serialize)]
-struct DeploymentDto {
-    id: String,
-    name: String,
-    image: String,
-    state: String,
-    status: String,
-}
-
-// --- Middleware ---
-async fn auth_middleware(
-    req: Request<axum::body::Body>,
-    next: Next,
-) -> Result<Response, StatusCode> {
-    let secret_key = std::env::var("AGENT_SECRET_KEY")
-        .unwrap_or_else(|_| "devops-secret-key-123".to_string());
-    if let Some(auth_header) = req.headers().get("X-Agent-Key") {
-        if let Ok(auth_str) = auth_header.to_str() {
-            if auth_str == secret_key {
-                return Ok(next.run(req).await);
-            }
-        }
-    }
-    println!("⚠️ Blocked unauthorized request!");
-    Err(StatusCode::UNAUTHORIZED)
-}
-
-// --- Handlers ---
-async fn ping() -> impl IntoResponse {
-    let mut sys = System::new_all();
-    sys.refresh_all();
-    Json(SystemInfo {
-        os_name: System::name().unwrap_or_else(|| "Unknown".to_string()),
-        os_version: System::os_version().unwrap_or_else(|| "Unknown".to_string()),
-        uptime_seconds: System::uptime(),
-    })
-}
-
-async fn execute_command(
-    Json(payload): Json<ExecuteRequest>,
-) -> Result<Json<ExecuteResponse>, StatusCode> {
-    let allowed_commands = ["ls", "pwd", "whoami", "echo", "uptime", "date", "terraform"];
-    if !allowed_commands.contains(&payload.command.as_str()) {
-        return Err(StatusCode::FORBIDDEN);
-    }
-
-    let output = Command::new(&payload.command)
-        .args(&payload.args)
-        .output()
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-
-    Ok(Json(ExecuteResponse {
-        stdout: String::from_utf8_lossy(&output.stdout).to_string(),
-        stderr: String::from_utf8_lossy(&output.stderr).to_string(),
-        exit_code: output.status.code().unwrap_or(-1),
-    }))
-}
-
-#[derive(Deserialize)]
-struct LogParamsQuery {
-    id: Option<String>,
-}
+use std::convert::Infallible;
+use crate::models::{DeploymentDto, LogParamsQuery};
 
 async fn find_pods_for_deployment(
     client: Client,
@@ -154,8 +55,8 @@ async fn find_pods_for_deployment(
     Ok(pod_names)
 }
 
-async fn stream_logs(
-    axum::extract::Query(query): axum::extract::Query<LogParamsQuery>,
+pub async fn stream_logs(
+    Query(query): Query<LogParamsQuery>,
 ) -> impl IntoResponse {
     let client = match Client::try_default().await {
         Ok(c) => c,
@@ -292,8 +193,7 @@ async fn stream_logs(
     Sse::new(stream).keep_alive(KeepAlive::new()).into_response()
 }
 
-// Adapted: List Deployments in portfolio & devops namespaces
-async fn list_deployments() -> Result<Json<Vec<DeploymentDto>>, StatusCode> {
+pub async fn list_deployments() -> Result<Json<Vec<DeploymentDto>>, StatusCode> {
     let client = Client::try_default()
         .await
         .map_err(|e| {
@@ -353,8 +253,7 @@ async fn list_deployments() -> Result<Json<Vec<DeploymentDto>>, StatusCode> {
     Ok(Json(result))
 }
 
-// Adapted: Scale Deployments or trigger a rolling restart
-async fn deployment_action(
+pub async fn deployment_action(
     Path((id, action)): Path<(String, String)>,
 ) -> Result<StatusCode, StatusCode> {
     let client = Client::try_default()
@@ -434,154 +333,4 @@ async fn deployment_action(
     };
 
     Ok(StatusCode::OK)
-}
-
-async fn ws_terminal_handler(ws: WebSocketUpgrade) -> impl IntoResponse {
-    ws.on_upgrade(handle_socket)
-}
-
-async fn handle_socket(socket: WebSocket) {
-    let pty_system = native_pty_system();
-    let pair_res = pty_system.openpty(PtySize {
-        rows: 24,
-        cols: 80,
-        pixel_width: 0,
-        pixel_height: 0,
-    });
-
-    let pair = match pair_res {
-        Ok(p) => p,
-        Err(e) => {
-            eprintln!("Failed to open PTY: {:?}", e);
-            return;
-        }
-    };
-
-    let shell = if std::path::Path::new("/bin/bash").exists() {
-        "/bin/bash"
-    } else {
-        "/bin/sh"
-    };
-
-    let mut cmd = CommandBuilder::new(shell);
-    // Set some common env vars for PTY rendering
-    cmd.env("TERM", "xterm-256color");
-    
-    let child_res = pair.slave.spawn_command(cmd);
-    let _child = match child_res {
-        Ok(c) => c,
-        Err(e) => {
-            eprintln!("Failed to spawn shell in PTY: {:?}", e);
-            return;
-        }
-    };
-
-    let mut pty_reader = match pair.master.try_clone_reader() {
-        Ok(r) => r,
-        Err(e) => {
-            eprintln!("Failed to clone PTY reader: {:?}", e);
-            return;
-        }
-    };
-
-    let mut pty_writer = match pair.master.take_writer() {
-        Ok(w) => w,
-        Err(e) => {
-            eprintln!("Failed to get PTY writer: {:?}", e);
-            return;
-        }
-    };
-
-    let (tx, mut rx) = tokio::sync::mpsc::channel::<Vec<u8>>(1024);
-
-    // Read PTY stdout/stderr in a blocking thread, send to tx channel
-    tokio::task::spawn_blocking(move || {
-        let mut buffer = [0u8; 4096];
-        loop {
-            match pty_reader.read(&mut buffer) {
-                Ok(0) => break, // EOF
-                Ok(n) => {
-                    if tx.blocking_send(buffer[..n].to_vec()).is_err() {
-                        break;
-                    }
-                }
-                Err(_) => break,
-            }
-        }
-    });
-
-    let (mut ws_sender, mut ws_receiver) = socket.split();
-
-    // Read from tx channel (rx) and send to WebSocket
-    let mut send_task = tokio::spawn(async move {
-        while let Some(bytes) = rx.recv().await {
-            if let Ok(text) = String::from_utf8(bytes) {
-                if ws_sender.send(Message::Text(text)).await.is_err() {
-                    break;
-                }
-            }
-        }
-    });
-
-    // Read from WebSocket and write to PTY stdin or handle resize
-    let master_pty = pair.master;
-    let mut recv_task = tokio::spawn(async move {
-        while let Some(Ok(msg)) = ws_receiver.next().await {
-            match msg {
-                Message::Text(text) => {
-                    if text.starts_with("{\"event\":") {
-                        if let Ok(value) = serde_json::from_str::<serde_json::Value>(&text) {
-                            if value["event"] == "resize" {
-                                if let (Some(cols), Some(rows)) = (value["cols"].as_u64(), value["rows"].as_u64()) {
-                                    let _ = master_pty.resize(PtySize {
-                                        rows: rows as u16,
-                                        cols: cols as u16,
-                                        pixel_width: 0,
-                                        pixel_height: 0,
-                                    });
-                                }
-                            }
-                        }
-                    } else {
-                        let _ = pty_writer.write_all(text.as_bytes());
-                        let _ = pty_writer.flush();
-                    }
-                }
-                Message::Binary(bin) => {
-                    let _ = pty_writer.write_all(&bin);
-                    let _ = pty_writer.flush();
-                }
-                Message::Close(_) => break,
-                _ => {}
-            }
-        }
-    });
-
-    // Terminate tasks once either side closes
-    tokio::select! {
-        _ = &mut send_task => {
-            recv_task.abort();
-        }
-        _ = &mut recv_task => {
-            send_task.abort();
-        }
-    }
-}
-
-#[tokio::main]
-async fn main() {
-    let app = Router::new()
-        .route("/ping", get(ping))
-        .route("/execute", post(execute_command))
-        .route("/logs", get(stream_logs))
-        .route("/deployments", get(list_deployments))
-        .route("/deployments/:id/:action", post(deployment_action))
-        .route("/ws/terminal", get(ws_terminal_handler))
-        .route_layer(middleware::from_fn(auth_middleware));
-
-    let addr = SocketAddr::from(([0, 0, 0, 0], 3001));
-    println!("🛡️ Secure K8s-Native Rust Agent running on http://{}", addr);
-
-    let listener = tokio::net::TcpListener::bind(addr).await.unwrap();
-    axum::serve(listener, app).await.unwrap();
 }
