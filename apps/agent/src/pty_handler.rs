@@ -36,7 +36,7 @@ async fn handle_socket(socket: WebSocket) {
     cmd.env("TERM", "xterm-256color");
     
     let child_res = pair.slave.spawn_command(cmd);
-    let _child = match child_res {
+    let mut child = match child_res {
         Ok(c) => c,
         Err(e) => {
             eprintln!("Failed to spawn shell in PTY: {:?}", e);
@@ -130,4 +130,6 @@ async fn handle_socket(socket: WebSocket) {
             send_task.abort();
         }
     }
+
+    let _ = child.kill();
 }
