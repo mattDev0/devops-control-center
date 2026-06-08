@@ -98,6 +98,11 @@ jobs:
             echo "Triggering rolling restart to pick up new images..."
             sudo kubectl rollout restart deployment/devops-agent deployment/devops-orchestrator deployment/devops-frontend -n devops
             
+            echo "Waiting for rollouts to complete..."
+            sudo kubectl rollout status deployment/devops-agent -n devops --timeout=300s
+            sudo kubectl rollout status deployment/devops-orchestrator -n devops --timeout=300s
+            sudo kubectl rollout status deployment/devops-frontend -n devops --timeout=300s
+            
             # Prune docker images to save space
             sudo docker image prune -f
             
