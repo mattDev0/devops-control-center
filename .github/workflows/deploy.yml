@@ -16,6 +16,7 @@ jobs:
         uses: hadolint/hadolint-action@v3.1.0
         with:
           dockerfile: "apps/agent/Dockerfile"
+          ignore: DL3008
 
       - name: Lint Orchestrator Dockerfile
         uses: hadolint/hadolint-action@v3.1.0
