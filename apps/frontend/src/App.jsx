@@ -192,13 +192,22 @@ export default function App() {
     }
   };
 
-  // Initialize Data when Authenticated
+  // Initialize and periodically refresh data when Authenticated
   useEffect(() => {
-    if (token) {
+    if (!token) return;
+
+    // Initial fetch
+    fetchHealth(token);
+    fetchDeployments(token);
+    fetchWorkflows(token);
+
+    // Periodic refresh for health and deployments every 30 seconds
+    const interval = setInterval(() => {
       fetchHealth(token);
       fetchDeployments(token);
-      fetchWorkflows(token);
-    }
+    }, 30000);
+
+    return () => clearInterval(interval);
   }, [token]);
 
   // Render Login overlay if token is not available
