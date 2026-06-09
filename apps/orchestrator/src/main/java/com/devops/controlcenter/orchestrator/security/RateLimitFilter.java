@@ -1,5 +1,7 @@
 package com.devops.controlcenter.orchestrator.security;
 
+import jakarta.annotation.PostConstruct;
+import jakarta.annotation.PreDestroy;
 import jakarta.servlet.*;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -9,6 +11,9 @@ import org.springframework.stereotype.Component;
 import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 
 import org.springframework.web.filter.OncePerRequestFilter;
 
@@ -20,6 +25,27 @@ public class RateLimitFilter extends OncePerRequestFilter {
 
     // Map IP to list of request timestamps
     private static final Map<String, List<Long>> requestTimestamps = new ConcurrentHashMap<>();
+
+    private final ScheduledExecutorService cleanupScheduler = Executors.newSingleThreadScheduledExecutor();
+
+    @PostConstruct
+    public void startCleanup() {
+        cleanupScheduler.scheduleAtFixedRate(() -> {
+            long now = System.currentTimeMillis();
+            requestTimestamps.entrySet().removeIf(entry -> {
+                List<Long> ts = entry.getValue();
+                synchronized (ts) {
+                    ts.removeIf(t -> now - t > WINDOW_SIZE_MS);
+                    return ts.isEmpty();
+                }
+            });
+        }, 5, 5, TimeUnit.MINUTES);
+    }
+
+    @PreDestroy
+    public void stopCleanup() {
+        cleanupScheduler.shutdown();
+    }
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
