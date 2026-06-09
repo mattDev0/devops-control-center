@@ -17,7 +17,7 @@ A custom, end-to-end DevOps orchestration and observability platform built from 
 
 # 🏗️ Architecture
 
-The platform is built on a modern, secure microservices architecture deployed via Kubernetes (K3s) inside the `devops` namespace:
+The platform is built on a modern, secure microservices architecture deployed via Kubernetes (K3s) inside the `devops` namespace, protected by strict default-deny Network Policies:
 
 ```mermaid
 graph TD
@@ -53,35 +53,37 @@ graph TD
 
 ## 1. Frontend — React + Vite + Tailwind CSS + Nginx
 A responsive single-page dashboard featuring:
-* **Interactive PTY Terminal:** Embedded `xterm.js` terminal connected to a backend WebSocket stream.
+* **Interactive PTY Terminal:** Embedded `xterm.js` terminal connected to a backend WebSocket stream with graceful unmount handling.
 * **Role-Based UI Control:** Displays custom action controls based on the logged-in user's role (Admin vs. Guest).
 * **Live SSE Log Viewer:** Seamlessly pulls logs via Server-Sent Events, complete with auto-scrolling and pod color headers in a premium glassmorphic modal.
-* **Observability Dashboards:** Embedded real-time Grafana system metrics.
-* **Robust Session Management:** Enforces automatic frontend logout if the authentication token expires or gets rejected with `401`/`403`.
+* **Robust Session Management:** Enforces automatic frontend logout if the authentication token expires or gets rejected with `401`/`403`, resolving endless reconnection loops.
+* **Resilience:** Integrates React Error Boundaries to prevent single-component crashes from breaking the entire dashboard.
 
 ## 2. Orchestrator — Java Spring Boot
 The central gateway and security dispatcher responsible for:
 * **Authentication Provider:** Issues signed JWT tokens for authenticating login requests (`/api/auth/login`) and guest access.
 * **Spring Security & RBAC:** Enforces strict path authorization (e.g. restricting deployment scaling, CI/CD dispatch, and terminal execution to `ROLE_ADMIN`).
+* **Protection & Hardening:** Enforces in-memory rate limiting (5 req/min) for authentication endpoints with a background eviction thread, and gracefully handles exceptions via a unified `GlobalExceptionHandler` and standard DTO mappings.
 * **WebSocket Bidirectional Proxy:** Validates JWT authorization during handshakes and forwards raw terminal traffic directly to the Rust agent.
-* **Async Log Proxying:** Handles long-running SSE log queries with Spring Security async dispatches configured to prevent context-clearance.
-* **GitHub API Client:** Connects to GitHub Actions to list and trigger repository workflows.
+* **Async Log Proxying:** Handles long-running SSE log queries with thread-pool exhaustion safeguards (tracking client disconnects) and Spring Security async dispatches.
+* **Observability:** Completely standardized on SLF4J structured logging and exposes `/actuator/health` and `/actuator/prometheus` scrape metrics.
 
 ## 3. Agent — Rust + Axum + kube-rs
-A lightweight, high-performance system agent running as a Kubernetes pod.
-Responsibilities include:
-* **PTY Bridge (WebSockets):** Spawns `/bin/bash` or `/bin/sh` shell sessions inside a pseudo-terminal (`portable-pty` crate) and streams stdout/stdin bidirectionally over WebSockets. Handles JSON-based terminal resize payloads.
-* **Merged Kubernetes Logs:** Streams logs from pods in `portfolio` and `devops` namespaces using the `kube-rs` API. Concurrently merges and logs multi-pod deployments using async `tokio::sync::mpsc::channel` streams.
-* **Deployment Orchestrator:** Interacts directly with the local K3s API server via `kube-rs` to fetch deployment lists, scale replica sizes (start/stop), or patch timestamps to trigger zero-downtime rolling updates (restart).
+A lightweight, high-performance, modular system agent running as a Kubernetes pod.
+* **PTY Bridge (WebSockets):** Spawns local shells inside a pseudo-terminal (`portable-pty`) and streams stdout/stdin bidirectionally, explicitly handling zombie process termination.
+* **Merged Kubernetes Logs:** Streams logs from pods in `portfolio` and `devops` namespaces concurrently using async `tokio::sync::mpsc::channel` streams.
+* **Deployment Orchestrator:** Interacts directly with the local K3s API server via `kube-rs` to fetch deployment lists, scale replicas, and patch timestamps to trigger zero-downtime rolling updates.
+* **Resilience & Observability:** Implements exponential backoff for K8s client initialization and emits rich, structured telemetry via the `tracing` crate.
 
 ## 4. Observability Stack — Prometheus & Grafana
 * **Node Exporter:** Gathers host telemetry as a DaemonSet inside the cluster.
-* **Prometheus:** Pulls metrics from the exporter, Java Spring Boot actuator endpoints, and external network pings (via Blackbox Exporter in the `portfolio` namespace). Backed by a PersistentVolumeClaim (PVC) for persistent metrics data retention.
-* **Grafana:** Displays visual CPU and Memory dashboard panels embedded as iframes in the UI (configured with persistent volumes for metrics retention).
+* **Prometheus:** Pulls metrics from the exporter, Java Spring Boot actuator endpoints, and external network pings (via Blackbox Exporter). Backed by a PersistentVolumeClaim (PVC).
+* **Grafana:** Displays visual CPU and Memory dashboard panels embedded as iframes in the UI. Anonymous access is strictly limited to the `Viewer` role.
 
 ## 5. Security & Hardening
 * All microservices (Agent, Orchestrator, Frontend) explicitly drop privileges to run as non-root users inside the containers.
 * Kubernetes deployments strictly enforce `securityContext.runAsNonRoot: true` to prevent container runtime privilege escalation.
+* **Network Policies:** The `devops` namespace is secured by a default-deny Network Policy, explicitly allowing only necessary inter-pod ingress (e.g., Orchestrator to Agent, Frontend to Orchestrator).
 
 ---
 
@@ -90,24 +92,24 @@ Responsibilities include:
 ### 🔒 Secure JWT Authentication & RBAC
 Enforces role-based permissions to protect platform modifications:
 * **User Authentication:** Sign in using credentials or enter as a guest with one click.
-* **Access Controls:** Read-only access for guests (monitoring only), with mutating actions (executing commands, scaling deployments, running pipelines) restricted strictly to `ROLE_ADMIN` users. Terminal stdin is explicitly disabled for guest users to prevent remote keystroke transmission.
-* **Automatic Expiration Handling:** The frontend automatically cleans up cookies and forces user logouts upon receiving API authentication failures.
+* **Access Controls:** Read-only access for guests (monitoring only), with mutating actions (executing commands, scaling deployments, running pipelines) restricted strictly to `ROLE_ADMIN` users. Terminal stdin is explicitly disabled for guest users.
+* **Rate Limiting:** Protects against brute-force login attacks using an eviction-managed token bucket filter.
 
 ### 🐚 Real-Time Interactive PTY Terminal
 A fully functional remote terminal directly in your web browser.
-* **Pseudo-Terminal (PTY):** Runs a live shell bridge via the Rust agent, allowing you to run interactive commands (e.g. `top`, `nano`, CLI prompts) and capture standard signals (e.g. `Ctrl+C`).
+* **Pseudo-Terminal (PTY):** Runs a live shell bridge via the Rust agent, allowing you to run interactive commands.
 * **Bidirectional WebSockets:** Sends keystrokes and streams terminal outputs in real-time, proxied securely through the Spring Boot orchestrator.
 * **Dynamic Grid Resizing:** Automatically synchronizes local viewport width and height to resize the remote shell's dimension.
 
 ### 🪵 Real-Time Pod Log Streaming
 Stream logs dynamically from Kubernetes deployments inside the cluster.
-* **Kube-rs Integration:** Directly queries pod logs from Kubernetes namespaces, replacing dummy simulated logs with real-time system logs.
-* **Multi-Pod Aggregation:** Automatically merges log streams from all running replicas within a deployment.
+* **Kube-rs Integration:** Directly queries pod logs from Kubernetes namespaces, merging and broadcasting system and deployment logs.
+* **Resource Safe:** The Orchestrator safely terminates downstream agent connections upon client drop to prevent thread pool exhaustion.
 * **Glassmorphic Viewer:** Displays log streams in a styled window, color-coding and labeling lines by pod name with auto-scrolling features.
 
 ### ☸️ Kubernetes Deployment Management
 Manage Kubernetes deployments directly from the dashboard.
-* **Live Status List:** Checks replication readiness and runtime states across all namespaces.
+* **Live Status List:** Checks replication readiness, uptime, and runtime states across all namespaces via unified JSON DTOs.
 * **Scaling Controls:** Spin up deployments (start) or scale them down to zero (stop).
 * **Rolling Updates:** Trigger clean rolling restarts of your deployments with a single click.
 
@@ -119,8 +121,8 @@ Integrated GitHub Actions monitoring fetching real data.
 ### 📈 Deep Observability
 Integrated monitoring stack powered by Prometheus and Grafana.
 * **Live Resource Telemetry:** Displays CPU and Memory metrics of the Azure host.
-* **Synthetic Network Monitoring:** Prometheus scrapes ICMP pings to Google DNS, Cloudflare DNS, and Riot Games NA via Blackbox Exporter to track network latency, packet loss, and connection availability.
-* **Secure Embeds:** Serves dashboards via Nginx proxy subpaths to prevent cross-origin blockages.
+* **Synthetic Network Monitoring:** Prometheus scrapes ICMP pings via Blackbox Exporter to track network latency and connection availability.
+* **Application Metrics:** Orchestrator `/actuator/prometheus` metrics are actively scraped for advanced APM.
 
 ---
 
@@ -136,7 +138,7 @@ docker compose up --build
 It will automatically default to `localhost` configurations, bypassing secure cookie requirements for easy development.
 * Dashboard: `http://localhost:8085`
 
-## Production Deployment
+## Production Deployment & CI/CD
 To deploy to a live server, create a `.env` file on the VM from the provided example:
 ```bash
 cp .env.example .env
@@ -155,26 +157,33 @@ sequenceDiagram
 
     Developer->>GitHub: git push origin main
     GitHub->>Runner: Trigger Production Deployment Workflow
+    
+    Note over Runner: STAGE: TEST<br/>hadolint, kubeconform, mvn test, cargo test, npm run lint
+    Runner->>Runner: Execute Quality Gates
+    
+    Note over Runner: STAGE: BUILD
     Runner->>Runner: Build Docker images using Buildx & GHA Cache
     Runner->>GHCR: Push built images: devops-agent, devops-orchestrator, devops-frontend
+    
+    Note over Runner: STAGE: DEPLOY
     Runner->>VM: SSH Connection (using AZURE_SSH_KEY)
     Note over VM: Pulls latest commits<br/>git reset --hard origin/main
     VM->>K3s: Apply environment Secrets (devops-secrets)
-    VM->>K3s: Apply manifests in infrastructure/k8s/ folder (pulls from GHCR)
+    VM->>K3s: Apply Network Policies & Namespaces
+    VM->>K3s: Apply dynamically tagged manifests in infrastructure/k8s/
     VM->>K3s: Trigger zero-downtime rolling update (rollout restart)
     K3s-->>VM: Pull new images & Rollout Complete
     VM-->>Runner: Pipeline Complete
     Runner-->>GitHub: Update Status to Green
 ```
 
-The automated GitHub Action runs:
-1. Builds the Docker images on the GitHub Actions runner using Docker Buildx and GHA caching.
-2. Pushes the built images to GitHub Container Registry (GHCR) at `ghcr.io/mattdev0/devops-control-center/...`.
-3. Connects to the Azure VM via SSH.
-4. Pulls the latest code changes (specifically updating the Kubernetes manifests).
-5. Generates/applies the Kubernetes Secret from the local `.env` file on the VM.
-6. Applies the Kubernetes manifests in the `infrastructure/k8s/` folder, instructing K3s to pull the pre-built images from GHCR.
-7. Restarts the pods to load the updated images.
+The automated GitHub Action runs across three stages (`test` → `build` → `deploy`):
+1. Executes strict linting (`hadolint`, `kubeconform`) and unit test suites across Rust, Java, and React codebases.
+2. Builds the Docker images on the GitHub Actions runner using Docker Buildx and GHA caching.
+3. Pushes dynamically Git-SHA-tagged images to GitHub Container Registry (GHCR).
+4. Connects to the Azure VM via SSH and pulls the latest code changes.
+5. Injects dynamic image tags into Kubernetes manifests and applies Network Policies and secrets.
+6. Restarts the pods to load the updated images with zero-downtime rolling updates.
 
 ---
 
@@ -184,35 +193,24 @@ The automated GitHub Action runs:
 devops-control-center/
 ├── apps/                       # Monorepo Applications Grouped 📂
 │   ├── agent/                  # Rust Agent 🦀
-│   │   ├── src/                # Modular Rust code (main, system, kubernetes, pty_handler, models)
+│   │   ├── src/                # Modular Rust code (main, system, k8s/*, pty_handler, models)
 │   │   ├── Dockerfile
 │   │   └── Cargo.toml
 │   ├── orchestrator/           # Spring Boot Backend ☕
-│   │   ├── src/main/java/.../  # Reorganized packages by layer
+│   │   ├── src/main/java/.../  # Layered architecture (controllers, services, dto, security, exceptions)
 │   │   ├── Dockerfile
 │   │   └── pom.xml
 │   └── frontend/               # React Dashboard ⚛️
-│       ├── src/                # Refactored components, services, and hooks
+│       ├── src/                # Refactored components, services, and hooks with Error Boundaries
 │       ├── Dockerfile
 │       ├── nginx.conf          # Proxy configuration
 │       └── vite.config.js
 ├── infrastructure/             # Reverse Proxy & Deployments 🌐
 │   ├── nginx/                  # Nginx configuration
-│   │   └── devops.mattdev0.tech.conf
-│   ├── k8s/                    # Kubernetes Manifests ☸️
-│   │   ├── namespace.yaml
-│   │   ├── agent.yaml
-│   │   ├── orchestrator.yaml
-│   │   ├── frontend.yaml
-│   │   ├── prometheus.yaml
-│   │   ├── grafana.yaml
-│   │   └── node-exporter.yaml
+│   ├── k8s/                    # Kubernetes Manifests ☸️ (Deployments, Services, NetworkPolicies)
 │   ├── monitoring/             # Monitoring config (Grafana dashboards, Prometheus config)
-│   │   ├── grafana/            # Dashboards & Provisioning
-│   │   └── prometheus/
-│   │       └── prometheus.yml
-│   └── terraform/              # Terraform scripts (Moved from agent/)
-│       └── main.tf
+│   └── terraform/              # Terraform scripts
+├── .github/workflows/          # CI/CD Pipeline (deploy.yml)
 ├── docker-compose.yml          # Local stack orchestration
 ├── .env.example                # Production environment template
 └── README.md
@@ -225,10 +223,10 @@ devops-control-center/
 | Layer                | Technology / Key Libraries |
 | -------------------- | -------------------------- |
 | **Frontend**         | React, Vite, Tailwind CSS, `xterm.js`, `lucide-react` |
-| **Backend**          | Java Spring Boot, Spring Security, JWT (io.jsonwebtoken), WebSockets |
-| **Agent**            | Rust, Axum, `kube-rs`, `tokio`, `portable-pty` |
+| **Backend**          | Java Spring Boot, Spring Security, JWT (io.jsonwebtoken), WebSockets, SLF4J, Actuator |
+| **Agent**            | Rust, Axum, `kube-rs`, `tokio`, `portable-pty`, `tracing` |
 | **Orchestration**    | Kubernetes (K3s), Docker Compose (Local Dev) |
-| **Web Server / Proxy**| Nginx (with WebSocket & SSE upgrades) |
+| **Web Server / Proxy**| Nginx (with WebSocket & SSE upgrades, timeout tuning) |
 | **Observability**    | Prometheus, Grafana, Node Exporter, Blackbox Exporter |
 
 ---
