@@ -1,5 +1,7 @@
 package com.devops.controlcenter.orchestrator.services;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
@@ -10,6 +12,8 @@ import java.util.stream.Collectors;
 
 @Service
 public class GithubService {
+
+    private static final Logger logger = LoggerFactory.getLogger(GithubService.class);
 
     private final RestClient restClient;
     
@@ -69,7 +73,7 @@ public class GithubService {
                     }
                 }
             } catch (Exception e) {
-                System.err.println("Failed to fetch GitHub workflows for " + r + ": " + e.getMessage());
+                logger.error("Failed to fetch GitHub workflows for {}: {}", r, e.getMessage());
             }
         }
 
@@ -99,9 +103,9 @@ public class GithubService {
                     .body(Map.of("ref", "main"))
                     .retrieve()
                     .toBodilessEntity();
-            System.out.println("🚀 Triggered GitHub Action workflow ID: " + targetWorkflowId + " in repo: " + targetRepo);
+            logger.info("Triggered GitHub Action workflow ID: {} in repo: {}", targetWorkflowId, targetRepo);
         } catch (Exception e) {
-            System.err.println("Failed to trigger GitHub workflow: " + e.getMessage());
+            logger.error("Failed to trigger GitHub workflow: {}", e.getMessage());
         }
     }
 }

@@ -1,6 +1,8 @@
 package com.devops.controlcenter.orchestrator.websocket;
 import com.devops.controlcenter.orchestrator.security.JwtUtil;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.*;
@@ -13,6 +15,8 @@ import java.util.concurrent.ConcurrentHashMap;
 
 @Component
 public class TerminalWebSocketHandler extends TextWebSocketHandler {
+
+    private static final Logger logger = LoggerFactory.getLogger(TerminalWebSocketHandler.class);
 
     private final JwtUtil jwtUtil;
     private final String agentUrl;
@@ -83,17 +87,16 @@ public class TerminalWebSocketHandler extends TextWebSocketHandler {
             }, headers, java.net.URI.create(agentWsUrl))
             .whenComplete((session, ex) -> {
                 if (ex != null) {
-                    System.err.println("Asynchronous WebSocket connection to agent failed: " + ex.getMessage());
-                    ex.printStackTrace();
+                    logger.error("Asynchronous WebSocket connection to agent failed: {}", ex.getMessage(), ex);
                     try {
                         clientSession.close(CloseStatus.SERVER_ERROR);
                     } catch (IOException e) {
-                        System.err.println("Failed to close client session: " + e.getMessage());
+                        logger.error("Failed to close client session: {}", e.getMessage());
                     }
                 }
             });
         } catch (Exception e) {
-            System.err.println("Failed to connect to agent PTY WebSocket: " + e.getMessage());
+            logger.error("Failed to connect to agent PTY WebSocket: {}", e.getMessage());
             clientSession.close(CloseStatus.SERVER_ERROR);
         }
     }
