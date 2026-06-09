@@ -15,10 +15,12 @@ import org.springframework.web.client.RestClient;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.io.BufferedReader;
+import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 @Service
 public class AgentService {
@@ -60,22 +62,67 @@ public class AgentService {
 
     public SseEmitter streamAgentLogs(String deploymentId) {
         logger.info("Initiating log streaming for deployment: {}", deploymentId);
-        SseEmitter emitter = new SseEmitter(0L);
+        SseEmitter emitter = new SseEmitter(300_000L); // 5-minute timeout to prevent infinite hangs
+
+        // Track client disconnection so the blocking reader thread can exit
+        AtomicBoolean clientDisconnected = new AtomicBoolean(false);
+        // Hold a reference to the upstream InputStream so we can close it to unblock readLine()
+        AtomicBoolean cancelled = new AtomicBoolean(false);
+        final InputStream[] upstreamRef = new InputStream[1];
+
+        Runnable cancelUpstream = () -> {
+            if (cancelled.compareAndSet(false, true)) {
+                clientDisconnected.set(true);
+                // Close the upstream InputStream to unblock the readLine() call
+                InputStream is = upstreamRef[0];
+                if (is != null) {
+                    try {
+                        is.close();
+                    } catch (Exception ignored) {
+                        // Expected when aborting a streaming connection
+                    }
+                }
+            }
+        };
+
+        emitter.onCompletion(cancelUpstream);
+        emitter.onTimeout(cancelUpstream);
+        emitter.onError(e -> cancelUpstream.run());
+
         executorService.execute(() -> {
             try {
                 String uri = "/logs" + (deploymentId != null ? "?id=" + deploymentId : "");
                 this.restClient.get().uri(uri).exchange((request, response) -> {
-                    BufferedReader reader = new BufferedReader(new InputStreamReader(response.getBody()));
+                    upstreamRef[0] = response.getBody();
+                    BufferedReader reader = new BufferedReader(new InputStreamReader(upstreamRef[0]));
                     String line;
-                    while ((line = reader.readLine()) != null) {
-                        if (line.startsWith("data:")) emitter.send(line.substring(5).trim());
+                    while (!clientDisconnected.get() && (line = reader.readLine()) != null) {
+                        if (line.startsWith("data:")) {
+                            try {
+                                emitter.send(line.substring(5).trim());
+                            } catch (Exception sendEx) {
+                                // Client disconnected mid-send
+                                logger.debug("Client disconnected during log stream send: {}", sendEx.getMessage());
+                                break;
+                            }
+                        }
                     }
                     return null;
                 });
-                emitter.complete();
+                if (!clientDisconnected.get()) {
+                    emitter.complete();
+                }
             } catch (Exception e) {
-                logger.error("Error occurred during log streaming: {}", e.getMessage(), e);
-                emitter.completeWithError(e);
+                if (!clientDisconnected.get()) {
+                    logger.error("Error occurred during log streaming: {}", e.getMessage());
+                    try {
+                        emitter.completeWithError(e);
+                    } catch (Exception ignored) {
+                        // Emitter already completed
+                    }
+                } else {
+                    logger.debug("Log stream closed after client disconnect for deployment: {}", deploymentId);
+                }
             }
         });
         return emitter;
