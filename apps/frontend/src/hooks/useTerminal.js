@@ -78,10 +78,15 @@ export function useTerminal(token, role, handleLogout) {
           });
 
           const handleResize = () => {
-            fitAddon.fit();
-            const dims = fitAddon.proposeDimensions();
-            if (dims && ws && ws.readyState === WebSocket.OPEN) {
-              ws.send(JSON.stringify({ event: 'resize', cols: dims.cols, rows: dims.rows }));
+            if (!isMounted || !xtermInstance.current) return;
+            try {
+              fitAddon.fit();
+              const dims = fitAddon.proposeDimensions();
+              if (dims && ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({ event: 'resize', cols: dims.cols, rows: dims.rows }));
+              }
+            } catch (e) {
+              console.warn("Terminal resize error ignored during unmount:", e);
             }
           };
 
