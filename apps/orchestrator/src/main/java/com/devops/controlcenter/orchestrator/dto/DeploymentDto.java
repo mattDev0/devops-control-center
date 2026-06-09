@@ -1,12 +1,18 @@
 package com.devops.controlcenter.orchestrator.dto;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 public class DeploymentDto {
     private String id;
     private String name;
     private String image;
     private String state;
     private String status;
+
+    @JsonProperty("error_message")
     private String errorMessage;
+
+    @JsonProperty("updated_at")
     private String updatedAt;
 
     // Constructors
