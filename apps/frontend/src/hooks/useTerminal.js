@@ -41,9 +41,9 @@ export function useTerminal(token, role, handleLogout) {
           term.write('\r\n$ ');
         } else {
           const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-          const wsUrl = `${protocol}//${window.location.host}/ws/terminal?token=${encodeURIComponent(token)}`;
+          const wsUrl = `${protocol}//${window.location.host}/ws/terminal`;
           
-          ws = new WebSocket(wsUrl);
+          ws = new WebSocket(wsUrl, ["access_token", token]);
 
           ws.onopen = () => {
             const dims = fitAddon.proposeDimensions();
