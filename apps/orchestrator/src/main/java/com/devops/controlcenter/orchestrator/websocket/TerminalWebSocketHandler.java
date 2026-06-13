@@ -121,6 +121,10 @@ public class TerminalWebSocketHandler extends TextWebSocketHandler {
     }
 
     private String extractToken(WebSocketSession session) {
+        String token = (String) session.getAttributes().get("token");
+        if (token != null) {
+            return token;
+        }
         if (session.getUri() == null) return null;
         String query = session.getUri().getQuery();
         if (query == null) return null;
