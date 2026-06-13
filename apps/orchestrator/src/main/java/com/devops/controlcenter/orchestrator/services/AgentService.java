@@ -10,6 +10,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.ParameterizedTypeReference;
+import org.springframework.http.client.ClientHttpResponse;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
@@ -28,7 +29,7 @@ public class AgentService {
     private static final Logger logger = LoggerFactory.getLogger(AgentService.class);
 
     private final RestClient restClient;
-    private final ExecutorService executorService = Executors.newFixedThreadPool(10);
+    private final ExecutorService executorService = Executors.newVirtualThreadPerTaskExecutor();
 
     public AgentService(
             RestClient.Builder restClientBuilder,
@@ -66,14 +67,24 @@ public class AgentService {
 
         // Track client disconnection so the blocking reader thread can exit
         AtomicBoolean clientDisconnected = new AtomicBoolean(false);
-        // Hold a reference to the upstream InputStream so we can close it to unblock readLine()
+        // Hold a reference to the upstream InputStream and ClientHttpResponse so we can close them to unblock readLine()
         AtomicBoolean cancelled = new AtomicBoolean(false);
         final InputStream[] upstreamRef = new InputStream[1];
+        final ClientHttpResponse[] responseRef = new ClientHttpResponse[1];
 
         Runnable cancelUpstream = () -> {
             if (cancelled.compareAndSet(false, true)) {
                 clientDisconnected.set(true);
-                // Close the upstream InputStream to unblock the readLine() call
+                // Close the ClientHttpResponse to abort the HTTP network connection
+                ClientHttpResponse response = responseRef[0];
+                if (response != null) {
+                    try {
+                        response.close();
+                    } catch (Exception ignored) {
+                        // Expected when aborting a streaming connection
+                    }
+                }
+                // Close the upstream InputStream as a fallback
                 InputStream is = upstreamRef[0];
                 if (is != null) {
                     try {
@@ -93,6 +104,7 @@ public class AgentService {
             try {
                 String uri = "/logs" + (deploymentId != null ? "?id=" + deploymentId : "");
                 this.restClient.get().uri(uri).exchange((request, response) -> {
+                    responseRef[0] = response;
                     upstreamRef[0] = response.getBody();
                     BufferedReader reader = new BufferedReader(new InputStreamReader(upstreamRef[0]));
                     String line;
