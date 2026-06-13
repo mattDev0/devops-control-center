@@ -100,10 +100,22 @@ pub async fn stream_logs(
                             if let Ok(stream) = pods_api.log_stream(&pod_name, &lp).await {
                                 use futures::AsyncBufReadExt;
                                 let mut lines = stream.lines();
-                                while let Some(Ok(line)) = lines.next().await {
-                                    let msg = format!("[{}] {}", pod_name, line);
-                                    if tx_pod.send(Ok(Event::default().data(msg))).await.is_err() {
-                                        break;
+                                loop {
+                                    tokio::select! {
+                                        line_res = lines.next() => {
+                                            match line_res {
+                                                Some(Ok(line)) => {
+                                                    let msg = format!("[{}] {}", pod_name, line);
+                                                    if tx_pod.send(Ok(Event::default().data(msg))).await.is_err() {
+                                                        break;
+                                                    }
+                                                }
+                                                _ => break,
+                                            }
+                                        }
+                                        _ = tx_pod.closed() => {
+                                            break;
+                                        }
                                     }
                                 }
                             } else {
@@ -155,10 +167,22 @@ pub async fn stream_logs(
                                         Ok(stream) => {
                                             use futures::AsyncBufReadExt;
                                             let mut lines = stream.lines();
-                                            while let Some(Ok(line)) = lines.next().await {
-                                                let msg = format!("{}/[{}] {}", ns_str, pod_name, line);
-                                                if tx_pod.send(Ok(Event::default().data(msg))).await.is_err() {
-                                                    break;
+                                            loop {
+                                                tokio::select! {
+                                                    line_res = lines.next() => {
+                                                        match line_res {
+                                                            Some(Ok(line)) => {
+                                                                let msg = format!("{}/[{}] {}", ns_str, pod_name, line);
+                                                                if tx_pod.send(Ok(Event::default().data(msg))).await.is_err() {
+                                                                    break;
+                                                                }
+                                                            }
+                                                            _ => break,
+                                                        }
+                                                    }
+                                                    _ = tx_pod.closed() => {
+                                                        break;
+                                                    }
                                                 }
                                             }
                                         }
