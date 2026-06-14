@@ -179,6 +179,7 @@ jobs:
             sudo kubectl apply -f infrastructure/k8s/agent.yaml
             sudo kubectl apply -f infrastructure/k8s/orchestrator.yaml
             sudo kubectl apply -f infrastructure/k8s/frontend.yaml
+            sudo kubectl apply -f infrastructure/k8s/ingress.yaml
             sudo kubectl apply -f infrastructure/k8s/prometheus.yaml
             sudo kubectl apply -f infrastructure/k8s/grafana.yaml
             sudo kubectl apply -f infrastructure/k8s/node-exporter.yaml
