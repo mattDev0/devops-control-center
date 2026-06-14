@@ -63,7 +63,10 @@ spec:
   policyTypes:
   - Ingress
   ingress:
-  - from: []
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: kube-system
     ports:
     - protocol: TCP
       port: 8080
@@ -100,7 +103,10 @@ spec:
   policyTypes:
   - Ingress
   ingress:
-  - from: []
+  - from:
+    - podSelector:
+        matchLabels:
+          app: devops-frontend
     ports:
     - protocol: TCP
       port: 3000
