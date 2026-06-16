@@ -1,3 +1,4 @@
+---
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -7,6 +8,7 @@ spec:
   podSelector: {}
   policyTypes:
   - Ingress
+---
 ---
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
@@ -27,6 +29,7 @@ spec:
     ports:
     - protocol: TCP
       port: 3001
+---
 ---
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
@@ -51,6 +54,7 @@ spec:
     - protocol: TCP
       port: 8080
 ---
+---
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -70,6 +74,7 @@ spec:
     ports:
     - protocol: TCP
       port: 8080
+---
 ---
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
@@ -91,6 +96,7 @@ spec:
     - protocol: TCP
       port: 9090
 ---
+---
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -110,3 +116,17 @@ spec:
     ports:
     - protocol: TCP
       port: 3000
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-acme-solver-ingress
+  namespace: devops
+spec:
+  podSelector:
+    matchLabels:
+      acme.cert-manager.io/http01-solver: "true"
+  policyTypes:
+  - Ingress
+  ingress:
+  - {}
