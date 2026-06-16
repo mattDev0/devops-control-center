@@ -38,7 +38,7 @@ jobs:
 
       - name: Run Kubeconform Manifest Validation
         run: |
-          ~/go/bin/kubeconform -strict infrastructure/k8s/
+          ~/go/bin/kubeconform -strict -schema-location default -schema-location 'https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json' infrastructure/k8s/
 
       - name: Set up Rust Toolchain
         uses: dtolnay/rust-toolchain@stable
