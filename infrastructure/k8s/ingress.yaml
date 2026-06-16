@@ -5,6 +5,7 @@ metadata:
   namespace: devops
   annotations:
     kubernetes.io/ingress.class: traefik
+    traefik.ingress.kubernetes.io/router.middlewares: devops-redirect-to-https@kubernetescrd
 spec:
   tls:
   - hosts:
