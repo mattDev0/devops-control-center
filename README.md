@@ -21,19 +21,22 @@ The platform is built on a modern, secure microservices architecture deployed vi
 
 ```mermaid
 graph TD
-    Client[Client Browser] -->|HTTPS 443| Nginx[Host Nginx Reverse Proxy]
+    Client[Client Browser] -->|HTTPS 443| Traefik[Traefik Ingress Controller]
     
     subgraph "Azure Virtual Machine (Host)"
-        Nginx -->|Proxy to Port 30085| K8sDevOpsFE[Service: devops-frontend NodePort]
-        Nginx -->|Proxy to Port 30010| K8sGrafana[Service: devops-grafana NodePort]
+        subgraph "Namespace: kube-system"
+            Traefik
+        end
 
         subgraph "Namespace: devops"
+            Traefik -->|Ingress Route| K8sDevOpsFE[Service: devops-frontend ClusterIP]
             K8sDevOpsFE --> DevOpsFE[devops-frontend Pod]
-            DevOpsFE --> Orchestrator[devops-orchestrator Pod]
+            DevOpsFE -->|Internal Nginx Proxy| Orchestrator[devops-orchestrator Pod]
+            DevOpsFE -->|Internal Nginx Proxy| Grafana[devops-grafana Pod]
+            
             Orchestrator --> Agent[devops-agent Pod]
             Agent -->|kube-rs API Calls| K8sAPI[K3s API Server]
             
-            K8sGrafana --> Grafana[devops-grafana Pod]
             Grafana -->|Query Metrics| Prom[devops-prometheus Pod]
             Prom -->|Scrape Telemetry| NodeExp[node-exporter DaemonSet]
         end
@@ -226,7 +229,7 @@ devops-control-center/
 | **Backend**          | Java Spring Boot, Spring Security, JWT (io.jsonwebtoken), WebSockets, SLF4J, Actuator |
 | **Agent**            | Rust, Axum, `kube-rs`, `tokio`, `portable-pty`, `tracing` |
 | **Orchestration**    | Kubernetes (K3s), Docker Compose (Local Dev) |
-| **Web Server / Proxy**| Nginx (with WebSocket & SSE upgrades, timeout tuning) |
+| **Web Server / Proxy**| Traefik Ingress (TLS termination, HTTP→HTTPS redirect) + Nginx (in-pod reverse proxy for API/WS/Grafana routing) |
 | **Observability**    | Prometheus, Grafana, Node Exporter, Blackbox Exporter |
 
 ---
