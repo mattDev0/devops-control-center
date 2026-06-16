@@ -47,23 +47,7 @@ public class JwtHandshakeInterceptor implements HandshakeInterceptor {
             }
         }
         
-        // Fallback for query param (we'll support this temporarily to avoid breaking changes during migration)
-        String query = request.getURI().getQuery();
-        if (query != null) {
-            for (String param : query.split("&")) {
-                String[] pair = param.split("=");
-                if (pair.length == 2 && "token".equals(pair[0])) {
-                    String token = pair[1];
-                    if (jwtUtil.validateToken(token)) {
-                        attributes.put("token", token);
-                        logger.debug("Successfully validated JWT from query parameter and stored in session attributes");
-                        return true;
-                    }
-                }
-            }
-        }
-
-        logger.warn("WebSocket handshake rejected: No valid JWT found in Sec-WebSocket-Protocol or query parameter");
+        logger.warn("WebSocket handshake rejected: No valid JWT found in Sec-WebSocket-Protocol header");
         return false;
     }
 
