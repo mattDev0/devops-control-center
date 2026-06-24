@@ -20,7 +20,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @SpringBootTest(properties = {
     "management.endpoints.web.exposure.include=health,prometheus",
-    "management.endpoint.health.show-details=always"
+    "management.endpoint.health.show-details=always",
+    "agent.secret-key=test-agent-secret-key-123",
+    "admin.password=admin-password-change-me",
+    "jwt.secret=jwt-signing-secret-key-change-me-should-be-long-and-random-32-bytes"
 })
 @AutoConfigureMockMvc
 @org.springframework.boot.test.autoconfigure.actuate.observability.AutoConfigureObservability
