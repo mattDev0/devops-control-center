@@ -78,6 +78,12 @@ pub async fn stream_logs(
         let namespace = parts[0].to_string();
         let dep_name = parts[1].to_string();
 
+        if namespace != "devops" && namespace != "portfolio" {
+            tracing::warn!("Blocked unauthorized namespace target in log stream: {}", namespace);
+            let _ = tx.try_send(Ok(Event::default().data("Error: Access denied to target namespace")));
+            return Sse::new(tokio_stream::wrappers::ReceiverStream::new(rx)).keep_alive(KeepAlive::new()).into_response();
+        }
+
         let tx_clone = tx.clone();
         tokio::spawn(async move {
             match find_pods_for_deployment(client.clone(), &namespace, &dep_name).await {
