@@ -128,6 +128,11 @@ pub async fn deployment_action(
     let namespace = parts[0];
     let dep_name = parts[1];
 
+    if namespace != "devops" && namespace != "portfolio" {
+        tracing::warn!("Blocked unauthorized namespace target in deployment action: {}", namespace);
+        return Err(StatusCode::FORBIDDEN);
+    }
+
     let api: Api<Deployment> = Api::namespaced(client, namespace);
 
     match action.as_str() {
