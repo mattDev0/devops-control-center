@@ -325,6 +325,11 @@ spec:
         ports:
         - containerPort: 3000
         env:
+        - name: GF_SECURITY_ADMIN_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: devops-secrets
+              key: GRAFANA_ADMIN_PASSWORD
         - name: GF_SECURITY_ALLOW_EMBEDDING
           value: "true"
         - name: GF_AUTH_ANONYMOUS_ENABLED
