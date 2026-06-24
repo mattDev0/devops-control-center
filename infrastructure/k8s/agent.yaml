@@ -5,27 +5,56 @@ metadata:
   namespace: devops
 ---
 apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
+kind: Role
 metadata:
   name: devops-agent-role
+  namespace: devops
 rules:
 - apiGroups: ["apps"]
   resources: ["deployments", "deployments/scale", "replicasets"]
   verbs: ["get", "list", "watch", "update", "patch"]
 - apiGroups: [""]
-  resources: ["pods", "namespaces", "pods/log"]
+  resources: ["pods", "pods/log"]
   verbs: ["get", "list", "watch"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
+kind: RoleBinding
 metadata:
   name: devops-agent-role-binding
+  namespace: devops
 subjects:
 - kind: ServiceAccount
   name: devops-agent-sa
   namespace: devops
 roleRef:
-  kind: ClusterRole
+  kind: Role
+  name: devops-agent-role
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: devops-agent-role
+  namespace: portfolio
+rules:
+- apiGroups: ["apps"]
+  resources: ["deployments", "deployments/scale", "replicasets"]
+  verbs: ["get", "list", "watch", "update", "patch"]
+- apiGroups: [""]
+  resources: ["pods", "pods/log"]
+  verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: devops-agent-role-binding
+  namespace: portfolio
+subjects:
+- kind: ServiceAccount
+  name: devops-agent-sa
+  namespace: devops
+roleRef:
+  kind: Role
   name: devops-agent-role
   apiGroup: rbac.authorization.k8s.io
 ---
