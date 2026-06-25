@@ -50,6 +50,20 @@ spec:
           limits:
             memory: "64Mi"
             cpu: "100m"
+        volumeMounts:
+        - name: cache-volume
+          mountPath: /var/cache/nginx
+        - name: run-volume
+          mountPath: /var/run
+        - name: tmp-volume
+          mountPath: /tmp
+      volumes:
+      - name: cache-volume
+        emptyDir: {}
+      - name: run-volume
+        emptyDir: {}
+      - name: tmp-volume
+        emptyDir: {}
 ---
 apiVersion: v1
 kind: Service
