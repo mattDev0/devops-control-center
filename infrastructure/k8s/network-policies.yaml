@@ -1,14 +1,31 @@
----
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: default-deny-ingress
+  name: default-deny-all
   namespace: devops
 spec:
   podSelector: {}
   policyTypes:
   - Ingress
+  - Egress
 ---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-dns-egress
+  namespace: devops
+spec:
+  podSelector: {}
+  policyTypes:
+  - Egress
+  egress:
+  - to:
+    - namespaceSelector: {}
+    ports:
+    - protocol: UDP
+      port: 53
+    - protocol: TCP
+      port: 53
 ---
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
@@ -30,6 +47,24 @@ spec:
     - protocol: TCP
       port: 3001
 ---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-agent-egress
+  namespace: devops
+spec:
+  podSelector:
+    matchLabels:
+      app: devops-agent
+  policyTypes:
+  - Egress
+  egress:
+  - to:
+    - ipBlock:
+        cidr: 0.0.0.0/0
+    ports:
+    - protocol: TCP
+      port: 443
 ---
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
@@ -54,6 +89,31 @@ spec:
     - protocol: TCP
       port: 8080
 ---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-orchestrator-egress
+  namespace: devops
+spec:
+  podSelector:
+    matchLabels:
+      app: devops-orchestrator
+  policyTypes:
+  - Egress
+  egress:
+  - to:
+    - podSelector:
+        matchLabels:
+          app: devops-agent
+    ports:
+    - protocol: TCP
+      port: 3001
+  - to:
+    - ipBlock:
+        cidr: 0.0.0.0/0
+    ports:
+    - protocol: TCP
+      port: 443
 ---
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
@@ -75,6 +135,32 @@ spec:
     - protocol: TCP
       port: 8080
 ---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-frontend-egress
+  namespace: devops
+spec:
+  podSelector:
+    matchLabels:
+      app: devops-frontend
+  policyTypes:
+  - Egress
+  egress:
+  - to:
+    - podSelector:
+        matchLabels:
+          app: devops-orchestrator
+    ports:
+    - protocol: TCP
+      port: 8080
+  - to:
+    - podSelector:
+        matchLabels:
+          app: devops-grafana
+    ports:
+    - protocol: TCP
+      port: 3000
 ---
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
@@ -96,6 +182,41 @@ spec:
     - protocol: TCP
       port: 9090
 ---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-prometheus-egress
+  namespace: devops
+spec:
+  podSelector:
+    matchLabels:
+      app: prometheus
+  policyTypes:
+  - Egress
+  egress:
+  - to:
+    - podSelector:
+        matchLabels:
+          app: devops-orchestrator
+    ports:
+    - protocol: TCP
+      port: 8080
+  - to:
+    - podSelector:
+        matchLabels:
+          app: node-exporter
+    ports:
+    - protocol: TCP
+      port: 9100
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: portfolio
+    ports:
+    - protocol: TCP
+      port: 8081
+    - protocol: TCP
+      port: 9115
 ---
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
@@ -116,6 +237,26 @@ spec:
     ports:
     - protocol: TCP
       port: 3000
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-grafana-egress
+  namespace: devops
+spec:
+  podSelector:
+    matchLabels:
+      app: devops-grafana
+  policyTypes:
+  - Egress
+  egress:
+  - to:
+    - podSelector:
+        matchLabels:
+          app: prometheus
+    ports:
+    - protocol: TCP
+      port: 9090
 ---
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
