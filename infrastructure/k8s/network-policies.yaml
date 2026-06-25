@@ -65,6 +65,13 @@ spec:
     ports:
     - protocol: TCP
       port: 443
+  # Allow access to the Kubernetes API server endpoint (node IP)
+  - to:
+    - ipBlock:
+        cidr: 10.1.0.4/32
+    ports:
+    - protocol: TCP
+      port: 6443
 ---
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
