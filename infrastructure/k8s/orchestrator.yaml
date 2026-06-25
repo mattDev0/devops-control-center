@@ -17,6 +17,8 @@ spec:
     spec:
       securityContext:
         runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
       containers:
       - name: devops-orchestrator
         image: ghcr.io/mattdev0/devops-control-center/devops-orchestrator:latest
