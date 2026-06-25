@@ -61,6 +61,7 @@ async fn main() {
         .route("/ws/terminal", get(pty_handler::ws_terminal_handler))
         .route_layer(middleware::from_fn_with_state(state.clone(), auth_middleware))
         .route("/health", get(system::health))
+        .route("/livez", get(system::liveness))
         .with_state(state);
 
     let addr = SocketAddr::from(([0, 0, 0, 0], 3001));

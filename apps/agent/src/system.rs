@@ -14,6 +14,24 @@ pub async fn ping() -> impl IntoResponse {
     })
 }
 
+pub async fn liveness() -> impl IntoResponse {
+    let mut sys = System::new_all();
+    sys.refresh_all();
+    let os_name = System::name().unwrap_or_else(|| "Unknown".to_string());
+    let os_version = System::os_version().unwrap_or_else(|| "Unknown".to_string());
+    let uptime_seconds = System::uptime();
+
+    (
+        StatusCode::OK,
+        Json(json!({
+            "status": "alive",
+            "os_name": os_name,
+            "os_version": os_version,
+            "uptime_seconds": uptime_seconds
+        })),
+    )
+}
+
 pub async fn health() -> impl IntoResponse {
     let mut sys = System::new_all();
     sys.refresh_all();
