@@ -17,12 +17,15 @@ spec:
     spec:
       securityContext:
         runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
       containers:
       - name: devops-frontend
         image: ghcr.io/mattdev0/devops-control-center/devops-frontend:latest
         imagePullPolicy: Always
         securityContext:
           allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
           capabilities:
             drop:
               - ALL
