@@ -78,6 +78,8 @@ spec:
       serviceAccountName: devops-agent-sa
       securityContext:
         runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
       containers:
       - name: devops-agent
         image: ghcr.io/mattdev0/devops-control-center/devops-agent:latest
@@ -91,7 +93,7 @@ spec:
         - containerPort: 3001
         livenessProbe:
           httpGet:
-            path: /health
+            path: /livez
             port: 3001
           initialDelaySeconds: 5
           periodSeconds: 10
