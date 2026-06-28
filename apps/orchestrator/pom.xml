@@ -23,7 +23,7 @@
     <properties>
         <java.version>21</java.version>
         <tomcat.version>10.1.56</tomcat.version>
-        <spring-security.version>6.4.11</spring-security.version>
+        <spring-security.version>6.5.9</spring-security.version>
     </properties>
 
     <dependencies>
