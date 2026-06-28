@@ -5,6 +5,10 @@ on:
     branches:
       - main
 
+concurrency:
+  group: production-deploy
+  cancel-in-progress: false
+
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -108,10 +112,18 @@ jobs:
           context: ./apps/agent
           push: true
           tags: |
-            ghcr.io/mattdev0/devops-control-center/devops-agent:latest
             ghcr.io/mattdev0/devops-control-center/devops-agent:${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      - name: Scan Devops Agent Image
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: 'ghcr.io/mattdev0/devops-control-center/devops-agent:${{ github.sha }}'
+          format: 'table'
+          exit-code: '1'
+          ignore-unfixed: true
+          severity: 'CRITICAL'
 
       - name: Build and Push Devops Orchestrator
         uses: docker/build-push-action@v5
@@ -119,10 +131,18 @@ jobs:
           context: ./apps/orchestrator
           push: true
           tags: |
-            ghcr.io/mattdev0/devops-control-center/devops-orchestrator:latest
             ghcr.io/mattdev0/devops-control-center/devops-orchestrator:${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      - name: Scan Devops Orchestrator Image
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: 'ghcr.io/mattdev0/devops-control-center/devops-orchestrator:${{ github.sha }}'
+          format: 'table'
+          exit-code: '1'
+          ignore-unfixed: true
+          severity: 'CRITICAL'
 
       - name: Build and Push Devops Frontend
         uses: docker/build-push-action@v5
@@ -130,14 +150,23 @@ jobs:
           context: ./apps/frontend
           push: true
           tags: |
-            ghcr.io/mattdev0/devops-control-center/devops-frontend:latest
             ghcr.io/mattdev0/devops-control-center/devops-frontend:${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+      - name: Scan Devops Frontend Image
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: 'ghcr.io/mattdev0/devops-control-center/devops-frontend:${{ github.sha }}'
+          format: 'table'
+          exit-code: '1'
+          ignore-unfixed: true
+          severity: 'CRITICAL'
+
   deploy:
     needs: build
     runs-on: ubuntu-latest
+    environment: production
     steps:
       - name: Executing Remote SSH Commands to Deploy
         uses: appleboy/ssh-action@v1.0.3
@@ -190,9 +219,9 @@ jobs:
             sudo kubectl rollout restart deployment/devops-agent deployment/devops-orchestrator deployment/devops-frontend -n devops
             
             echo "Waiting for rollouts to complete..."
-            sudo kubectl rollout status deployment/devops-agent -n devops --timeout=300s
-            sudo kubectl rollout status deployment/devops-orchestrator -n devops --timeout=300s
-            sudo kubectl rollout status deployment/devops-frontend -n devops --timeout=300s
+            sudo kubectl rollout status deployment/devops-agent -n devops --timeout=300s || (sudo kubectl rollout undo deployment/devops-agent -n devops && exit 1)
+            sudo kubectl rollout status deployment/devops-orchestrator -n devops --timeout=300s || (sudo kubectl rollout undo deployment/devops-orchestrator -n devops && exit 1)
+            sudo kubectl rollout status deployment/devops-frontend -n devops --timeout=300s || (sudo kubectl rollout undo deployment/devops-frontend -n devops && exit 1)
             
             # Prune docker images to save space
             sudo docker image prune -f
