@@ -14,6 +14,7 @@ import DeploymentsTable from './components/dashboard/DeploymentsTable';
 import LogsModal from './components/dashboard/LogsModal';
 import WorkflowsTable from './components/dashboard/WorkflowsTable';
 import MetricsCards from './components/dashboard/MetricsCards';
+import HealthSLOPanel from './components/dashboard/HealthSLOPanel';
 import ErrorBoundary from './components/ErrorBoundary';
 
 export default function App() {
@@ -24,6 +25,8 @@ export default function App() {
   const [deployments, setDeployments] = useState([]);
   const [workflows, setWorkflows] = useState([]);
   const [loadingWorkflows, setLoadingWorkflows] = useState(true);
+  const [podHealth, setPodHealth] = useState(null);
+  const [loadingPodHealth, setLoadingPodHealth] = useState(false);
 
   // Deployment Logs Modal State
   const [activeLogDeployment, setActiveLogDeployment] = useState(null);
@@ -101,6 +104,7 @@ export default function App() {
     setToken('');
     setRole('');
     setHealth(null);
+    setPodHealth(null);
     setDeployments([]);
     setWorkflows([]);
     setUsername('');
@@ -139,6 +143,25 @@ export default function App() {
       if (error.message === 'UNAUTHORIZED') {
         handleLogout();
       }
+    }
+  };
+
+  // Fetch Kubernetes Pod Health
+  const fetchPodHealth = async (activeToken = token) => {
+    if (!activeToken) return;
+    setLoadingPodHealth(true);
+    try {
+      const data = await api.fetchPodHealth(activeToken);
+      if (Array.isArray(data)) {
+        setPodHealth(data);
+      }
+    } catch (error) {
+      console.error("Failed to fetch pod health", error);
+      if (error.message === 'UNAUTHORIZED') {
+        handleLogout();
+      }
+    } finally {
+      setLoadingPodHealth(false);
     }
   };
 
@@ -197,11 +220,13 @@ export default function App() {
     fetchHealth(token);
     fetchDeployments(token);
     fetchWorkflows(token);
+    fetchPodHealth(token);
 
     // Periodic refresh for health and deployments every 30 seconds
     const interval = setInterval(() => {
       fetchHealth(token);
       fetchDeployments(token);
+      fetchPodHealth(token);
     }, 30000);
 
     return () => clearInterval(interval);
@@ -248,7 +273,7 @@ export default function App() {
       </header>
 
       {/* Row 1: Health & Overview */}
-      <div className="grid grid-cols-1 gap-6 mb-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
         <ErrorBoundary>
           <MetricsCards
             health={health}
@@ -257,6 +282,15 @@ export default function App() {
             token={token}
           />
         </ErrorBoundary>
+        <div className="lg:col-span-2">
+          <ErrorBoundary>
+            <HealthSLOPanel
+              podHealth={podHealth}
+              loading={loadingPodHealth}
+              fetchPodHealth={() => fetchPodHealth()}
+            />
+          </ErrorBoundary>
+        </div>
       </div>
 
       {/* Row 2: Deployments & CI/CD */}
