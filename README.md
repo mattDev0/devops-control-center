@@ -56,6 +56,7 @@ graph TD
 
 ## 1. Frontend — React + Vite + Tailwind CSS + Nginx
 A responsive single-page dashboard featuring:
+* **K8s Health & SLO Dashboard:** Dynamic panel showing pod status cards, Availability SLI circular gauge, and Error Budget tracking bar.
 * **Role-Based UI Control:** Displays custom action controls based on the logged-in user's role (Admin vs. Guest).
 * **Live SSE Log Viewer:** Seamlessly pulls logs via Server-Sent Events, complete with auto-scrolling and pod color headers in a premium glassmorphic modal.
 * **Robust Session Management:** Enforces automatic frontend logout if the authentication token expires or gets rejected with `401`/`403`, resolving endless reconnection loops.
@@ -66,11 +67,13 @@ The central gateway and security dispatcher responsible for:
 * **Authentication Provider:** Issues signed JWT tokens for authenticating login requests (`/api/auth/login`) and guest access.
 * **Spring Security & RBAC:** Enforces strict path authorization (e.g. restricting deployment scaling and CI/CD dispatch to `ROLE_ADMIN`).
 * **Protection & Hardening:** Enforces in-memory rate limiting (5 req/min) for authentication endpoints with a background eviction thread, and gracefully handles exceptions via a unified `GlobalExceptionHandler` and standard DTO mappings.
+* **API Proxy Layer:** Securely forwards authenticated cluster health queries (e.g., `/api/servers/pods/health`) directly to the Rust system agent.
 * **Async Log Proxying:** Handles long-running SSE log queries with thread-pool exhaustion safeguards (tracking client disconnects) and Spring Security async dispatches.
 * **Observability:** Completely standardized on SLF4J structured logging and exposes `/actuator/health` and `/actuator/prometheus` scrape metrics.
 
 ## 3. Agent — Rust + Axum + kube-rs
 A lightweight, high-performance, modular system agent running as a Kubernetes pod.
+* **Pod Health Reporter:** Dynamically queries the local K3s API server for pod states across target namespaces, aggregating them into Running/Pending/Failed/CrashLoop counts.
 * **Merged Kubernetes Logs:** Streams logs from pods in `portfolio` and `devops` namespaces concurrently using async `tokio::sync::mpsc::channel` streams.
 * **Deployment Orchestrator:** Interacts directly with the local K3s API server via `kube-rs` to fetch deployment lists, scale replicas, and patch timestamps to trigger zero-downtime rolling updates.
 * **Resilience & Observability:** Implements exponential backoff for K8s client initialization and emits rich, structured telemetry via the `tracing` crate.
@@ -94,6 +97,12 @@ Enforces role-based permissions to protect platform modifications:
 * **User Authentication:** Sign in using credentials or enter as a guest with one click.
 * **Access Controls:** Read-only access for guests (monitoring only), with mutating actions (scaling deployments, running pipelines) restricted strictly to `ROLE_ADMIN` users.
 * **Rate Limiting:** Protects against brute-force login attacks using an eviction-managed token bucket filter.
+
+### 📊 Kubernetes Health & SLO Dashboard
+Visualize real-time cluster workloads and Service Level Objectives (SLOs):
+* **Monitored Namespaces Overview:** View pod status summaries (Running, Pending, Failed, CrashLoop) for target namespaces (`devops` and `portfolio`).
+* **Availability SLI:** Track real-time pod availability percentages mapped via a dynamic progress ring.
+* **Error Budget remaining:** Visual progress bar showing consumed vs. remaining error budget based on a configurable 99.9% availability objective.
 
 ### 🪵 Real-Time Pod Log Streaming
 Stream logs dynamically from Kubernetes deployments inside the cluster.
