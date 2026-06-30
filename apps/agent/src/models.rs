@@ -22,3 +22,13 @@ pub struct DeploymentDto {
 pub struct LogParamsQuery {
     pub id: Option<String>,
 }
+
+#[derive(Serialize, Debug, Clone)]
+pub struct PodHealthSummary {
+    pub namespace: String,
+    pub running: u32,
+    pub pending: u32,
+    pub failed: u32,
+    pub crash_loop: u32,
+    pub total: u32,
+}

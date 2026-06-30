@@ -56,6 +56,7 @@ async fn main() {
         .route("/logs", get(k8s::stream_logs))
         .route("/deployments", get(k8s::list_deployments))
         .route("/deployments/:id/:action", post(k8s::deployment_action))
+        .route("/pods/health", get(k8s::pod_health))
         .route_layer(middleware::from_fn_with_state(state.clone(), auth_middleware))
         .route("/health", get(system::health))
         .route("/livez", get(system::liveness))
