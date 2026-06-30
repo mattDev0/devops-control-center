@@ -59,7 +59,7 @@ A responsive single-page dashboard featuring:
 * **K8s Health & SLO Dashboard:** Dynamic panel showing pod status cards, Availability SLI circular gauge, and Error Budget tracking bar.
 * **Role-Based UI Control:** Displays custom action controls based on the logged-in user's role (Admin vs. Guest).
 * **Live SSE Log Viewer:** Seamlessly pulls logs via Server-Sent Events, complete with auto-scrolling and pod color headers in a premium glassmorphic modal.
-* **Robust Session Management:** Enforces automatic frontend logout if the authentication token expires or gets rejected with `401`/`403`, resolving endless reconnection loops.
+* **Robust Session Management:** Enforces automatic frontend logout if the authentication token expires or gets rejected with `401`/`403`.
 * **Resilience:** Integrates React Error Boundaries to prevent single-component crashes from breaking the entire dashboard.
 
 ## 2. Orchestrator — Java Spring Boot
@@ -76,6 +76,7 @@ A lightweight, high-performance, modular system agent running as a Kubernetes po
 * **Pod Health Reporter:** Dynamically queries the local K3s API server for pod states across target namespaces, aggregating them into Running/Pending/Failed/CrashLoop counts.
 * **Merged Kubernetes Logs:** Streams logs from pods in `portfolio` and `devops` namespaces concurrently using async `tokio::sync::mpsc::channel` streams.
 * **Deployment Orchestrator:** Interacts directly with the local K3s API server via `kube-rs` to fetch deployment lists, scale replicas, and patch timestamps to trigger zero-downtime rolling updates.
+* **State Transition Webhooks:** Actively monitors deployment state changes and broadcasts real-time alerts to Discord webhooks upon state transitions (e.g., Running, Failed).
 * **Resilience & Observability:** Implements exponential backoff for K8s client initialization and emits rich, structured telemetry via the `tracing` crate.
 
 ## 4. Observability Stack — Prometheus & Grafana
@@ -102,7 +103,7 @@ Enforces role-based permissions to protect platform modifications:
 Visualize real-time cluster workloads and Service Level Objectives (SLOs):
 * **Monitored Namespaces Overview:** View pod status summaries (Running, Pending, Failed, CrashLoop) for target namespaces (`devops` and `portfolio`).
 * **Availability SLI:** Track real-time pod availability percentages mapped via a dynamic progress ring.
-* **Error Budget remaining:** Visual progress bar showing consumed vs. remaining error budget based on a configurable 99.9% availability objective.
+* **Error Budget remaining:** Visual progress bar showing consumed vs. remaining error budget based on a targeted 99.9% availability objective.
 
 ### 🪵 Real-Time Pod Log Streaming
 Stream logs dynamically from Kubernetes deployments inside the cluster.
@@ -212,7 +213,7 @@ devops-control-center/
 │   ├── nginx/                  # Nginx configuration
 │   ├── k8s/                    # Kubernetes Manifests ☸️ (Deployments, Services, NetworkPolicies)
 │   ├── monitoring/             # Monitoring config (Grafana dashboards, Prometheus config)
-│   └── terraform/              # Terraform scripts
+│   └── terraform/              # Terraform example placeholder scripts
 ├── .github/workflows/          # CI/CD Pipeline (deploy.yml)
 ├── docker-compose.yml          # Local stack orchestration
 ├── .env.example                # Production environment template
@@ -229,7 +230,7 @@ devops-control-center/
 | **Backend**          | Java Spring Boot, Spring Security, JWT (io.jsonwebtoken), SLF4J, Actuator |
 | **Agent**            | Rust, Axum, `kube-rs`, `tokio`, `tracing` |
 | **Orchestration**    | Kubernetes (K3s), Docker Compose (Local Dev) |
-| **Web Server / Proxy**| Traefik Ingress (TLS termination, HTTP→HTTPS redirect) + Nginx (in-pod reverse proxy for API/Grafana routing) |
+| **Web Server / Proxy**| Traefik Ingress (TLS termination, HTTP→HTTPS redirect), `cert-manager` (Let's Encrypt) + Nginx (in-pod reverse proxy for API/Grafana routing) |
 | **Observability**    | Prometheus, Grafana, Node Exporter, Blackbox Exporter |
 
 ---
