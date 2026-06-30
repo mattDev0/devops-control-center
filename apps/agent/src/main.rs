@@ -10,7 +10,6 @@ use std::net::SocketAddr;
 
 mod models;
 mod k8s;
-mod pty_handler;
 mod system;
 
 #[derive(Clone)]
@@ -54,11 +53,9 @@ async fn main() {
 
     let app = Router::new()
         .route("/ping", get(system::ping))
-        .route("/execute", post(system::execute_command))
         .route("/logs", get(k8s::stream_logs))
         .route("/deployments", get(k8s::list_deployments))
         .route("/deployments/:id/:action", post(k8s::deployment_action))
-        .route("/ws/terminal", get(pty_handler::ws_terminal_handler))
         .route_layer(middleware::from_fn_with_state(state.clone(), auth_middleware))
         .route("/health", get(system::health))
         .route("/livez", get(system::liveness))

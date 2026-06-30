@@ -1,7 +1,6 @@
 use axum::{http::StatusCode, Json, response::IntoResponse};
-use std::process::Command;
 use sysinfo::System;
-use crate::models::{SystemInfo, ExecuteRequest, ExecuteResponse};
+use crate::models::SystemInfo;
 use serde_json::json;
 
 pub async fn ping() -> impl IntoResponse {
@@ -61,55 +60,6 @@ pub async fn health() -> impl IntoResponse {
                 "uptime_seconds": uptime_seconds
             })),
         ),
-    }
-}
-
-pub async fn execute_command(
-    Json(payload): Json<ExecuteRequest>,
-) -> Result<Json<ExecuteResponse>, StatusCode> {
-    let allowed_commands = ["ls", "pwd", "whoami", "echo", "uptime", "date"];
-    if !allowed_commands.contains(&payload.command.as_str()) {
-        return Err(StatusCode::FORBIDDEN);
-    }
-
-    let output = Command::new(&payload.command)
-        .args(&payload.args)
-        .output()
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-
-    Ok(Json(ExecuteResponse {
-        stdout: String::from_utf8_lossy(&output.stdout).to_string(),
-        stderr: String::from_utf8_lossy(&output.stderr).to_string(),
-        exit_code: output.status.code().unwrap_or(-1),
-    }))
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::models::ExecuteRequest;
-
-    #[tokio::test]
-    async fn test_execute_allowed_command() {
-        let req = ExecuteRequest {
-            command: "echo".to_string(),
-            args: vec!["hello".to_string()],
-        };
-        let res = execute_command(Json(req)).await;
-        assert!(res.is_ok());
-        let val = res.unwrap().0;
-        assert_eq!(val.exit_code, 0);
-        assert!(val.stdout.contains("hello"));
-    }
-
-    #[tokio::test]
-    async fn test_execute_forbidden_command() {
-        let req = ExecuteRequest {
-            command: "rm".to_string(),
-            args: vec!["-rf".to_string(), "/".to_string()],
-        };
-        let res = execute_command(Json(req)).await;
-        assert_eq!(res.unwrap_err(), StatusCode::FORBIDDEN);
     }
 }
 

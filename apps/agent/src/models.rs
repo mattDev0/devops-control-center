@@ -7,19 +7,6 @@ pub struct SystemInfo {
     pub uptime_seconds: u64,
 }
 
-#[derive(Deserialize, Debug)]
-pub struct ExecuteRequest {
-    pub command: String,
-    pub args: Vec<String>,
-}
-
-#[derive(Serialize, Debug)]
-pub struct ExecuteResponse {
-    pub stdout: String,
-    pub stderr: String,
-    pub exit_code: i32,
-}
-
 #[derive(Serialize, Debug)]
 pub struct DeploymentDto {
     pub id: String,
