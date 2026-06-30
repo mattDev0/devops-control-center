@@ -2,6 +2,7 @@ package com.devops.controlcenter.orchestrator.controllers;
 
 import com.devops.controlcenter.orchestrator.dto.AgentHealthDto;
 import com.devops.controlcenter.orchestrator.dto.DeploymentDto;
+import com.devops.controlcenter.orchestrator.dto.PodHealthDto;
 import com.devops.controlcenter.orchestrator.services.AgentService;
 
 import org.slf4j.Logger;
@@ -47,5 +48,11 @@ public class AgentController {
         logger.info("Received request to execute deployment action {} for deployment ID {}", action, id);
         agentService.executeDeploymentAction(id, action);
         return ResponseEntity.ok().build();
+    }
+
+    @GetMapping("/pods/health")
+    public ResponseEntity<List<PodHealthDto>> getPodHealth() {
+        logger.info("Received request for K8s pod health status.");
+        return ResponseEntity.ok(agentService.fetchPodHealth());
     }
 }

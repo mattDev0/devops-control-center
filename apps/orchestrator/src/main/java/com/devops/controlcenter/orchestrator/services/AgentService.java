@@ -2,6 +2,7 @@ package com.devops.controlcenter.orchestrator.services;
 
 import com.devops.controlcenter.orchestrator.dto.AgentHealthDto;
 import com.devops.controlcenter.orchestrator.dto.DeploymentDto;
+import com.devops.controlcenter.orchestrator.dto.PodHealthDto;
 import com.devops.controlcenter.orchestrator.exceptions.AgentUnreachableException;
 import jakarta.annotation.PreDestroy;
 import org.slf4j.Logger;
@@ -144,6 +145,16 @@ public class AgentService {
             this.restClient.post().uri("/deployments/" + id + "/" + action).retrieve().toBodilessEntity();
         } catch (Exception e) {
             logger.error("Agent is unreachable on /deployments/{}/{}: {}", id, action, e.getMessage());
+            throw new AgentUnreachableException("Agent is unreachable", e);
+        }
+    }
+
+    public List<PodHealthDto> fetchPodHealth() {
+        try {
+            logger.info("Fetching pod health summary from agent...");
+            return this.restClient.get().uri("/pods/health").retrieve().body(new ParameterizedTypeReference<List<PodHealthDto>>() {});
+        } catch (Exception e) {
+            logger.error("Agent is unreachable on /pods/health: {}", e.getMessage());
             throw new AgentUnreachableException("Agent is unreachable", e);
         }
     }
