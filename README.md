@@ -1,6 +1,6 @@
 # 🚀 DevOps Control Center
 
-A custom, end-to-end DevOps orchestration and observability platform built from scratch. This project unifies server monitoring, remote terminal execution, Kubernetes deployment management, and CI/CD pipeline tracking into a single, sleek React dashboard.
+A custom, end-to-end DevOps orchestration and observability platform built from scratch. This project unifies server monitoring, Kubernetes deployment management, and CI/CD pipeline tracking into a single, sleek React dashboard.
 
 ---
 
@@ -56,7 +56,6 @@ graph TD
 
 ## 1. Frontend — React + Vite + Tailwind CSS + Nginx
 A responsive single-page dashboard featuring:
-* **Interactive PTY Terminal:** Embedded `xterm.js` terminal connected to a backend WebSocket stream with graceful unmount handling.
 * **Role-Based UI Control:** Displays custom action controls based on the logged-in user's role (Admin vs. Guest).
 * **Live SSE Log Viewer:** Seamlessly pulls logs via Server-Sent Events, complete with auto-scrolling and pod color headers in a premium glassmorphic modal.
 * **Robust Session Management:** Enforces automatic frontend logout if the authentication token expires or gets rejected with `401`/`403`, resolving endless reconnection loops.
@@ -65,15 +64,13 @@ A responsive single-page dashboard featuring:
 ## 2. Orchestrator — Java Spring Boot
 The central gateway and security dispatcher responsible for:
 * **Authentication Provider:** Issues signed JWT tokens for authenticating login requests (`/api/auth/login`) and guest access.
-* **Spring Security & RBAC:** Enforces strict path authorization (e.g. restricting deployment scaling, CI/CD dispatch, and terminal execution to `ROLE_ADMIN`).
+* **Spring Security & RBAC:** Enforces strict path authorization (e.g. restricting deployment scaling and CI/CD dispatch to `ROLE_ADMIN`).
 * **Protection & Hardening:** Enforces in-memory rate limiting (5 req/min) for authentication endpoints with a background eviction thread, and gracefully handles exceptions via a unified `GlobalExceptionHandler` and standard DTO mappings.
-* **WebSocket Bidirectional Proxy:** Validates JWT authorization during handshakes and forwards raw terminal traffic directly to the Rust agent.
 * **Async Log Proxying:** Handles long-running SSE log queries with thread-pool exhaustion safeguards (tracking client disconnects) and Spring Security async dispatches.
 * **Observability:** Completely standardized on SLF4J structured logging and exposes `/actuator/health` and `/actuator/prometheus` scrape metrics.
 
 ## 3. Agent — Rust + Axum + kube-rs
 A lightweight, high-performance, modular system agent running as a Kubernetes pod.
-* **PTY Bridge (WebSockets):** Spawns local shells inside a pseudo-terminal (`portable-pty`) and streams stdout/stdin bidirectionally, explicitly handling zombie process termination.
 * **Merged Kubernetes Logs:** Streams logs from pods in `portfolio` and `devops` namespaces concurrently using async `tokio::sync::mpsc::channel` streams.
 * **Deployment Orchestrator:** Interacts directly with the local K3s API server via `kube-rs` to fetch deployment lists, scale replicas, and patch timestamps to trigger zero-downtime rolling updates.
 * **Resilience & Observability:** Implements exponential backoff for K8s client initialization and emits rich, structured telemetry via the `tracing` crate.
@@ -95,14 +92,8 @@ A lightweight, high-performance, modular system agent running as a Kubernetes po
 ### 🔒 Secure JWT Authentication & RBAC
 Enforces role-based permissions to protect platform modifications:
 * **User Authentication:** Sign in using credentials or enter as a guest with one click.
-* **Access Controls:** Read-only access for guests (monitoring only), with mutating actions (executing commands, scaling deployments, running pipelines) restricted strictly to `ROLE_ADMIN` users. Terminal stdin is explicitly disabled for guest users.
+* **Access Controls:** Read-only access for guests (monitoring only), with mutating actions (scaling deployments, running pipelines) restricted strictly to `ROLE_ADMIN` users.
 * **Rate Limiting:** Protects against brute-force login attacks using an eviction-managed token bucket filter.
-
-### 🐚 Real-Time Interactive PTY Terminal
-A fully functional remote terminal directly in your web browser.
-* **Pseudo-Terminal (PTY):** Runs a live shell bridge via the Rust agent, allowing you to run interactive commands.
-* **Bidirectional WebSockets:** Sends keystrokes and streams terminal outputs in real-time, proxied securely through the Spring Boot orchestrator.
-* **Dynamic Grid Resizing:** Automatically synchronizes local viewport width and height to resize the remote shell's dimension.
 
 ### 🪵 Real-Time Pod Log Streaming
 Stream logs dynamically from Kubernetes deployments inside the cluster.
@@ -196,7 +187,7 @@ The automated GitHub Action runs across three stages (`test` → `build` → `de
 devops-control-center/
 ├── apps/                       # Monorepo Applications Grouped 📂
 │   ├── agent/                  # Rust Agent 🦀
-│   │   ├── src/                # Modular Rust code (main, system, k8s/*, pty_handler, models)
+│   │   ├── src/                # Modular Rust code (main, system, k8s/*, models)
 │   │   ├── Dockerfile
 │   │   └── Cargo.toml
 │   ├── orchestrator/           # Spring Boot Backend ☕
@@ -225,11 +216,11 @@ devops-control-center/
 
 | Layer                | Technology / Key Libraries |
 | -------------------- | -------------------------- |
-| **Frontend**         | React, Vite, Tailwind CSS, `xterm.js`, `lucide-react` |
-| **Backend**          | Java Spring Boot, Spring Security, JWT (io.jsonwebtoken), WebSockets, SLF4J, Actuator |
-| **Agent**            | Rust, Axum, `kube-rs`, `tokio`, `portable-pty`, `tracing` |
+| **Frontend**         | React, Vite, Tailwind CSS, `lucide-react` |
+| **Backend**          | Java Spring Boot, Spring Security, JWT (io.jsonwebtoken), SLF4J, Actuator |
+| **Agent**            | Rust, Axum, `kube-rs`, `tokio`, `tracing` |
 | **Orchestration**    | Kubernetes (K3s), Docker Compose (Local Dev) |
-| **Web Server / Proxy**| Traefik Ingress (TLS termination, HTTP→HTTPS redirect) + Nginx (in-pod reverse proxy for API/WS/Grafana routing) |
+| **Web Server / Proxy**| Traefik Ingress (TLS termination, HTTP→HTTPS redirect) + Nginx (in-pod reverse proxy for API/Grafana routing) |
 | **Observability**    | Prometheus, Grafana, Node Exporter, Blackbox Exporter |
 
 ---
