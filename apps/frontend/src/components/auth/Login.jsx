@@ -1,4 +1,4 @@
-import { User, Lock, Loader2, Terminal as TerminalIcon } from 'lucide-react';
+import { User, Lock, Loader2, LayoutDashboard as TerminalIcon } from 'lucide-react';
 
 export default function Login({
   username,

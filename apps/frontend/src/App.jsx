@@ -1,16 +1,14 @@
 import { useState, useEffect, useRef } from 'react';
-import { LogOut, Terminal as TerminalIcon } from 'lucide-react';
+import { LogOut, LayoutDashboard } from 'lucide-react';
 
 // Import Services
 import { api } from './services/api';
 
 // Import Hooks
 import { useSystemLogs, useDeploymentLogs } from './hooks/useLogs';
-import { useTerminal } from './hooks/useTerminal';
 
 // Import Components
 import Login from './components/auth/Login';
-import Terminal from './components/dashboard/Terminal';
 import LogViewer from './components/dashboard/LogViewer';
 import DeploymentsTable from './components/dashboard/DeploymentsTable';
 import LogsModal from './components/dashboard/LogsModal';
@@ -42,7 +40,6 @@ export default function App() {
   const deploymentLogsRef = useRef(null);
 
   // Custom Hooks
-  const terminalRef = useTerminal(token, role, handleLogout);
   const logs = useSystemLogs(token);
   const activeDeploymentLogs = useDeploymentLogs(token, activeLogDeployment, showLogsModal);
 
@@ -232,7 +229,7 @@ export default function App() {
       <header className="mb-8 flex justify-between items-center">
         <div className="flex flex-col">
           <h1 className="text-3xl font-bold text-emerald-400 flex items-center gap-3">
-            <TerminalIcon className="w-8 h-8" />
+            <LayoutDashboard className="w-8 h-8" />
             DevOps Control Center
           </h1>
           {role === 'ROLE_GUEST' && (
@@ -250,8 +247,8 @@ export default function App() {
         </button>
       </header>
 
-      {/* Row 1: Health & Terminal */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+      {/* Row 1: Health & Overview */}
+      <div className="grid grid-cols-1 gap-6 mb-6">
         <ErrorBoundary>
           <MetricsCards
             health={health}
@@ -259,9 +256,6 @@ export default function App() {
             fetchHealth={() => fetchHealth()}
             token={token}
           />
-        </ErrorBoundary>
-        <ErrorBoundary>
-          <Terminal terminalRef={terminalRef} />
         </ErrorBoundary>
       </div>
 
