@@ -2,8 +2,6 @@ package com.devops.controlcenter.orchestrator.controllers;
 
 import com.devops.controlcenter.orchestrator.dto.AgentHealthDto;
 import com.devops.controlcenter.orchestrator.dto.DeploymentDto;
-import com.devops.controlcenter.orchestrator.dto.ExecuteRequestDto;
-import com.devops.controlcenter.orchestrator.dto.ExecuteResponseDto;
 import com.devops.controlcenter.orchestrator.services.AgentService;
 
 import org.slf4j.Logger;
@@ -30,13 +28,6 @@ public class AgentController {
     public ResponseEntity<AgentHealthDto> getHealth() {
         logger.info("Received request for agent health status.");
         return ResponseEntity.ok(agentService.fetchAgentHealth());
-    }
-
-    @PostMapping(value = "/execute", produces = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<ExecuteResponseDto> executeCommand(@RequestBody ExecuteRequestDto payload) {
-        logger.info("Received request to execute command: {}", payload.getCommand());
-        ExecuteResponseDto response = agentService.executeCommand(payload);
-        return ResponseEntity.ok(response);
     }
 
     @GetMapping(value = "/logs", produces = MediaType.TEXT_EVENT_STREAM_VALUE)

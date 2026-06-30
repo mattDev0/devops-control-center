@@ -84,32 +84,6 @@ public class OrchestratorSecurityTest {
     }
 
     @Test
-    public void testPathRoleRestrictionExecuteCommand() throws Exception {
-        // Unauthenticated request to /api/servers/execute should return 401
-        mockMvc.perform(post("/api/servers/execute")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"command\":\"ls\",\"args\":[]}"))
-                .andExpect(status().isUnauthorized());
-
-        // Guest token should return 403 Forbidden for execute command (admin only)
-        String guestToken = jwtUtil.generateToken("portfolio-guest", "ROLE_GUEST");
-        mockMvc.perform(post("/api/servers/execute")
-                        .header("Authorization", "Bearer " + guestToken)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"command\":\"ls\",\"args\":[]}"))
-                .andExpect(status().isForbidden());
-
-        // Admin token should be processed (in this test, it will try to call the mocked/unreachable AgentService
-        // and throw AgentUnreachableException, which the GlobalExceptionHandler will map to 503)
-        String adminToken = jwtUtil.generateToken("admin", "ROLE_ADMIN");
-        mockMvc.perform(post("/api/servers/execute")
-                        .header("Authorization", "Bearer " + adminToken)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"command\":\"ls\",\"args\":[]}"))
-                .andExpect(status().isServiceUnavailable());
-    }
-
-    @Test
     public void testActuatorPermitAll() throws Exception {
         mockMvc.perform(get("/actuator/health"))
                 .andExpect(status().isOk())

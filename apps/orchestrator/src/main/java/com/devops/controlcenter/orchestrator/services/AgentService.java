@@ -2,8 +2,6 @@ package com.devops.controlcenter.orchestrator.services;
 
 import com.devops.controlcenter.orchestrator.dto.AgentHealthDto;
 import com.devops.controlcenter.orchestrator.dto.DeploymentDto;
-import com.devops.controlcenter.orchestrator.dto.ExecuteRequestDto;
-import com.devops.controlcenter.orchestrator.dto.ExecuteResponseDto;
 import com.devops.controlcenter.orchestrator.exceptions.AgentUnreachableException;
 import jakarta.annotation.PreDestroy;
 import org.slf4j.Logger;
@@ -47,16 +45,6 @@ public class AgentService {
             return this.restClient.get().uri("/health").retrieve().body(AgentHealthDto.class);
         } catch (Exception e) {
             logger.error("Agent is unreachable on /health: {}", e.getMessage());
-            throw new AgentUnreachableException("Agent is unreachable", e);
-        }
-    }
-
-    public ExecuteResponseDto executeCommand(ExecuteRequestDto requestDto) {
-        try {
-            logger.info("Requesting agent execution of command: {}", requestDto.getCommand());
-            return this.restClient.post().uri("/execute").body(requestDto).retrieve().body(ExecuteResponseDto.class);
-        } catch (Exception e) {
-            logger.error("Agent is unreachable on /execute: {}", e.getMessage());
             throw new AgentUnreachableException("Agent is unreachable", e);
         }
     }
