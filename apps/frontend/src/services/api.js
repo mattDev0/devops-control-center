@@ -76,5 +76,12 @@ export const api = {
       throw new Error(`Workflow trigger failed: ${response.status}`);
     }
     return true;
+  },
+
+  fetchPodHealth: async (token) => {
+    const response = await fetch('api/servers/pods/health', {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    return handleResponse(response);
   }
 };
