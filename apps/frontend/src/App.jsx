@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { LogOut, LayoutDashboard } from 'lucide-react';
+import { LogOut, LayoutDashboard, ChevronLeft, ChevronRight, Menu, Layers, GitPullRequest, FileText, Globe } from 'lucide-react';
 
 // Import Services
 import { api } from './services/api';
@@ -27,6 +27,10 @@ export default function App() {
   const [loadingWorkflows, setLoadingWorkflows] = useState(true);
   const [podHealth, setPodHealth] = useState(null);
   const [loadingPodHealth, setLoadingPodHealth] = useState(false);
+
+  // Sidebar Layout State
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
 
   // Deployment Logs Modal State
   const [activeLogDeployment, setActiveLogDeployment] = useState(null);
@@ -250,79 +254,198 @@ export default function App() {
 
   // Dashboard Main View
   return (
-    <div className="min-h-screen p-8 max-w-6xl mx-auto font-sans">
-      <header className="mb-8 flex justify-between items-center">
-        <div className="flex flex-col">
-          <h1 className="text-3xl font-bold text-emerald-400 flex items-center gap-3">
-            <LayoutDashboard className="w-8 h-8" />
-            DevOps Control Center
-          </h1>
-          {role === 'ROLE_GUEST' && (
-            <span className="text-xs text-slate-400 font-mono mt-1 bg-slate-800/60 px-2 py-0.5 rounded border border-slate-700/50 w-fit">
-              🔒 Read-Only Guest Mode
+    <div className="min-h-screen flex bg-[var(--bg-canvas)] text-[var(--fg-default)] font-sans">
+      {/* Mobile Sidebar Overlay */}
+      {mobileOpen && (
+        <div 
+          onClick={() => setMobileOpen(false)}
+          className="fixed inset-0 z-40 bg-black/60 md:hidden"
+        />
+      )}
+
+      {/* Persistent/Collapsible Left Sidebar */}
+      <aside 
+        className={`fixed inset-y-0 left-0 z-50 flex flex-col bg-[var(--bg-surface)] border-r border-[var(--border-default)] transition-all duration-300 md:sticky md:block shrink-0 ${
+          mobileOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
+        } ${sidebarCollapsed ? 'w-16' : 'w-60'}`}
+      >
+        {/* Sidebar Header */}
+        <div className="flex h-14 items-center justify-between px-4 border-b border-[var(--border-muted)]">
+          {!sidebarCollapsed ? (
+            <span className="font-bold text-sm tracking-wider uppercase text-[var(--accent-primary)] flex items-center gap-2">
+              <LayoutDashboard className="w-5 h-5" />
+              Control Center
             </span>
+          ) : (
+            <div className="mx-auto text-[var(--accent-primary)]">
+              <LayoutDashboard className="w-5 h-5" />
+            </div>
           )}
+          <button
+            onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+            className="hidden md:flex p-1 rounded hover:bg-[var(--interactive-hover)] text-[var(--fg-muted)] hover:text-[var(--fg-default)] transition-colors"
+            title={sidebarCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
+          >
+            {sidebarCollapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
+          </button>
         </div>
-        <button
-          onClick={handleLogout}
-          className="flex items-center gap-2 bg-slate-800 hover:bg-red-500/20 hover:text-red-400 hover:border-red-500/30 text-slate-400 border border-slate-700 px-4 py-2 rounded-lg text-sm font-semibold transition-all hover:scale-[1.02]"
-        >
-          <LogOut className="w-4 h-4" />
-          Logout
-        </button>
-      </header>
 
-      {/* Row 1: Health & Overview */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-        <ErrorBoundary>
-          <MetricsCards
-            health={health}
-            loading={loading}
-            fetchHealth={() => fetchHealth()}
-            token={token}
-          />
-        </ErrorBoundary>
-        <div className="lg:col-span-2">
-          <ErrorBoundary>
-            <HealthSLOPanel
-              podHealth={podHealth}
-              loading={loadingPodHealth}
-              fetchPodHealth={() => fetchPodHealth()}
-            />
-          </ErrorBoundary>
-        </div>
-      </div>
-
-      {/* Row 2: Deployments & CI/CD */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-        <ErrorBoundary>
-          <DeploymentsTable
-            deployments={deployments}
-            role={role}
-            fetchDeployments={() => fetchDeployments()}
-            handleDeploymentAction={handleDeploymentAction}
-            onViewLogs={(deployment) => {
-              setActiveLogDeployment(deployment);
-              setShowLogsModal(true);
+        {/* Sidebar Navigation Links */}
+        <nav className="flex-1 space-y-1 p-2 overflow-y-auto">
+          <button
+            onClick={() => {
+              document.getElementById('overview')?.scrollIntoView({ behavior: 'smooth' });
+              setMobileOpen(false);
             }}
-          />
-        </ErrorBoundary>
-        <ErrorBoundary>
-          <WorkflowsTable
-            workflows={workflows}
-            loadingWorkflows={loadingWorkflows}
-            role={role}
-            fetchWorkflows={() => fetchWorkflows()}
-            triggerWorkflow={triggerWorkflow}
-          />
-        </ErrorBoundary>
-      </div>
+            className="flex items-center w-full gap-3 px-3 py-2 text-sm font-medium rounded-md hover:bg-[var(--interactive-hover)] text-[var(--fg-muted)] hover:text-[var(--fg-default)] transition-colors"
+            title="Overview"
+          >
+            <LayoutDashboard className="w-5 h-5 shrink-0 text-[var(--fg-subtle)]" />
+            {!sidebarCollapsed && <span>Overview</span>}
+          </button>
+          
+          <button
+            onClick={() => {
+              document.getElementById('deployments')?.scrollIntoView({ behavior: 'smooth' });
+              setMobileOpen(false);
+            }}
+            className="flex items-center w-full gap-3 px-3 py-2 text-sm font-medium rounded-md hover:bg-[var(--interactive-hover)] text-[var(--fg-muted)] hover:text-[var(--fg-default)] transition-colors"
+            title="Deployments"
+          >
+            <Layers className="w-5 h-5 shrink-0 text-[var(--fg-subtle)]" />
+            {!sidebarCollapsed && <span>Deployments</span>}
+          </button>
 
-      {/* Row 3: Logs */}
-      <div className="grid grid-cols-1 gap-6 mb-6">
-        <ErrorBoundary>
-          <LogViewer logs={logs} logsContainerRef={logsContainerRef} />
-        </ErrorBoundary>
+          <button
+            onClick={() => {
+              document.getElementById('pipelines')?.scrollIntoView({ behavior: 'smooth' });
+              setMobileOpen(false);
+            }}
+            className="flex items-center w-full gap-3 px-3 py-2 text-sm font-medium rounded-md hover:bg-[var(--interactive-hover)] text-[var(--fg-muted)] hover:text-[var(--fg-default)] transition-colors"
+            title="Pipelines"
+          >
+            <GitPullRequest className="w-5 h-5 shrink-0 text-[var(--fg-subtle)]" />
+            {!sidebarCollapsed && <span>Pipelines</span>}
+          </button>
+
+          <button
+            onClick={() => {
+              document.getElementById('logs')?.scrollIntoView({ behavior: 'smooth' });
+              setMobileOpen(false);
+            }}
+            className="flex items-center w-full gap-3 px-3 py-2 text-sm font-medium rounded-md hover:bg-[var(--interactive-hover)] text-[var(--fg-muted)] hover:text-[var(--fg-default)] transition-colors"
+            title="System Logs"
+          >
+            <FileText className="w-5 h-5 shrink-0 text-[var(--fg-subtle)]" />
+            {!sidebarCollapsed && <span>System Logs</span>}
+          </button>
+        </nav>
+
+        {/* Scope Context Box */}
+        {!sidebarCollapsed && (
+          <div className="p-4 border-t border-[var(--border-muted)] bg-[var(--bg-canvas)]/30 m-2 rounded-lg">
+            <div className="text-[10px] uppercase font-bold text-[var(--fg-subtle)] tracking-wider">Scope Context</div>
+            <div className="text-xs font-semibold mt-1 flex items-center gap-1.5 text-[var(--accent-primary)]">
+              <Globe className="w-3.5 h-3.5" />
+              Production / K3s
+            </div>
+          </div>
+        )}
+      </aside>
+
+      {/* Main Content Area */}
+      <div className="flex-1 flex flex-col min-w-0 min-h-screen">
+        {/* Sticky Top Nav Bar */}
+        <header className="sticky top-0 z-30 flex h-14 items-center justify-between bg-[var(--bg-surface)] border-b border-[var(--border-default)] px-6 shadow-sm">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setMobileOpen(!mobileOpen)}
+              className="p-1.5 rounded hover:bg-[var(--interactive-hover)] text-[var(--fg-muted)] hover:text-[var(--fg-default)] md:hidden transition-colors"
+              title="Toggle Menu"
+            >
+              <Menu className="w-5 h-5" />
+            </button>
+            
+            <h1 className="text-base font-bold tracking-tight text-[var(--fg-default)] flex items-center gap-2">
+              DevOps Control Center
+            </h1>
+            
+            {role === 'ROLE_GUEST' && (
+              <span className="text-[10px] font-mono font-medium bg-[var(--bg-elevated)] border border-[var(--border-muted)] text-[var(--fg-muted)] px-2 py-0.5 rounded">
+                🔒 Guest Mode
+              </span>
+            )}
+          </div>
+
+          <button
+            onClick={handleLogout}
+            className="flex items-center gap-2 bg-[var(--bg-elevated)] hover:bg-red-500/10 hover:text-red-400 border border-[var(--border-default)] px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer"
+          >
+            <LogOut className="w-3.5 h-3.5" />
+            Logout
+          </button>
+        </header>
+
+        {/* Scrollable Panel Container */}
+        <main className="flex-grow p-6 overflow-y-auto space-y-6 max-w-7xl w-full mx-auto">
+          {/* Row 1: Health & Overview */}
+          <div id="overview" className="scroll-mt-20 grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <ErrorBoundary>
+              <MetricsCards
+                health={health}
+                loading={loading}
+                fetchHealth={() => fetchHealth()}
+                token={token}
+              />
+            </ErrorBoundary>
+            <div className="lg:col-span-2">
+              <ErrorBoundary>
+                <HealthSLOPanel
+                  podHealth={podHealth}
+                  loading={loadingPodHealth}
+                  fetchPodHealth={() => fetchPodHealth()}
+                />
+              </ErrorBoundary>
+            </div>
+          </div>
+
+          {/* Row 2: Deployments & CI/CD */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div id="deployments" className="scroll-mt-20">
+              <ErrorBoundary>
+                <DeploymentsTable
+                  deployments={deployments}
+                  role={role}
+                  fetchDeployments={() => fetchDeployments()}
+                  handleDeploymentAction={handleDeploymentAction}
+                  onViewLogs={(deployment) => {
+                    setActiveLogDeployment(deployment);
+                    setShowLogsModal(true);
+                  }}
+                />
+              </ErrorBoundary>
+            </div>
+            
+            <div id="pipelines" className="scroll-mt-20">
+              <ErrorBoundary>
+                <WorkflowsTable
+                  workflows={workflows}
+                  loadingWorkflows={loadingWorkflows}
+                  role={role}
+                  fetchWorkflows={() => fetchWorkflows()}
+                  triggerWorkflow={triggerWorkflow}
+                />
+              </ErrorBoundary>
+            </div>
+          </div>
+
+          {/* Row 3: Logs */}
+          <div id="logs" className="scroll-mt-20 grid grid-cols-1">
+            <ErrorBoundary>
+              <LogViewer logs={logs} logsContainerRef={logsContainerRef} />
+            </ErrorBoundary>
+          </div>
+        </main>
       </div>
 
       {/* Deployment Logs Modal */}
