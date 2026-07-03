@@ -53,33 +53,33 @@ export default function HealthSLOPanel({ podHealth, loading, fetchPodHealth }) {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Namespace cards */}
-            <div className="space-y-4">
+            <div className="space-y-3">
               <h3 className="text-xs font-bold uppercase text-[var(--fg-muted)] tracking-wider">Monitored Namespaces</h3>
               {podHealth && podHealth.map((ns) => (
-                <div key={ns.namespace} className="bg-[var(--bg-canvas)]/60 border border-[var(--border-default)] p-4 rounded-xl space-y-3">
+                <div key={ns.namespace} className="bg-[var(--bg-canvas)]/60 border border-[var(--border-default)] p-3 rounded-lg space-y-2">
                   <div className="flex items-center justify-between">
-                    <span className="font-mono text-sm font-semibold text-[var(--fg-default)]">ns/{ns.namespace}</span>
-                    <span className={`w-2 h-2 rounded-full ${ns.failed > 0 || ns.crash_loop > 0 ? 'bg-[var(--status-error)] animate-pulse' : ns.pending > 0 ? 'bg-[var(--status-warning)]' : 'bg-[var(--status-success)]'}`}></span>
+                    <span className="font-mono text-xs font-semibold text-[var(--fg-default)]">ns/{ns.namespace}</span>
+                    <span className={`w-1.5 h-1.5 rounded-full ${ns.failed > 0 || ns.crash_loop > 0 ? 'bg-[var(--status-error)] animate-pulse' : ns.pending > 0 ? 'bg-[var(--status-warning)]' : 'bg-[var(--status-success)]'}`}></span>
                   </div>
                   
-                  <div className="grid grid-cols-4 gap-2 text-center">
-                    <div className="bg-[var(--bg-surface)]/40 p-2 rounded">
-                      <div className="text-[var(--status-success)] font-mono text-lg font-bold">{ns.running}</div>
-                      <div className="text-[10px] text-[var(--fg-subtle)]">Run</div>
+                  <div className="grid grid-cols-4 gap-1.5 text-center">
+                    <div className="bg-[var(--bg-surface)]/40 p-1.5 rounded">
+                      <div className="text-[var(--status-success)] font-mono text-base font-bold">{ns.running}</div>
+                      <div className="text-[9px] text-[var(--fg-subtle)] uppercase">Run</div>
                     </div>
-                    <div className="bg-[var(--bg-surface)]/40 p-2 rounded">
-                      <div className="text-[var(--status-warning)] font-mono text-lg font-bold">{ns.pending}</div>
-                      <div className="text-[10px] text-[var(--fg-subtle)]">Pend</div>
+                    <div className="bg-[var(--bg-surface)]/40 p-1.5 rounded">
+                      <div className="text-[var(--status-warning)] font-mono text-base font-bold">{ns.pending}</div>
+                      <div className="text-[9px] text-[var(--fg-subtle)] uppercase">Pend</div>
                     </div>
-                    <div className="bg-[var(--bg-surface)]/40 p-2 rounded">
-                      <div className="text-[var(--status-error)] font-mono text-lg font-bold">{ns.failed}</div>
-                      <div className="text-[10px] text-[var(--fg-subtle)]">Fail</div>
+                    <div className="bg-[var(--bg-surface)]/40 p-1.5 rounded">
+                      <div className="text-[var(--status-error)] font-mono text-base font-bold">{ns.failed}</div>
+                      <div className="text-[9px] text-[var(--fg-subtle)] uppercase">Fail</div>
                     </div>
-                    <div className="bg-[var(--bg-surface)]/40 p-2 rounded">
-                      <div className={`font-mono text-lg font-bold ${ns.crash_loop > 0 ? 'text-[var(--status-error)] animate-pulse' : 'text-[var(--fg-subtle)]'}`}>
+                    <div className="bg-[var(--bg-surface)]/40 p-1.5 rounded">
+                      <div className={`font-mono text-base font-bold ${ns.crash_loop > 0 ? 'text-[var(--status-error)] animate-pulse' : 'text-[var(--fg-subtle)]'}`}>
                         {ns.crash_loop}
                       </div>
-                      <div className="text-[10px] text-[var(--fg-subtle)]">Crash</div>
+                      <div className="text-[9px] text-[var(--fg-subtle)] uppercase">Crash</div>
                     </div>
                   </div>
                 </div>
