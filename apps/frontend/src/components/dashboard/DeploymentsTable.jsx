@@ -8,16 +8,17 @@ export default function DeploymentsTable({
   onViewLogs
 }) {
   return (
-    <div className="bg-slate-800 rounded-xl p-6 border border-slate-700 shadow-xl">
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="text-xl font-semibold flex items-center gap-2 text-slate-200">
-          <Layers className="text-purple-400" /> Kubernetes Deployments
+    <div className="bg-[var(--bg-surface)] border border-[var(--border-default)] rounded-[var(--radius-lg)] p-4 flex flex-col">
+      <div className="flex items-center justify-between pb-3 border-b border-[var(--border-muted)] mb-4">
+        <h2 className="text-sm font-semibold flex items-center gap-2 text-[var(--fg-default)]">
+          <Layers className="w-4 h-4 text-[var(--accent-primary)]" /> Kubernetes Deployments
         </h2>
         <button 
           onClick={fetchDeployments}
-          className="bg-slate-700 hover:bg-slate-600 text-white text-sm py-1 px-3 rounded transition-colors flex items-center gap-1"
+          className="p-1 rounded hover:bg-[var(--interactive-hover)] text-[var(--fg-muted)] hover:text-[var(--fg-default)] transition-colors"
+          title="Refresh Deployments"
         >
-          <RotateCw className="w-4 h-4" /> Refresh
+          <RotateCw className="w-3.5 h-3.5" />
         </button>
       </div>
       <div className="overflow-x-auto">

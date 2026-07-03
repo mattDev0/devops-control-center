@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
-import { LogOut, LayoutDashboard, ChevronLeft, ChevronRight, Menu, Layers, GitPullRequest, FileText, Globe } from 'lucide-react';
+import { LogOut, LayoutDashboard, ChevronLeft, ChevronRight, Menu, Layers, GitPullRequest, FileText, Globe, LineChart } from 'lucide-react';
+
 
 // Import Services
 import { api } from './services/api';
@@ -13,7 +14,7 @@ import LogViewer from './components/dashboard/LogViewer';
 import DeploymentsTable from './components/dashboard/DeploymentsTable';
 import LogsModal from './components/dashboard/LogsModal';
 import WorkflowsTable from './components/dashboard/WorkflowsTable';
-import MetricsCards from './components/dashboard/MetricsCards';
+import MetricsCards, { SystemMetricsPanel } from './components/dashboard/MetricsCards';
 import HealthSLOPanel from './components/dashboard/HealthSLOPanel';
 import ErrorBoundary from './components/ErrorBoundary';
 
@@ -339,6 +340,18 @@ export default function App() {
             <FileText className="w-5 h-5 shrink-0 text-[var(--fg-subtle)]" />
             {!sidebarCollapsed && <span>System Logs</span>}
           </button>
+
+          <button
+            onClick={() => {
+              document.getElementById('metrics')?.scrollIntoView({ behavior: 'smooth' });
+              setMobileOpen(false);
+            }}
+            className="flex items-center w-full gap-3 px-3 py-2 text-sm font-medium rounded-md hover:bg-[var(--interactive-hover)] text-[var(--fg-muted)] hover:text-[var(--fg-default)] transition-colors"
+            title="System Metrics"
+          >
+            <LineChart className="w-5 h-5 shrink-0 text-[var(--fg-subtle)]" />
+            {!sidebarCollapsed && <span>System Metrics</span>}
+          </button>
         </nav>
 
         {/* Scope Context Box */}
@@ -395,7 +408,6 @@ export default function App() {
                 health={health}
                 loading={loading}
                 fetchHealth={() => fetchHealth()}
-                token={token}
               />
             </ErrorBoundary>
             <div className="lg:col-span-2">
@@ -407,6 +419,13 @@ export default function App() {
                 />
               </ErrorBoundary>
             </div>
+          </div>
+
+          {/* Row 1.5: System Metrics */}
+          <div id="metrics" className="scroll-mt-20">
+            <ErrorBoundary>
+              <SystemMetricsPanel token={token} />
+            </ErrorBoundary>
           </div>
 
           {/* Row 2: Deployments & CI/CD */}
