@@ -24,6 +24,7 @@ export default function App() {
   const [health, setHealth] = useState(null);
   const [loading, setLoading] = useState(true);
   const [deployments, setDeployments] = useState([]);
+  const [loadingDeployments, setLoadingDeployments] = useState(true);
   const [workflows, setWorkflows] = useState([]);
   const [loadingWorkflows, setLoadingWorkflows] = useState(true);
   const [podHealth, setPodHealth] = useState(null);
@@ -138,6 +139,7 @@ export default function App() {
   // Fetch Kubernetes Deployments
   const fetchDeployments = async (activeToken = token) => {
     if (!activeToken) return;
+    setLoadingDeployments(true);
     try {
       const data = await api.fetchDeployments(activeToken);
       if (Array.isArray(data)) {
@@ -148,6 +150,8 @@ export default function App() {
       if (error.message === 'UNAUTHORIZED') {
         handleLogout();
       }
+    } finally {
+      setLoadingDeployments(false);
     }
   };
 
@@ -434,6 +438,7 @@ export default function App() {
               <ErrorBoundary>
                 <DeploymentsTable
                   deployments={deployments}
+                  loading={loadingDeployments}
                   role={role}
                   fetchDeployments={() => fetchDeployments()}
                   handleDeploymentAction={handleDeploymentAction}
