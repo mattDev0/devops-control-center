@@ -268,6 +268,8 @@ export default function App() {
 
       {/* Persistent/Collapsible Left Sidebar */}
       <aside 
+        role="complementary"
+        aria-label="Sidebar Navigation"
         className={`fixed inset-y-0 left-0 z-50 flex flex-col bg-[var(--bg-surface)] border-r border-[var(--border-default)] transition-all duration-300 md:sticky md:block shrink-0 ${
           mobileOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
         } ${sidebarCollapsed ? 'w-16' : 'w-60'}`}
@@ -287,6 +289,8 @@ export default function App() {
           <button
             onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
             className="hidden md:flex p-1 rounded hover:bg-[var(--interactive-hover)] text-[var(--fg-muted)] hover:text-[var(--fg-default)] transition-colors"
+            aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+            aria-expanded={!sidebarCollapsed}
             title={sidebarCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
           >
             {sidebarCollapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
@@ -294,13 +298,14 @@ export default function App() {
         </div>
 
         {/* Sidebar Navigation Links */}
-        <nav className="flex-1 space-y-1 p-2 overflow-y-auto">
+        <nav role="navigation" aria-label="Main Navigation" className="flex-1 space-y-1 p-2 overflow-y-auto">
           <button
             onClick={() => {
               document.getElementById('overview')?.scrollIntoView({ behavior: 'smooth' });
               setMobileOpen(false);
             }}
             className="flex items-center w-full gap-3 px-3 py-2 text-sm font-medium rounded-md hover:bg-[var(--interactive-hover)] text-[var(--fg-muted)] hover:text-[var(--fg-default)] transition-colors"
+            aria-label="Navigate to Overview"
             title="Overview"
           >
             <LayoutDashboard className="w-5 h-5 shrink-0 text-[var(--fg-subtle)]" />
@@ -313,6 +318,7 @@ export default function App() {
               setMobileOpen(false);
             }}
             className="flex items-center w-full gap-3 px-3 py-2 text-sm font-medium rounded-md hover:bg-[var(--interactive-hover)] text-[var(--fg-muted)] hover:text-[var(--fg-default)] transition-colors"
+            aria-label="Navigate to Deployments"
             title="Deployments"
           >
             <Layers className="w-5 h-5 shrink-0 text-[var(--fg-subtle)]" />
@@ -325,6 +331,7 @@ export default function App() {
               setMobileOpen(false);
             }}
             className="flex items-center w-full gap-3 px-3 py-2 text-sm font-medium rounded-md hover:bg-[var(--interactive-hover)] text-[var(--fg-muted)] hover:text-[var(--fg-default)] transition-colors"
+            aria-label="Navigate to Pipelines"
             title="Pipelines"
           >
             <GitPullRequest className="w-5 h-5 shrink-0 text-[var(--fg-subtle)]" />
@@ -337,6 +344,7 @@ export default function App() {
               setMobileOpen(false);
             }}
             className="flex items-center w-full gap-3 px-3 py-2 text-sm font-medium rounded-md hover:bg-[var(--interactive-hover)] text-[var(--fg-muted)] hover:text-[var(--fg-default)] transition-colors"
+            aria-label="Navigate to System Logs"
             title="System Logs"
           >
             <FileText className="w-5 h-5 shrink-0 text-[var(--fg-subtle)]" />
@@ -349,6 +357,7 @@ export default function App() {
               setMobileOpen(false);
             }}
             className="flex items-center w-full gap-3 px-3 py-2 text-sm font-medium rounded-md hover:bg-[var(--interactive-hover)] text-[var(--fg-muted)] hover:text-[var(--fg-default)] transition-colors"
+            aria-label="Navigate to System Metrics"
             title="System Metrics"
           >
             <LineChart className="w-5 h-5 shrink-0 text-[var(--fg-subtle)]" />
@@ -358,7 +367,7 @@ export default function App() {
 
         {/* Scope Context Box */}
         {!sidebarCollapsed && (
-          <div className="p-4 border-t border-[var(--border-muted)] bg-[var(--bg-canvas)]/30 m-2 rounded-lg">
+          <div className="p-4 border-t border-[var(--border-muted)] bg-[var(--bg-canvas)]/30 m-2 rounded-lg" aria-label="Scope Details">
             <div className="text-[10px] uppercase font-bold text-[var(--fg-subtle)] tracking-wider">Scope Context</div>
             <div className="text-xs font-semibold mt-1 flex items-center gap-1.5 text-[var(--accent-primary)]">
               <Globe className="w-3.5 h-3.5" />
@@ -371,11 +380,13 @@ export default function App() {
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-w-0 min-h-screen">
         {/* Sticky Top Nav Bar */}
-        <header className="sticky top-0 z-30 flex h-14 items-center justify-between bg-[var(--bg-surface)] border-b border-[var(--border-default)] px-6 shadow-sm">
+        <header role="banner" className="sticky top-0 z-30 flex h-14 items-center justify-between bg-[var(--bg-surface)] border-b border-[var(--border-default)] px-6 shadow-sm">
           <div className="flex items-center gap-3">
             <button
               onClick={() => setMobileOpen(!mobileOpen)}
               className="p-1.5 rounded hover:bg-[var(--interactive-hover)] text-[var(--fg-muted)] hover:text-[var(--fg-default)] md:hidden transition-colors"
+              aria-label="Toggle navigation menu"
+              aria-expanded={mobileOpen}
               title="Toggle Menu"
             >
               <Menu className="w-5 h-5" />
@@ -386,7 +397,7 @@ export default function App() {
             </h1>
             
             {role === 'ROLE_GUEST' && (
-              <span className="text-[10px] font-mono font-medium bg-[var(--bg-elevated)] border border-[var(--border-muted)] text-[var(--fg-muted)] px-2 py-0.5 rounded">
+              <span className="text-[10px] font-mono font-medium bg-[var(--bg-elevated)] border border-[var(--border-muted)] text-[var(--fg-muted)] px-2 py-0.5 rounded" aria-label="Read-only mode enabled">
                 🔒 Guest Mode
               </span>
             )}

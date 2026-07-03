@@ -92,3 +92,27 @@ body {
   animation: shimmer 1.5s linear infinite;
   border-radius: var(--radius-sm);
 }
+
+*:focus-visible {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 2px;
+}
+
+/* Scrollbar optimizations for dense logs and data sheets */
+.scrollbar-thin::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-track {
+  background: var(--bg-inset);
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background: var(--border-emphasis);
+  border-radius: var(--radius-sm);
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb:hover {
+  background: var(--fg-subtle);
+}
