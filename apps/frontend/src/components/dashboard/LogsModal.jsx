@@ -1,4 +1,4 @@
-import { FileText, Loader2 } from 'lucide-react';
+import { FileText, Loader2, X } from 'lucide-react';
 
 export default function LogsModal({
   activeLogDeployment,
@@ -7,26 +7,27 @@ export default function LogsModal({
   onClose
 }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/75 backdrop-blur-xs transition-opacity duration-300">
-      <div className="bg-slate-900/95 border border-slate-700/80 rounded-2xl w-full max-w-4xl max-h-[85vh] flex flex-col shadow-2xl overflow-hidden glassmorphism">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[var(--bg-overlay)] backdrop-blur-xs transition-opacity duration-300">
+      <div className="bg-[var(--bg-surface)] border border-[var(--border-default)] rounded-[var(--radius-xl)] w-full max-w-4xl max-h-[85vh] flex flex-col shadow-[var(--shadow-modal)] overflow-hidden">
         {/* Modal Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-700/80 bg-slate-900/50">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-[var(--border-default)] bg-[var(--bg-surface)]">
           <div className="flex items-center gap-3">
-            <FileText className="text-purple-400 w-5 h-5" />
+            <FileText className="text-[var(--accent-primary)] w-5 h-5" />
             <div>
-              <h3 className="font-semibold text-slate-200">
+              <h3 className="font-semibold text-[var(--fg-default)] text-sm">
                 Live Deployment Logs: {activeLogDeployment.name}
               </h3>
-              <p className="text-xs text-slate-500 font-mono">
+              <p className="text-[10px] text-[var(--fg-subtle)] font-mono mt-0.5">
                 ID: {activeLogDeployment.id}
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 w-8 h-8 rounded-full flex items-center justify-center transition-colors text-xl font-bold"
+            className="text-[var(--fg-muted)] hover:text-[var(--fg-default)] p-1.5 rounded hover:bg-[var(--interactive-hover)] transition-colors"
+            title="Close modal"
           >
-            &times;
+            <X className="w-4 h-4" />
           </button>
         </div>
 
@@ -34,16 +35,17 @@ export default function LogsModal({
         <div className="flex-grow p-6 overflow-hidden flex flex-col">
           <div 
             ref={deploymentLogsRef}
-            className="flex-grow overflow-y-auto bg-slate-950 border border-slate-800 rounded-lg p-4 font-mono text-xs text-slate-300 leading-relaxed shadow-inner max-h-[50vh] min-h-[30vh]"
+            className="flex-grow overflow-y-auto bg-[var(--bg-inset)] border border-[var(--border-default)] rounded-[var(--radius-md)] p-4 font-mono text-xs text-[var(--fg-default)] leading-relaxed shadow-inner max-h-[50vh] min-h-[30vh] scrollbar-thin"
           >
             {activeDeploymentLogs.length === 0 ? (
-              <div className="flex items-center justify-center h-full text-slate-500 italic gap-2 py-8">
-                <Loader2 className="w-4 h-4 animate-spin text-purple-400" /> Connecting to stream...
+              <div className="flex items-center justify-center h-full text-[var(--fg-subtle)] italic gap-2 py-8">
+                <Loader2 className="w-3.5 h-3.5 animate-spin text-[var(--accent-primary)]" /> Connecting to stream...
               </div>
             ) : (
               activeDeploymentLogs.map((log, index) => (
-                <div key={index} className="whitespace-pre-wrap border-l-2 border-slate-800 hover:border-purple-500/50 pl-3 py-0.5 hover:bg-slate-900/30 transition-colors">
-                  {log}
+                <div key={index} className="flex gap-4 py-0.5 border-l-2 border-transparent hover:border-[var(--accent-primary)]/50 hover:bg-[var(--interactive-hover)] transition-colors pl-3">
+                  <span className="text-[var(--fg-subtle)] select-none text-right w-8 shrink-0">{(index + 1).toString().padStart(3, '0')}</span>
+                  <span className="whitespace-pre-wrap break-all">{log}</span>
                 </div>
               ))
             )}
@@ -51,13 +53,13 @@ export default function LogsModal({
         </div>
 
         {/* Modal Footer */}
-        <div className="px-6 py-4 border-t border-slate-700/80 bg-slate-900/50 flex justify-between items-center">
-          <span className="text-xs text-slate-500 flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full bg-purple-500 animate-pulse"></span> Streaming logs in real-time
+        <div className="px-6 py-4 border-t border-[var(--border-default)] bg-[var(--bg-surface)] flex justify-between items-center">
+          <span className="text-[10px] text-[var(--fg-subtle)] flex items-center gap-1.5 font-medium">
+            <span className="w-1.5 h-1.5 rounded-full bg-[var(--status-success)] animate-pulse"></span> Streaming logs in real-time
           </span>
           <button
             onClick={onClose}
-            className="bg-purple-600 hover:bg-purple-500 text-white font-medium text-sm py-2 px-5 rounded-lg shadow-lg shadow-purple-600/20 transition-all duration-300 transform active:scale-95"
+            className="bg-[var(--accent-primary)] hover:bg-[var(--accent-primary-hover)] text-white font-semibold text-xs py-2 px-4 rounded-[var(--radius-md)] transition-colors cursor-pointer"
           >
             Close Logs
           </button>

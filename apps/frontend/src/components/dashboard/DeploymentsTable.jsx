@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { RotateCw, FileText, Play, Square, Layers, AlertTriangle, Cloud } from 'lucide-react';
 
 export default function DeploymentsTable({
@@ -8,6 +9,7 @@ export default function DeploymentsTable({
   handleDeploymentAction,
   onViewLogs
 }) {
+  const [confirmAction, setConfirmAction] = useState(null); // { id, type }
   return (
     <div className="bg-[var(--bg-surface)] border border-[var(--border-default)] rounded-[var(--radius-lg)] p-4 flex flex-col h-full">
       <div className="flex items-center justify-between pb-3 border-b border-[var(--border-muted)] mb-4">
@@ -85,43 +87,68 @@ export default function DeploymentsTable({
                   </td>
                   <td className="px-3 py-2.5 text-right">
                     <div className="flex items-center justify-end gap-1">
-                      <button 
-                        onClick={() => onViewLogs(deployment)}
-                        className="p-1 rounded hover:bg-[var(--interactive-hover)] text-[var(--fg-muted)] hover:text-[var(--fg-default)] transition-colors border border-[var(--border-default)] bg-[var(--bg-canvas)]"
-                        title="View Logs"
-                      >
-                        <FileText className="w-3.5 h-3.5" />
-                      </button>
-                      
-                      {deployment.state !== 'running' && (
-                        <button 
-                          onClick={() => handleDeploymentAction(deployment.id, 'start')} 
-                          disabled={role === 'ROLE_GUEST'}
-                          className="p-1 rounded hover:bg-[var(--interactive-hover)] text-[var(--status-success)] hover:border-[var(--status-success)]/20 transition-colors border border-[var(--border-default)] bg-[var(--bg-canvas)] disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent"
-                          title={role === 'ROLE_GUEST' ? "Requires Admin" : "Start"}
-                        >
-                          <Play className="w-3.5 h-3.5" />
-                        </button>
-                      )}
-                      
-                      {deployment.state === 'running' && (
+                      {confirmAction && confirmAction.id === deployment.id ? (
+                        <div className="flex items-center gap-1.5 justify-end">
+                          <span className="text-[9px] text-[var(--status-warning)] font-semibold uppercase animate-pulse">
+                            Confirm {confirmAction.type}?
+                          </span>
+                          <button 
+                            onClick={() => {
+                              handleDeploymentAction(confirmAction.id, confirmAction.type);
+                              setConfirmAction(null);
+                            }}
+                            className="px-1.5 py-0.5 rounded bg-[var(--status-error)] hover:bg-[var(--status-error)]/85 text-white text-[9px] font-bold cursor-pointer"
+                          >
+                            Yes
+                          </button>
+                          <button 
+                            onClick={() => setConfirmAction(null)}
+                            className="px-1.5 py-0.5 rounded bg-[var(--bg-elevated)] border border-[var(--border-default)] hover:bg-[var(--interactive-hover)] text-[var(--fg-muted)] text-[9px] font-semibold cursor-pointer"
+                          >
+                            No
+                          </button>
+                        </div>
+                      ) : (
                         <>
                           <button 
-                            onClick={() => handleDeploymentAction(deployment.id, 'stop')} 
-                            disabled={role === 'ROLE_GUEST'}
-                            className="p-1 rounded hover:bg-[var(--interactive-hover)] text-[var(--status-error)] hover:border-[var(--status-error)]/20 transition-colors border border-[var(--border-default)] bg-[var(--bg-canvas)] disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent"
-                            title={role === 'ROLE_GUEST' ? "Requires Admin" : "Stop"}
+                            onClick={() => onViewLogs(deployment)}
+                            className="p-1 rounded hover:bg-[var(--interactive-hover)] text-[var(--fg-muted)] hover:text-[var(--fg-default)] transition-colors border border-[var(--border-default)] bg-[var(--bg-canvas)] cursor-pointer"
+                            title="View Logs"
                           >
-                            <Square className="w-3.5 h-3.5" />
+                            <FileText className="w-3.5 h-3.5" />
                           </button>
-                          <button 
-                            onClick={() => handleDeploymentAction(deployment.id, 'restart')} 
-                            disabled={role === 'ROLE_GUEST'}
-                            className="p-1 rounded hover:bg-[var(--interactive-hover)] text-[var(--status-info)] hover:border-[var(--status-info)]/20 transition-colors border border-[var(--border-default)] bg-[var(--bg-canvas)] disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent"
-                            title={role === 'ROLE_GUEST' ? "Requires Admin" : "Restart"}
-                          >
-                            <RotateCw className="w-3.5 h-3.5" />
-                          </button>
+                          
+                          {deployment.state !== 'running' && (
+                            <button 
+                              onClick={() => handleDeploymentAction(deployment.id, 'start')} 
+                              disabled={role === 'ROLE_GUEST'}
+                              className="p-1 rounded hover:bg-[var(--interactive-hover)] text-[var(--status-success)] hover:border-[var(--status-success)]/20 transition-colors border border-[var(--border-default)] bg-[var(--bg-canvas)] disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent cursor-pointer"
+                              title={role === 'ROLE_GUEST' ? "Requires Admin" : "Start"}
+                            >
+                              <Play className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                          
+                          {deployment.state === 'running' && (
+                            <>
+                              <button 
+                                onClick={() => setConfirmAction({ id: deployment.id, type: 'stop' })} 
+                                disabled={role === 'ROLE_GUEST'}
+                                className="p-1 rounded hover:bg-[var(--interactive-hover)] text-[var(--status-error)] hover:border-[var(--status-error)]/20 transition-colors border border-[var(--border-default)] bg-[var(--bg-canvas)] disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent cursor-pointer"
+                                title={role === 'ROLE_GUEST' ? "Requires Admin" : "Stop"}
+                              >
+                                <Square className="w-3.5 h-3.5" />
+                              </button>
+                              <button 
+                                onClick={() => setConfirmAction({ id: deployment.id, type: 'restart' })} 
+                                disabled={role === 'ROLE_GUEST'}
+                                className="p-1 rounded hover:bg-[var(--interactive-hover)] text-[var(--status-info)] hover:border-[var(--status-info)]/20 transition-colors border border-[var(--border-default)] bg-[var(--bg-canvas)] disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent cursor-pointer"
+                                title={role === 'ROLE_GUEST' ? "Requires Admin" : "Restart"}
+                              >
+                                <RotateCw className="w-3.5 h-3.5" />
+                              </button>
+                            </>
+                          )}
                         </>
                       )}
                     </div>
