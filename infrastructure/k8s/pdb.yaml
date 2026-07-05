@@ -1,0 +1,32 @@
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: devops-frontend-pdb
+  namespace: devops
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: devops-frontend
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: devops-orchestrator-pdb
+  namespace: devops
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: devops-orchestrator
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: devops-agent-pdb
+  namespace: devops
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: devops-agent
