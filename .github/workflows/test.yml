@@ -1,0 +1,80 @@
+name: PR Test Validation
+
+on:
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Lint Agent Dockerfile
+        uses: hadolint/hadolint-action@v3.1.0
+        with:
+          dockerfile: "apps/agent/Dockerfile"
+          ignore: DL3008
+
+      - name: Lint Orchestrator Dockerfile
+        uses: hadolint/hadolint-action@v3.1.0
+        with:
+          dockerfile: "apps/orchestrator/Dockerfile"
+
+      - name: Lint Frontend Dockerfile
+        uses: hadolint/hadolint-action@v3.1.0
+        with:
+          dockerfile: "apps/frontend/Dockerfile"
+
+      - name: Set up Go (for Kubeconform)
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
+
+      - name: Install Kubeconform
+        run: go install github.com/yannh/kubeconform/cmd/kubeconform@v0.6.3
+
+      - name: Run Kubeconform Manifest Validation
+        run: |
+          ~/go/bin/kubeconform -strict -schema-location default -schema-location 'https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json' infrastructure/k8s/
+
+      - name: Set up Rust Toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: apps/agent -> target
+
+      - name: Run Agent Tests
+        run: |
+          cd apps/agent
+          cargo test
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+          cache: 'maven'
+
+      - name: Run Orchestrator Tests
+        run: |
+          cd apps/orchestrator
+          mvn test
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: apps/frontend/package-lock.json
+
+      - name: Run Frontend Lint & Build Test
+        run: |
+          cd apps/frontend
+          npm ci
+          npm run lint
+          npm run build
