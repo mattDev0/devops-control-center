@@ -48,7 +48,7 @@ async fn main() {
 
     let state = AppState {
         secret_key: std::env::var("AGENT_SECRET_KEY")
-            .unwrap_or_else(|_| "devops-secret-key-123".to_string()),
+            .expect("AGENT_SECRET_KEY environment variable must be set"),
     };
 
     let app = Router::new()
