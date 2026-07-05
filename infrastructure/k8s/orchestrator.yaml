@@ -24,6 +24,7 @@ spec:
         image: ghcr.io/mattdev0/devops-control-center/devops-orchestrator:latest
         imagePullPolicy: Always
         securityContext:
+          readOnlyRootFilesystem: true
           allowPrivilegeEscalation: false
           capabilities:
             drop:
@@ -42,6 +43,15 @@ spec:
             port: 8080
           initialDelaySeconds: 15
           periodSeconds: 15
+        startupProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          failureThreshold: 30
+          periodSeconds: 5
+        volumeMounts:
+        - name: tmp-volume
+          mountPath: /tmp
         env:
         - name: AGENT_URL
           value: "http://devops-agent:3001"
@@ -58,6 +68,9 @@ spec:
           limits:
             memory: "384Mi"
             cpu: "300m"
+      volumes:
+      - name: tmp-volume
+        emptyDir: {}
 ---
 apiVersion: v1
 kind: Service
