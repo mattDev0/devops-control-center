@@ -85,6 +85,7 @@ spec:
         image: ghcr.io/mattdev0/devops-control-center/devops-agent:latest
         imagePullPolicy: Always
         securityContext:
+          readOnlyRootFilesystem: true
           allowPrivilegeEscalation: false
           capabilities:
             drop:
