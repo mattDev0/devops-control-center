@@ -1,11 +1,11 @@
-use axum::{http::StatusCode, Json};
+use axum::{extract::State, http::StatusCode, Json};
 use k8s_openapi::api::core::v1::Pod;
 use kube::{api::ListParams, Api};
 use crate::models::PodHealthSummary;
-use super::client::get_k8s_client;
+use crate::AppState;
 
-pub async fn pod_health() -> Result<Json<Vec<PodHealthSummary>>, StatusCode> {
-    let client = get_k8s_client().await.map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+pub async fn pod_health(State(state): State<AppState>) -> Result<Json<Vec<PodHealthSummary>>, StatusCode> {
+    let client = state.kube_client.clone();
     let namespaces = vec!["portfolio", "devops"];
     let mut summaries = Vec::new();
 

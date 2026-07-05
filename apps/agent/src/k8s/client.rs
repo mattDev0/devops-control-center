@@ -1,10 +1,6 @@
 use kube::Client;
 use std::time::Duration;
 
-/// Attempt to load the Kubernetes client.
-pub async fn get_k8s_client() -> Result<Client, kube::Error> {
-    Client::try_default().await
-}
 
 /// Attempt to load the Kubernetes client with exponential backoff retry.
 /// Useful for background workers that must start up even if the K8s API is temporarily unavailable.

@@ -13,8 +13,9 @@ mod k8s;
 mod system;
 
 #[derive(Clone)]
-struct AppState {
+pub struct AppState {
     secret_key: String,
+    kube_client: kube::Client,
 }
 
 // --- Middleware ---
@@ -46,9 +47,12 @@ async fn main() {
 
     k8s::start_deployment_monitor();
 
+    let kube_client = k8s::client::get_k8s_client_with_backoff().await;
+
     let state = AppState {
         secret_key: std::env::var("AGENT_SECRET_KEY")
             .expect("AGENT_SECRET_KEY environment variable must be set"),
+        kube_client,
     };
 
     let app = Router::new()
@@ -80,10 +84,16 @@ mod tests {
     };
     use tower::ServiceExt;
 
+    fn dummy_client() -> kube::Client {
+        let config = kube::Config::new("https://127.0.0.1:8080".parse().unwrap());
+        kube::Client::try_from(config).unwrap()
+    }
+
     #[tokio::test]
     async fn test_auth_middleware_authorized() {
         let state = AppState {
             secret_key: "secret-123".to_string(),
+            kube_client: dummy_client(),
         };
         let app = Router::new()
             .route("/test", get(|| async { "ok" }))
@@ -104,6 +114,7 @@ mod tests {
     async fn test_auth_middleware_unauthorized() {
         let state = AppState {
             secret_key: "secret-123".to_string(),
+            kube_client: dummy_client(),
         };
         let app = Router::new()
             .route("/test", get(|| async { "ok" }))

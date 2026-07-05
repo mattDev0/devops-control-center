@@ -1,4 +1,4 @@
-use axum::{extract::Path, http::StatusCode, Json};
+use axum::{extract::Path, extract::State, http::StatusCode, Json};
 use k8s_openapi::api::apps::v1::Deployment;
 use kube::{
     api::{ListParams, Patch, PatchParams},
@@ -7,7 +7,7 @@ use kube::{
 use serde_json::json;
 
 use crate::models::DeploymentDto;
-use super::client::get_k8s_client;
+use crate::AppState;
 
 pub async fn get_all_deployments_internal(client: Client) -> Result<Vec<DeploymentDto>, kube::Error> {
     let namespaces = vec!["portfolio", "devops"];
@@ -100,11 +100,8 @@ pub async fn get_all_deployments_internal(client: Client) -> Result<Vec<Deployme
     Ok(result)
 }
 
-pub async fn list_deployments() -> Result<Json<Vec<DeploymentDto>>, StatusCode> {
-    let client = get_k8s_client().await.map_err(|e| {
-        tracing::error!("Failed to initialize K8s client for deployment listing: {:?}", e);
-        StatusCode::INTERNAL_SERVER_ERROR
-    })?;
+pub async fn list_deployments(State(state): State<AppState>) -> Result<Json<Vec<DeploymentDto>>, StatusCode> {
+    let client = state.kube_client.clone();
     let result = get_all_deployments_internal(client).await.map_err(|e| {
         tracing::error!("Failed to fetch deployments: {:?}", e);
         StatusCode::INTERNAL_SERVER_ERROR
@@ -113,12 +110,10 @@ pub async fn list_deployments() -> Result<Json<Vec<DeploymentDto>>, StatusCode> 
 }
 
 pub async fn deployment_action(
+    State(state): State<AppState>,
     Path((id, action)): Path<(String, String)>,
 ) -> Result<StatusCode, StatusCode> {
-    let client = get_k8s_client().await.map_err(|e| {
-        tracing::error!("Failed to initialize K8s client for deployment action: {:?}", e);
-        StatusCode::INTERNAL_SERVER_ERROR
-    })?;
+    let client = state.kube_client.clone();
 
     // Parse the id: namespace:deployment_name
     let parts: Vec<&str> = id.split(':').collect();

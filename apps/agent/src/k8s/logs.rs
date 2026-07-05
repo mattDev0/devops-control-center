@@ -1,5 +1,5 @@
 use axum::{
-    extract::Query,
+    extract::{Query, State},
     response::{
         sse::{Event, KeepAlive, Sse},
         IntoResponse,
@@ -14,7 +14,7 @@ use kube::{
 use std::convert::Infallible;
 
 use crate::models::LogParamsQuery;
-use super::client::get_k8s_client;
+use crate::AppState;
 
 async fn find_pods_for_deployment(
     client: Client,
@@ -54,17 +54,10 @@ async fn find_pods_for_deployment(
 }
 
 pub async fn stream_logs(
+    State(state): State<AppState>,
     Query(query): Query<LogParamsQuery>,
 ) -> impl IntoResponse {
-    let client = match get_k8s_client().await {
-        Ok(c) => c,
-        Err(e) => {
-            tracing::error!("Failed to initialize K8s client for logs: {:?}", e);
-            return Sse::new(futures::stream::once(async {
-                Ok::<Event, Infallible>(Event::default().data("Error: Failed to initialize Kubernetes client"))
-            })).keep_alive(KeepAlive::new()).into_response();
-        }
-    };
+    let client = state.kube_client.clone();
 
     let (tx, rx) = tokio::sync::mpsc::channel::<Result<Event, Infallible>>(1000);
 
