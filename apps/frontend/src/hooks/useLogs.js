@@ -50,23 +50,19 @@ async function readSseStream(url, token, onMessage, onError, signal) {
 
 export function useSystemLogs(token) {
   const [logs, setLogs] = useState([]);
-  const [status, setStatus] = useState('connecting');
 
   useEffect(() => {
     if (!token) {
       setLogs([]);
-      setStatus('connecting');
       return;
     }
 
     const controller = new AbortController();
-    setStatus('connecting');
     
     readSseStream(
       'api/servers/logs',
       token,
       (data) => {
-        setStatus('connected');
         setLogs((prevLogs) => {
           const newLogs = [...prevLogs, data];
           return newLogs.slice(-50);
@@ -74,7 +70,6 @@ export function useSystemLogs(token) {
       },
       (err) => {
         console.error("System logs SSE connection lost. Reconnecting...", err);
-        setStatus('disconnected');
       },
       controller.signal
     );
@@ -84,7 +79,7 @@ export function useSystemLogs(token) {
     };
   }, [token]);
 
-  return { logs, status };
+  return logs;
 }
 
 export function useDeploymentLogs(token, activeLogDeployment, showLogsModal) {

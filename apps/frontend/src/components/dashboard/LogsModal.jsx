@@ -7,58 +7,19 @@ export default function LogsModal({
   deploymentLogsRef,
   onClose
 }) {
-  const firstFocusableRef = useRef(null);
-  const lastFocusableRef = useRef(null);
+  const closeButtonRef = useRef(null);
 
   useEffect(() => {
-    const previousFocusedElement = document.activeElement;
-    
-    // Initial focus on the close button
-    firstFocusableRef.current?.focus();
-
-    // Lock body scroll
-    const originalOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
+    // Focus the close button to trap keyboard focus
+    closeButtonRef.current?.focus();
 
     const handleKeyDown = (e) => {
       if (e.key === 'Escape') {
         onClose();
-        return;
-      }
-
-      if (e.key === 'Tab') {
-        const firstEl = firstFocusableRef.current;
-        const lastEl = lastFocusableRef.current;
-
-        if (!firstEl || !lastEl) return;
-
-        if (e.shiftKey) {
-          // Shift + Tab: Wrap from first to last
-          if (document.activeElement === firstEl) {
-            e.preventDefault();
-            lastEl.focus();
-          }
-        } else {
-          // Tab: Wrap from last to first
-          if (document.activeElement === lastEl) {
-            e.preventDefault();
-            firstEl.focus();
-          }
-        }
       }
     };
-
     window.addEventListener('keydown', handleKeyDown);
-
-    return () => {
-      window.removeEventListener('keydown', handleKeyDown);
-      // Restore scroll
-      document.body.style.overflow = originalOverflow;
-      // Restore focus
-      if (previousFocusedElement && typeof previousFocusedElement.focus === 'function') {
-        previousFocusedElement.focus();
-      }
-    };
+    return () => window.removeEventListener('keydown', handleKeyDown);
   }, [onClose]);
 
   return (
@@ -66,11 +27,6 @@ export default function LogsModal({
       role="dialog" 
       aria-modal="true" 
       aria-labelledby="modal-title"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) {
-          onClose();
-        }
-      }}
       className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[var(--bg-overlay)] backdrop-blur-xs transition-opacity duration-300"
     >
       <div className="bg-[var(--bg-surface)] border border-[var(--border-default)] rounded-[var(--radius-xl)] w-full max-w-4xl max-h-[85vh] flex flex-col shadow-[var(--shadow-modal)] overflow-hidden">
@@ -88,11 +44,10 @@ export default function LogsModal({
             </div>
           </div>
           <button
-            ref={firstFocusableRef}
+            ref={closeButtonRef}
             onClick={onClose}
-            className="text-[var(--fg-muted)] hover:text-[var(--fg-default)] p-1.5 rounded hover:bg-[var(--interactive-hover)] transition-colors focus-visible:outline-none cursor-pointer"
+            className="text-[var(--fg-muted)] hover:text-[var(--fg-default)] p-1.5 rounded hover:bg-[var(--interactive-hover)] transition-colors"
             title="Close modal"
-            aria-label="Close logs dialog"
           >
             <X className="w-4 h-4" />
           </button>
@@ -122,13 +77,11 @@ export default function LogsModal({
         {/* Modal Footer */}
         <div className="px-6 py-4 border-t border-[var(--border-default)] bg-[var(--bg-surface)] flex justify-between items-center">
           <span className="text-[10px] text-[var(--fg-subtle)] flex items-center gap-1.5 font-medium">
-            <span className="w-1.5 h-1.5 rounded-full bg-[var(--status-success)]"></span> Streaming logs in real-time
+            <span className="w-1.5 h-1.5 rounded-full bg-[var(--status-success)] animate-pulse"></span> Streaming logs in real-time
           </span>
           <button
-            ref={lastFocusableRef}
             onClick={onClose}
-            className="bg-[var(--accent-primary)] hover:bg-[var(--accent-primary-hover)] text-white font-semibold text-xs py-2 px-4 rounded-[var(--radius-md)] transition-colors cursor-pointer focus-visible:outline-none"
-            aria-label="Close logs dialog window"
+            className="bg-[var(--accent-primary)] hover:bg-[var(--accent-primary-hover)] text-white font-semibold text-xs py-2 px-4 rounded-[var(--radius-md)] transition-colors cursor-pointer"
           >
             Close Logs
           </button>
