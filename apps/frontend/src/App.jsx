@@ -196,6 +196,7 @@ export default function App() {
       if (error.message === 'UNAUTHORIZED') {
         handleLogout();
       }
+      throw error;
     }
   };
 
