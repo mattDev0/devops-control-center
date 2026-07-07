@@ -22,7 +22,7 @@ export default function Login({
         </div>
 
         {authError && (
-          <div className="mb-6 p-3 bg-[var(--status-error-muted)] border border-[var(--status-error)]/25 text-[var(--status-error)] rounded-[var(--radius-md)] text-xs text-center font-medium">
+          <div id="auth-error-message" className="mb-6 p-3 bg-[var(--status-error-muted)] border border-[var(--status-error)]/25 text-[var(--status-error)] rounded-[var(--radius-md)] text-xs text-center font-medium">
             {authError}
           </div>
         )}
@@ -41,6 +41,7 @@ export default function Login({
                 type="text"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
+                aria-describedby={authError ? "auth-error-message" : undefined}
                 className="w-full bg-[var(--bg-inset)] border border-[var(--border-default)] focus:border-[var(--accent-primary)] focus:ring-1 focus:ring-[var(--focus-ring)] text-[var(--fg-default)] rounded-[var(--radius-md)] pl-10 pr-4 py-2.5 outline-none transition-colors font-mono text-xs"
                 placeholder="Enter username"
                 required
@@ -61,6 +62,7 @@ export default function Login({
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
+                aria-describedby={authError ? "auth-error-message" : undefined}
                 className="w-full bg-[var(--bg-inset)] border border-[var(--border-default)] focus:border-[var(--accent-primary)] focus:ring-1 focus:ring-[var(--focus-ring)] text-[var(--fg-default)] rounded-[var(--radius-md)] pl-10 pr-4 py-2.5 outline-none transition-colors font-mono text-xs"
                 placeholder="••••••••"
                 required
