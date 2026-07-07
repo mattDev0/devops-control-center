@@ -77,7 +77,7 @@ A lightweight, high-performance, modular system agent running as a Kubernetes po
 * **Merged Kubernetes Logs:** Streams logs from pods in `portfolio` and `devops` namespaces concurrently using async `tokio::sync::mpsc::channel` streams.
 * **Deployment Orchestrator:** Interacts directly with the local K3s API server via `kube-rs` to fetch deployment lists, scale replicas, and patch timestamps to trigger zero-downtime rolling updates.
 * **State Transition Webhooks:** Actively monitors deployment state changes and broadcasts real-time alerts to Discord webhooks upon state transitions (e.g., Running, Failed).
-* **Resilience & Observability:** Implements exponential backoff for a singleton K8s client initialization and emits rich, structured telemetry via the `tracing` crate.
+* **Resilience & Observability:** Implements exponential backoff for K8s client initialization and emits rich, structured telemetry via the `tracing` crate.
 
 ## 4. Observability Stack — Prometheus & Grafana
 * **Node Exporter:** Gathers host telemetry as a DaemonSet inside the cluster.
@@ -86,10 +86,8 @@ A lightweight, high-performance, modular system agent running as a Kubernetes po
 
 ## 5. Security & Hardening
 * All microservices (Agent, Orchestrator, Frontend) explicitly drop privileges to run as non-root users inside the containers.
-* Kubernetes deployments strictly enforce `securityContext.runAsNonRoot: true` to prevent container runtime privilege escalation, and utilize `readOnlyRootFilesystem: true` to guarantee immutable container states (with `emptyDir` mounts for `/tmp` where necessary).
+* Kubernetes deployments strictly enforce `securityContext.runAsNonRoot: true` to prevent container runtime privilege escalation.
 * **Network Policies:** The `devops` namespace is secured by a default-deny Network Policy, explicitly allowing only necessary inter-pod ingress (e.g., Orchestrator to Agent, Frontend to Orchestrator).
-* **Agent Security:** The rust agent enforces strict startup failures if the `AGENT_SECRET_KEY` is missing, preventing accidental bypasses.
-* **Pod Disruption Budgets (PDB):** Enforces a `minAvailable: 1` requirement across all devops pods to protect against voluntary evictions and maintain zero downtime during single-node K3s maintenance.
 
 ---
 
@@ -184,13 +182,12 @@ sequenceDiagram
 ```
 
 The automated GitHub Action runs across three stages (`test` → `build` → `deploy`):
-1. **PR Validation:** A dedicated `test.yml` workflow strictly gates pull requests with linting (`hadolint`, `kubeconform`) and unit tests.
-2. **Build Stage:** Builds the Docker images on the GitHub Actions runner using Docker Buildx and GHA caching.
-3. **Push Stage:** Pushes dynamically Git-SHA-tagged images to GitHub Container Registry (GHCR).
-4. **Deploy Stage:** Connects to the Azure VM via SSH and pulls the latest code changes.
+1. Executes strict linting (`hadolint`, `kubeconform`) and unit test suites across Rust, Java, and React codebases.
+2. Builds the Docker images on the GitHub Actions runner using Docker Buildx and GHA caching.
+3. Pushes dynamically Git-SHA-tagged images to GitHub Container Registry (GHCR).
+4. Connects to the Azure VM via SSH and pulls the latest code changes.
 5. Injects dynamic image tags into Kubernetes manifests and applies Network Policies and secrets.
 6. Restarts the pods to load the updated images with zero-downtime rolling updates.
-   - *Note: Deployments can also be triggered manually using `workflow_dispatch`.*
 
 ---
 
