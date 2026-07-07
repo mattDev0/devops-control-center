@@ -1,5 +1,4 @@
 import { useState, useEffect, useRef } from 'react';
-import { Server, Activity, GitPullRequest } from 'lucide-react';
 // Import Services
 import { api } from './services/api';
 
@@ -278,89 +277,6 @@ export default function App() {
     >
       {activeSection === '#overview' && (
         <div className="space-y-6">
-          {/* KPI Summary Row */}
-          {health && (
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-              {/* Agent Status */}
-              <div className="bg-[var(--bg-surface)] border border-[var(--border-default)] rounded-[var(--radius-md)] px-3 py-2 flex items-center gap-2.5">
-                <Server className="w-4 h-4 text-[var(--accent-primary)] shrink-0" />
-                <div>
-                  <div className="text-[10px] text-[var(--fg-subtle)] uppercase font-semibold tracking-wider">Agent Status</div>
-                  <div className="text-xs font-bold flex items-center gap-1.5 mt-0.5">
-                    <span className={`w-1.5 h-1.5 rounded-full ${health?.os_name === 'Error' ? 'bg-[var(--status-error)]' : 'bg-[var(--status-success)]'}`}></span>
-                    {health?.os_name === 'Error' ? 'Offline' : 'Online'}
-                  </div>
-                </div>
-              </div>
-
-              {/* Running Pods */}
-              <div className="bg-[var(--bg-surface)] border border-[var(--border-default)] rounded-[var(--radius-md)] px-3 py-2 flex items-center gap-2.5">
-                <Activity className="w-4 h-4 text-[var(--accent-secondary)] shrink-0" />
-                <div>
-                  <div className="text-[10px] text-[var(--fg-subtle)] uppercase font-semibold tracking-wider">Running Pods</div>
-                  <div className="text-xs font-bold mt-0.5">
-                    {podHealth ? podHealth.reduce((sum, ns) => sum + (ns.running || 0), 0) : 0} Pods
-                  </div>
-                </div>
-              </div>
-
-              {/* Availability SLI */}
-              <div className="bg-[var(--bg-surface)] border border-[var(--border-default)] rounded-[var(--radius-md)] px-3 py-2 flex items-center gap-2.5">
-                <div className="w-4 h-4 rounded-full border border-[var(--fg-subtle)]/20 flex items-center justify-center text-[10px] font-bold text-[var(--accent-primary)] shrink-0">%</div>
-                <div>
-                  <div className="text-[10px] text-[var(--fg-subtle)] uppercase font-semibold tracking-wider">Availability SLI</div>
-                  <div className="text-xs font-bold mt-0.5">
-                    {(() => {
-                      const totalPods = podHealth ? podHealth.reduce((sum, ns) => sum + (ns.total || 0), 0) : 0;
-                      const runningPods = podHealth ? podHealth.reduce((sum, ns) => sum + (ns.running || 0), 0) : 0;
-                      return totalPods > 0 ? ((runningPods / totalPods) * 100).toFixed(1) : '100.0';
-                    })()}%
-                  </div>
-                </div>
-              </div>
-
-              {/* Remaining Budget */}
-              <div className="bg-[var(--bg-surface)] border border-[var(--border-default)] rounded-[var(--radius-md)] px-3 py-2 flex items-center gap-2.5">
-                <div className="w-4 h-4 rounded-full border border-[var(--fg-subtle)]/20 flex items-center justify-center text-[10px] font-bold text-[var(--status-error)] shrink-0">E</div>
-                <div>
-                  <div className="text-[10px] text-[var(--fg-subtle)] uppercase font-semibold tracking-wider">Error Budget</div>
-                  <div className="text-xs font-bold mt-0.5">
-                    {(() => {
-                      const totalFailed = podHealth ? podHealth.reduce((sum, ns) => sum + (ns.failed || 0) + (ns.crash_loop || 0) + ((ns.pending || 0) * 0.5), 0) : 0;
-                      const totalPods = podHealth ? podHealth.reduce((sum, ns) => sum + (ns.total || 0), 0) : 0;
-                      const budgetConsumedPercent = totalPods > 0 ? Math.min(100, Math.max(0, (totalFailed / totalPods) * 100 * 10)) : 0;
-                      return (100 - budgetConsumedPercent).toFixed(1);
-                    })()}%
-                  </div>
-                </div>
-              </div>
-
-              {/* Last Pipeline Status */}
-              <div className="bg-[var(--bg-surface)] border border-[var(--border-default)] rounded-[var(--radius-md)] px-3 py-2 flex items-center gap-2.5 col-span-2 md:col-span-1">
-                <GitPullRequest className="w-4 h-4 text-[var(--fg-muted)] shrink-0" />
-                <div className="min-w-0">
-                  <div className="text-[10px] text-[var(--fg-subtle)] uppercase font-semibold tracking-wider">Last Pipeline</div>
-                  <div className="text-xs font-bold mt-0.5 truncate flex items-center gap-1.5">
-                    {workflows && workflows.length > 0 ? (
-                      <>
-                        <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${
-                          workflows[0].status === 'in_progress' 
-                            ? 'bg-[var(--status-info)] animate-pulse' 
-                            : workflows[0].conclusion === 'success'
-                            ? 'bg-[var(--status-success)]'
-                            : workflows[0].conclusion === 'failure'
-                            ? 'bg-[var(--status-error)]'
-                            : 'bg-[var(--status-neutral)]'
-                        }`}></span>
-                        <span className="truncate">{workflows[0].name}</span>
-                      </>
-                    ) : 'N/A'}
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <ErrorBoundary>
               <MetricsCards

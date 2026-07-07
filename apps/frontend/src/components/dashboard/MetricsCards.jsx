@@ -1,4 +1,4 @@
-import { Server, Activity, Clock, LineChart, RefreshCw } from 'lucide-react';
+import { Server, Activity, Clock, LineChart, RefreshCw, AlertTriangle } from 'lucide-react';
 
 export default function MetricsCards({
   health,
@@ -12,6 +12,8 @@ export default function MetricsCards({
     return `${h}h ${m}m`;
   };
 
+  const isErrorState = !health || health.os_name === 'Error';
+
   return (
     <div className="bg-[var(--bg-surface)] border border-[var(--border-default)] rounded-[var(--radius-lg)] p-4 flex flex-col justify-between h-full">
       <div>
@@ -23,8 +25,8 @@ export default function MetricsCards({
           </h2>
           <div className="flex items-center gap-2">
             <span 
-              className={`w-2 h-2 rounded-full ${health?.os_name === 'Error' ? 'bg-[var(--status-error)] animate-pulse' : 'bg-[var(--status-success)]'}`}
-              title={health?.os_name === 'Error' ? 'Offline' : 'Online'}
+              className={`w-2 h-2 rounded-full ${isErrorState ? 'bg-[var(--status-error)]' : 'bg-[var(--status-success)]'}`}
+              title={isErrorState ? 'Offline' : 'Online'}
             ></span>
             <button 
               onClick={fetchHealth}
@@ -38,26 +40,34 @@ export default function MetricsCards({
         </div>
 
         {loading ? (
-          <div className="animate-pulse space-y-3 py-2">
-            <div className="h-4 bg-[var(--bg-elevated)] rounded w-3/4"></div>
-            <div className="h-4 bg-[var(--bg-elevated)] rounded w-1/2"></div>
+          <div className="space-y-3 py-2">
+            <div className="h-6 bg-[var(--bg-elevated)] skeleton w-full"></div>
+            <div className="h-6 bg-[var(--bg-elevated)] skeleton w-5/6"></div>
+          </div>
+        ) : isErrorState ? (
+          <div className="flex flex-col items-center justify-center py-6 text-center text-[var(--status-error)] gap-2">
+            <AlertTriangle className="w-8 h-8 text-[var(--status-error)]" />
+            <div className="text-xs font-bold">Agent Offline</div>
+            <p className="text-[10px] text-[var(--fg-subtle)] max-w-[200px]">
+              Connection to systems agent endpoints failed or is unauthorized.
+            </p>
           </div>
         ) : (
           <div className="space-y-3">
             <div className="flex justify-between items-center py-1.5 border-b border-[var(--border-muted)]/50">
               <span className="text-[var(--fg-muted)] text-xs flex items-center gap-2">
-                <Activity className="w-3.5 h-3.5" /> OS
+                <Activity className="w-3.5 h-3.5 text-[var(--fg-subtle)]" /> OS Version
               </span>
-              <span className="font-mono text-xs bg-[var(--bg-inset)] px-2 py-0.5 rounded border border-[var(--border-muted)] text-[var(--status-success)] font-medium">
-                {health?.os_name} {health?.os_version}
+              <span className="font-mono text-xs bg-[var(--bg-inset)] px-2 py-0.5 rounded border border-[var(--border-default)] text-[var(--fg-default)] font-medium">
+                {health.os_name} {health.os_version}
               </span>
             </div>
             <div className="flex justify-between items-center py-1.5 border-b border-[var(--border-muted)]/50">
               <span className="text-[var(--fg-muted)] text-xs flex items-center gap-2">
-                <Clock className="w-3.5 h-3.5" /> Uptime
+                <Clock className="w-3.5 h-3.5 text-[var(--fg-subtle)]" /> Uptime
               </span>
-              <span className="font-mono text-xs bg-[var(--bg-inset)] px-2 py-0.5 rounded border border-[var(--border-muted)] text-[var(--status-success)] font-medium">
-                {formatUptime(health?.uptime_seconds)}
+              <span className="font-mono text-xs bg-[var(--bg-inset)] px-2 py-0.5 rounded border border-[var(--border-default)] text-[var(--fg-default)] font-medium">
+                {formatUptime(health.uptime_seconds)}
               </span>
             </div>
           </div>
@@ -125,4 +135,3 @@ export function SystemMetricsPanel({ token }) {
     </div>
   );
 }
-
