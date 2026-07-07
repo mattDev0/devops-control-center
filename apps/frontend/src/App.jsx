@@ -60,7 +60,7 @@ export default function App() {
   const deploymentLogsRef = useRef(null);
 
   // Custom Hooks
-  const logs = useSystemLogs(token);
+  const { logs, status: logStatus } = useSystemLogs(token);
   const activeDeploymentLogs = useDeploymentLogs(token, activeLogDeployment, showLogsModal);
 
   // Auto-scroll system logs
@@ -334,7 +334,7 @@ export default function App() {
             <SystemMetricsPanel token={token} />
           </ErrorBoundary>
           <ErrorBoundary>
-            <LogViewer logs={logs} logsContainerRef={logsContainerRef} />
+            <LogViewer logs={logs} logStatus={logStatus} logsContainerRef={logsContainerRef} />
           </ErrorBoundary>
         </div>
       )}

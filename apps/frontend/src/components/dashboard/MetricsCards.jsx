@@ -97,38 +97,40 @@ export function SystemMetricsPanel({ token }) {
       
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="bg-[var(--bg-inset)] border border-[var(--border-default)] rounded-[var(--radius-md)] p-1 h-56 relative overflow-hidden flex items-center justify-center">
-          <div className="absolute inset-0 flex flex-col items-center justify-center text-[var(--fg-subtle)] pointer-events-none z-0">
-            <LineChart className="w-6 h-6 mb-1.5 opacity-45" />
-            <p className="text-xs font-medium">CPU Usage Panel</p>
-            <p className="text-[10px] opacity-40 text-center px-4 mt-0.5">Proxied via /grafana/</p>
-          </div>
-          {token && (
+          {token ? (
             <iframe 
               src="grafana/d-solo/rYdddlPWk/node-exporter-full?orgId=1&timezone=browser&var-ds_prometheus=cfmh94yfqwjcwd&var-job=node&var-nodename=ac1f709ef5f4&var-node=node-exporter:9100&refresh=1m&panelId=77" 
               width="100%" 
               height="100%" 
               frameBorder="0" 
               className="relative z-10"
-              title="CPU Usage"
+              title="Grafana CPU Usage Metrics"
             ></iframe>
+          ) : (
+            <div className="w-full h-full bg-[var(--bg-inset)] flex items-center justify-center p-2">
+              <div className="skeleton w-full h-full rounded-[var(--radius-sm)] flex items-center justify-center text-[var(--fg-subtle)] text-xs">
+                <span>Loading CPU Metrics...</span>
+              </div>
+            </div>
           )}
         </div>
 
         <div className="bg-[var(--bg-inset)] border border-[var(--border-default)] rounded-[var(--radius-md)] p-1 h-56 relative overflow-hidden flex items-center justify-center">
-          <div className="absolute inset-0 flex flex-col items-center justify-center text-[var(--fg-subtle)] pointer-events-none z-0">
-            <Activity className="w-6 h-6 mb-1.5 opacity-45" />
-            <p className="text-xs font-medium">Memory Usage Panel</p>
-            <p className="text-[10px] opacity-40 text-center px-4 mt-0.5">Proxied via /grafana/</p>
-          </div>
-          {token && (
+          {token ? (
             <iframe 
               src="grafana/d-solo/rYdddlPWk/node-exporter-full?orgId=1&timezone=browser&var-ds_prometheus=cfmh94yfqwjcwd&var-job=node&var-nodename=ac1f709ef5f4&var-node=node-exporter:9100&refresh=1m&panelId=78" 
               width="100%" 
               height="100%" 
               frameBorder="0" 
               className="relative z-10"
-              title="Memory Usage"
+              title="Grafana Memory Usage Metrics"
             ></iframe>
+          ) : (
+            <div className="w-full h-full bg-[var(--bg-inset)] flex items-center justify-center p-2">
+              <div className="skeleton w-full h-full rounded-[var(--radius-sm)] flex items-center justify-center text-[var(--fg-subtle)] text-xs">
+                <span>Loading Memory Metrics...</span>
+              </div>
+            </div>
           )}
         </div>
       </div>
