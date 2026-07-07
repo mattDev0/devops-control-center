@@ -1,5 +1,4 @@
 import { useState, useEffect, useRef } from 'react';
-import { LogOut, LayoutDashboard, ChevronLeft, ChevronRight, Menu, Layers, GitPullRequest, FileText, Globe, LineChart, Server, Activity } from 'lucide-react';
 // Import Services
 import { api } from './services/api';
 
@@ -15,6 +14,7 @@ import WorkflowsTable from './components/dashboard/WorkflowsTable';
 import MetricsCards, { SystemMetricsPanel } from './components/dashboard/MetricsCards';
 import HealthSLOPanel from './components/dashboard/HealthSLOPanel';
 import ErrorBoundary from './components/ErrorBoundary';
+import AppShell from './components/layout/AppShell';
 
 export default function App() {
   const [token, setToken] = useState(localStorage.getItem('token') || '');
@@ -28,9 +28,22 @@ export default function App() {
   const [podHealth, setPodHealth] = useState(null);
   const [loadingPodHealth, setLoadingPodHealth] = useState(false);
 
-  // Sidebar Layout State
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [mobileOpen, setMobileOpen] = useState(false);
+  // Active Navigation View State
+  const [activeSection, setActiveSection] = useState(() => {
+    try {
+      return window.location.hash || '#overview';
+    } catch {
+      return '#overview';
+    }
+  });
+
+  useEffect(() => {
+    const handleHashChange = () => {
+      setActiveSection(window.location.hash || '#overview');
+    };
+    window.addEventListener('hashchange', handleHashChange);
+    return () => window.removeEventListener('hashchange', handleHashChange);
+  }, []);
 
   // Deployment Logs Modal State
   const [activeLogDeployment, setActiveLogDeployment] = useState(null);
@@ -47,7 +60,7 @@ export default function App() {
   const deploymentLogsRef = useRef(null);
 
   // Custom Hooks
-  const logs = useSystemLogs(token);
+  const { logs, status: logStatus } = useSystemLogs(token);
   const activeDeploymentLogs = useDeploymentLogs(token, activeLogDeployment, showLogsModal);
 
   // Auto-scroll system logs
@@ -183,6 +196,7 @@ export default function App() {
       if (error.message === 'UNAUTHORIZED') {
         handleLogout();
       }
+      throw error;
     }
   };
 
@@ -216,6 +230,7 @@ export default function App() {
       if (error.message === 'UNAUTHORIZED') {
         handleLogout();
       }
+      throw error;
     }
   };
 
@@ -257,248 +272,14 @@ export default function App() {
 
   // Dashboard Main View
   return (
-    <div className="min-h-screen flex bg-[var(--bg-canvas)] text-[var(--fg-default)] font-sans">
-      {/* Mobile Sidebar Overlay */}
-      {mobileOpen && (
-        <div 
-          onClick={() => setMobileOpen(false)}
-          className="fixed inset-0 z-40 bg-black/60 md:hidden"
-        />
-      )}
-
-      {/* Persistent/Collapsible Left Sidebar */}
-      <aside 
-        role="complementary"
-        aria-label="Sidebar Navigation"
-        className={`fixed inset-y-0 left-0 z-50 flex flex-col bg-[var(--bg-surface)] border-r border-[var(--border-default)] transition-all duration-300 md:sticky md:block shrink-0 ${
-          mobileOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
-        } ${sidebarCollapsed ? 'w-16' : 'w-60'}`}
-      >
-        {/* Sidebar Header */}
-        <div className="flex h-14 items-center justify-between px-4 border-b border-[var(--border-muted)]">
-          {!sidebarCollapsed ? (
-            <span className="font-bold text-sm tracking-wider uppercase text-[var(--accent-primary)] flex items-center gap-2">
-              <LayoutDashboard className="w-5 h-5" />
-              Control Center
-            </span>
-          ) : (
-            <div className="mx-auto text-[var(--accent-primary)]">
-              <LayoutDashboard className="w-5 h-5" />
-            </div>
-          )}
-          <button
-            onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-            className="hidden md:flex p-1 rounded hover:bg-[var(--interactive-hover)] text-[var(--fg-muted)] hover:text-[var(--fg-default)] transition-colors"
-            aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-            aria-expanded={!sidebarCollapsed}
-            title={sidebarCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
-          >
-            {sidebarCollapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
-          </button>
-        </div>
-
-        {/* Sidebar Navigation Links */}
-        <nav role="navigation" aria-label="Main Navigation" className="flex-1 space-y-1 p-2 overflow-y-auto">
-          <button
-            onClick={() => {
-              document.getElementById('overview')?.scrollIntoView({ behavior: 'smooth' });
-              setMobileOpen(false);
-            }}
-            className="flex items-center w-full gap-3 px-3 py-2 text-sm font-medium rounded-md hover:bg-[var(--interactive-hover)] text-[var(--fg-muted)] hover:text-[var(--fg-default)] transition-colors"
-            aria-label="Navigate to Overview"
-            title="Overview"
-          >
-            <LayoutDashboard className="w-5 h-5 shrink-0 text-[var(--fg-subtle)]" />
-            {!sidebarCollapsed && <span>Overview</span>}
-          </button>
-          
-          <button
-            onClick={() => {
-              document.getElementById('deployments')?.scrollIntoView({ behavior: 'smooth' });
-              setMobileOpen(false);
-            }}
-            className="flex items-center w-full gap-3 px-3 py-2 text-sm font-medium rounded-md hover:bg-[var(--interactive-hover)] text-[var(--fg-muted)] hover:text-[var(--fg-default)] transition-colors"
-            aria-label="Navigate to Deployments"
-            title="Deployments"
-          >
-            <Layers className="w-5 h-5 shrink-0 text-[var(--fg-subtle)]" />
-            {!sidebarCollapsed && <span>Deployments</span>}
-          </button>
-
-          <button
-            onClick={() => {
-              document.getElementById('pipelines')?.scrollIntoView({ behavior: 'smooth' });
-              setMobileOpen(false);
-            }}
-            className="flex items-center w-full gap-3 px-3 py-2 text-sm font-medium rounded-md hover:bg-[var(--interactive-hover)] text-[var(--fg-muted)] hover:text-[var(--fg-default)] transition-colors"
-            aria-label="Navigate to Pipelines"
-            title="Pipelines"
-          >
-            <GitPullRequest className="w-5 h-5 shrink-0 text-[var(--fg-subtle)]" />
-            {!sidebarCollapsed && <span>Pipelines</span>}
-          </button>
-
-          <button
-            onClick={() => {
-              document.getElementById('logs')?.scrollIntoView({ behavior: 'smooth' });
-              setMobileOpen(false);
-            }}
-            className="flex items-center w-full gap-3 px-3 py-2 text-sm font-medium rounded-md hover:bg-[var(--interactive-hover)] text-[var(--fg-muted)] hover:text-[var(--fg-default)] transition-colors"
-            aria-label="Navigate to System Logs"
-            title="System Logs"
-          >
-            <FileText className="w-5 h-5 shrink-0 text-[var(--fg-subtle)]" />
-            {!sidebarCollapsed && <span>System Logs</span>}
-          </button>
-
-          <button
-            onClick={() => {
-              document.getElementById('metrics')?.scrollIntoView({ behavior: 'smooth' });
-              setMobileOpen(false);
-            }}
-            className="flex items-center w-full gap-3 px-3 py-2 text-sm font-medium rounded-md hover:bg-[var(--interactive-hover)] text-[var(--fg-muted)] hover:text-[var(--fg-default)] transition-colors"
-            aria-label="Navigate to System Metrics"
-            title="System Metrics"
-          >
-            <LineChart className="w-5 h-5 shrink-0 text-[var(--fg-subtle)]" />
-            {!sidebarCollapsed && <span>System Metrics</span>}
-          </button>
-        </nav>
-
-        {/* Scope Context Box */}
-        {!sidebarCollapsed && (
-          <div className="p-4 border-t border-[var(--border-muted)] bg-[var(--bg-canvas)]/30 m-2 rounded-lg" aria-label="Scope Details">
-            <div className="text-[10px] uppercase font-bold text-[var(--fg-subtle)] tracking-wider">Scope Context</div>
-            <div className="text-xs font-semibold mt-1 flex items-center gap-1.5 text-[var(--accent-primary)]">
-              <Globe className="w-3.5 h-3.5" />
-              Production / K3s
-            </div>
-          </div>
-        )}
-      </aside>
-
-      {/* Main Content Area */}
-      <div className="flex-1 flex flex-col min-w-0 min-h-screen">
-        {/* Sticky Top Nav Bar */}
-        <header role="banner" className="sticky top-0 z-30 flex h-14 items-center justify-between bg-[var(--bg-surface)] border-b border-[var(--border-default)] px-6 shadow-sm">
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => setMobileOpen(!mobileOpen)}
-              className="p-1.5 rounded hover:bg-[var(--interactive-hover)] text-[var(--fg-muted)] hover:text-[var(--fg-default)] md:hidden transition-colors"
-              aria-label="Toggle navigation menu"
-              aria-expanded={mobileOpen}
-              title="Toggle Menu"
-            >
-              <Menu className="w-5 h-5" />
-            </button>
-            
-            <h1 className="text-base font-bold tracking-tight text-[var(--fg-default)] flex items-center gap-2">
-              DevOps Control Center
-            </h1>
-            
-            {role === 'ROLE_GUEST' && (
-              <span className="text-[10px] font-mono font-medium bg-[var(--bg-elevated)] border border-[var(--border-muted)] text-[var(--fg-muted)] px-2 py-0.5 rounded" aria-label="Read-only mode enabled">
-                🔒 Guest Mode
-              </span>
-            )}
-          </div>
-
-          <button
-            onClick={handleLogout}
-            className="flex items-center gap-2 bg-[var(--bg-elevated)] hover:bg-red-500/10 hover:text-red-400 border border-[var(--border-default)] px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer"
-          >
-            <LogOut className="w-3.5 h-3.5" />
-            Logout
-          </button>
-        </header>
-
-        {/* Scrollable Panel Container */}
-        <main className="flex-grow p-6 overflow-y-auto space-y-6 max-w-7xl w-full mx-auto">
-          {/* KPI Summary Row */}
-          {health && (
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-              {/* Agent Status */}
-              <div className="bg-[var(--bg-surface)] border border-[var(--border-default)] rounded-[var(--radius-md)] px-3 py-2 flex items-center gap-2.5">
-                <Server className="w-4 h-4 text-[var(--accent-primary)] shrink-0" />
-                <div>
-                  <div className="text-[10px] text-[var(--fg-subtle)] uppercase font-semibold tracking-wider">Agent Status</div>
-                  <div className="text-xs font-bold flex items-center gap-1.5 mt-0.5">
-                    <span className={`w-1.5 h-1.5 rounded-full ${health?.os_name === 'Error' ? 'bg-[var(--status-error)]' : 'bg-[var(--status-success)]'}`}></span>
-                    {health?.os_name === 'Error' ? 'Offline' : 'Online'}
-                  </div>
-                </div>
-              </div>
-
-              {/* Running Pods */}
-              <div className="bg-[var(--bg-surface)] border border-[var(--border-default)] rounded-[var(--radius-md)] px-3 py-2 flex items-center gap-2.5">
-                <Activity className="w-4 h-4 text-[var(--accent-secondary)] shrink-0" />
-                <div>
-                  <div className="text-[10px] text-[var(--fg-subtle)] uppercase font-semibold tracking-wider">Running Pods</div>
-                  <div className="text-xs font-bold mt-0.5">
-                    {podHealth ? podHealth.reduce((sum, ns) => sum + (ns.running || 0), 0) : 0} Pods
-                  </div>
-                </div>
-              </div>
-
-              {/* Availability SLI */}
-              <div className="bg-[var(--bg-surface)] border border-[var(--border-default)] rounded-[var(--radius-md)] px-3 py-2 flex items-center gap-2.5">
-                <div className="w-4 h-4 rounded-full border border-[var(--fg-subtle)]/20 flex items-center justify-center text-[10px] font-bold text-[var(--accent-primary)] shrink-0">%</div>
-                <div>
-                  <div className="text-[10px] text-[var(--fg-subtle)] uppercase font-semibold tracking-wider">Availability SLI</div>
-                  <div className="text-xs font-bold mt-0.5">
-                    {(() => {
-                      const totalPods = podHealth ? podHealth.reduce((sum, ns) => sum + (ns.total || 0), 0) : 0;
-                      const runningPods = podHealth ? podHealth.reduce((sum, ns) => sum + (ns.running || 0), 0) : 0;
-                      return totalPods > 0 ? ((runningPods / totalPods) * 100).toFixed(1) : '100.0';
-                    })()}%
-                  </div>
-                </div>
-              </div>
-
-              {/* Remaining Budget */}
-              <div className="bg-[var(--bg-surface)] border border-[var(--border-default)] rounded-[var(--radius-md)] px-3 py-2 flex items-center gap-2.5">
-                <div className="w-4 h-4 rounded-full border border-[var(--fg-subtle)]/20 flex items-center justify-center text-[10px] font-bold text-[var(--status-error)] shrink-0">E</div>
-                <div>
-                  <div className="text-[10px] text-[var(--fg-subtle)] uppercase font-semibold tracking-wider">Error Budget</div>
-                  <div className="text-xs font-bold mt-0.5">
-                    {(() => {
-                      const totalFailed = podHealth ? podHealth.reduce((sum, ns) => sum + (ns.failed || 0) + (ns.crash_loop || 0) + ((ns.pending || 0) * 0.5), 0) : 0;
-                      const totalPods = podHealth ? podHealth.reduce((sum, ns) => sum + (ns.total || 0), 0) : 0;
-                      const budgetConsumedPercent = totalPods > 0 ? Math.min(100, Math.max(0, (totalFailed / totalPods) * 100 * 10)) : 0;
-                      return (100 - budgetConsumedPercent).toFixed(1);
-                    })()}%
-                  </div>
-                </div>
-              </div>
-
-              {/* Last Pipeline Status */}
-              <div className="bg-[var(--bg-surface)] border border-[var(--border-default)] rounded-[var(--radius-md)] px-3 py-2 flex items-center gap-2.5 col-span-2 md:col-span-1">
-                <GitPullRequest className="w-4 h-4 text-[var(--fg-muted)] shrink-0" />
-                <div className="min-w-0">
-                  <div className="text-[10px] text-[var(--fg-subtle)] uppercase font-semibold tracking-wider">Last Pipeline</div>
-                  <div className="text-xs font-bold mt-0.5 truncate flex items-center gap-1.5">
-                    {workflows && workflows.length > 0 ? (
-                      <>
-                        <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${
-                          workflows[0].status === 'in_progress' 
-                            ? 'bg-[var(--status-info)] animate-pulse' 
-                            : workflows[0].conclusion === 'success'
-                            ? 'bg-[var(--status-success)]'
-                            : workflows[0].conclusion === 'failure'
-                            ? 'bg-[var(--status-error)]'
-                            : 'bg-[var(--status-neutral)]'
-                        }`}></span>
-                        <span className="truncate">{workflows[0].name}</span>
-                      </>
-                    ) : 'N/A'}
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Row 1: Health & Overview */}
-          <div id="overview" className="scroll-mt-20 grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <AppShell
+      role={role}
+      handleLogout={handleLogout}
+      activeHash={activeSection}
+    >
+      {activeSection === '#overview' && (
+        <div className="space-y-6">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <ErrorBoundary>
               <MetricsCards
                 health={health}
@@ -516,53 +297,47 @@ export default function App() {
               </ErrorBoundary>
             </div>
           </div>
+        </div>
+      )}
 
-          {/* Row 1.5: System Metrics */}
-          <div id="metrics" className="scroll-mt-20">
-            <ErrorBoundary>
-              <SystemMetricsPanel token={token} />
-            </ErrorBoundary>
-          </div>
+      {activeSection === '#deployments' && (
+        <ErrorBoundary>
+          <DeploymentsTable
+            deployments={deployments}
+            loading={loadingDeployments}
+            role={role}
+            fetchDeployments={() => fetchDeployments()}
+            handleDeploymentAction={handleDeploymentAction}
+            onViewLogs={(deployment) => {
+              setActiveLogDeployment(deployment);
+              setShowLogsModal(true);
+            }}
+          />
+        </ErrorBoundary>
+      )}
 
-          {/* Row 2: Deployments & CI/CD */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div id="deployments" className="scroll-mt-20">
-              <ErrorBoundary>
-                <DeploymentsTable
-                  deployments={deployments}
-                  loading={loadingDeployments}
-                  role={role}
-                  fetchDeployments={() => fetchDeployments()}
-                  handleDeploymentAction={handleDeploymentAction}
-                  onViewLogs={(deployment) => {
-                    setActiveLogDeployment(deployment);
-                    setShowLogsModal(true);
-                  }}
-                />
-              </ErrorBoundary>
-            </div>
-            
-            <div id="pipelines" className="scroll-mt-20">
-              <ErrorBoundary>
-                <WorkflowsTable
-                  workflows={workflows}
-                  loadingWorkflows={loadingWorkflows}
-                  role={role}
-                  fetchWorkflows={() => fetchWorkflows()}
-                  triggerWorkflow={triggerWorkflow}
-                />
-              </ErrorBoundary>
-            </div>
-          </div>
+      {activeSection === '#pipelines' && (
+        <ErrorBoundary>
+          <WorkflowsTable
+            workflows={workflows}
+            loadingWorkflows={loadingWorkflows}
+            role={role}
+            fetchWorkflows={() => fetchWorkflows()}
+            triggerWorkflow={triggerWorkflow}
+          />
+        </ErrorBoundary>
+      )}
 
-          {/* Row 3: Logs */}
-          <div id="logs" className="scroll-mt-20 grid grid-cols-1">
-            <ErrorBoundary>
-              <LogViewer logs={logs} logsContainerRef={logsContainerRef} />
-            </ErrorBoundary>
-          </div>
-        </main>
-      </div>
+      {activeSection === '#observability' && (
+        <div className="space-y-6">
+          <ErrorBoundary>
+            <SystemMetricsPanel token={token} />
+          </ErrorBoundary>
+          <ErrorBoundary>
+            <LogViewer logs={logs} logStatus={logStatus} logsContainerRef={logsContainerRef} />
+          </ErrorBoundary>
+        </div>
+      )}
 
       {/* Deployment Logs Modal */}
       {showLogsModal && activeLogDeployment && (
@@ -576,6 +351,6 @@ export default function App() {
           }}
         />
       )}
-    </div>
+    </AppShell>
   );
 }
