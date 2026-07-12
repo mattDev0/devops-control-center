@@ -7,9 +7,11 @@ services:
       context: ./apps/agent
     container_name: devops-agent
     ports:
-      - "3011:3001"
+      - "127.0.0.1:3011:3001"
     environment:
       - AGENT_SECRET_KEY=${AGENT_SECRET_KEY:-devops-secret-key-123}
+    volumes:
+      - ~/.kube/config:/home/appuser/.kube/config:ro
     restart: unless-stopped
 
   # Java Orchestrator: Central coordination layer
@@ -36,7 +38,7 @@ services:
       context: ./apps/frontend
     container_name: devops-frontend
     ports:
-      - "8085:80"
+      - "8085:8080"
     depends_on:
       - orchestrator
       - grafana
@@ -47,7 +49,7 @@ services:
     image: prom/prometheus:v2.51.0
     container_name: devops-prometheus
     ports:
-      - "9091:9090"
+      - "127.0.0.1:9091:9090"
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
     volumes:
@@ -82,7 +84,7 @@ services:
     image: prom/node-exporter:v1.8.0
     container_name: devops-node-exporter
     ports:
-      - "9101:9100"
+      - "127.0.0.1:9101:9100"
     restart: unless-stopped
 
 volumes:
