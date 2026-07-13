@@ -20,7 +20,7 @@ services:
       context: ./apps/orchestrator
     container_name: devops-orchestrator
     ports:
-      - "8090:8080"
+      - "127.0.0.1:8090:8080"
     environment:
       - AGENT_URL=http://devops-agent:3001
       - AGENT_SECRET_KEY=${AGENT_SECRET_KEY:-devops-secret-key-123}
@@ -38,7 +38,7 @@ services:
       context: ./apps/frontend
     container_name: devops-frontend
     ports:
-      - "8085:8080"
+      - "127.0.0.1:8085:8080"
     depends_on:
       - orchestrator
       - grafana
@@ -61,7 +61,7 @@ services:
     image: grafana/grafana:11.0.0
     container_name: devops-grafana
     ports:
-      - "3010:3000"
+      - "127.0.0.1:3010:3000"
     environment:
       - GF_SECURITY_ALLOW_EMBEDDING=true
       - GF_AUTH_ANONYMOUS_ENABLED=true
