@@ -1,0 +1,70 @@
+version: '3.8'
+
+services:
+  caddy:
+    image: caddy:2.7-alpine
+    container_name: caddy-proxy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    networks:
+      - default
+    deploy:
+      resources:
+        limits:
+          memory: 32M
+
+  agent:
+    image: ghcr.io/mattdev0/devops-control-center/devops-agent:${COMMIT_SHA:-latest}
+    ports:
+      - "127.0.0.1:3011:3001"
+    deploy:
+      resources:
+        limits:
+          memory: 32M
+
+  orchestrator:
+    image: ghcr.io/mattdev0/devops-control-center/devops-orchestrator:${COMMIT_SHA:-latest}
+    ports:
+      - "127.0.0.1:8090:8080"
+    environment:
+      - JAVA_TOOL_OPTIONS=-Xms64m -Xmx192m -XX:+UseG1GC -XX:MaxMetaspaceSize=64m -XX:+UseStringDeduplication
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+
+  frontend:
+    image: ghcr.io/mattdev0/devops-control-center/devops-frontend:${COMMIT_SHA:-latest}
+    ports:
+      - "127.0.0.1:8085:8080"
+    deploy:
+      resources:
+        limits:
+          memory: 32M
+
+  prometheus:
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.retention.time=3d'
+    deploy:
+      resources:
+        limits:
+          memory: 96M
+
+  grafana:
+    ports:
+      - "127.0.0.1:3010:3000"
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+
+volumes:
+  caddy-data:
+  caddy-config:

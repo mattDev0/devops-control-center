@@ -1,0 +1,209 @@
+name: Production Deployment (Docker Compose)
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: production-deploy
+  cancel-in-progress: false
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Lint Agent Dockerfile
+        uses: hadolint/hadolint-action@v3.1.0
+        with:
+          dockerfile: "apps/agent/Dockerfile"
+          ignore: DL3008
+
+      - name: Lint Orchestrator Dockerfile
+        uses: hadolint/hadolint-action@v3.1.0
+        with:
+          dockerfile: "apps/orchestrator/Dockerfile"
+
+      - name: Lint Frontend Dockerfile
+        uses: hadolint/hadolint-action@v3.1.0
+        with:
+          dockerfile: "apps/frontend/Dockerfile"
+
+      - name: Set up Go (for Kubeconform)
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
+
+      - name: Install Kubeconform
+        run: go install github.com/yannh/kubeconform/cmd/kubeconform@v0.6.3
+
+      - name: Run Kubeconform Manifest Validation
+        run: |
+          ~/go/bin/kubeconform -strict -schema-location default -schema-location 'https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json' infrastructure/k8s/
+
+      - name: Set up Rust Toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: apps/agent -> target
+
+      - name: Run Agent Tests
+        run: |
+          cd apps/agent
+          cargo test
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+          cache: 'maven'
+
+      - name: Run Orchestrator Tests
+        run: |
+          cd apps/orchestrator
+          mvn test
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: apps/frontend/package-lock.json
+
+      - name: Run Frontend Lint & Build Test
+        run: |
+          cd apps/frontend
+          npm ci
+          npm run lint
+          npm run build
+
+  build:
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and Push Devops Agent
+        uses: docker/build-push-action@v5
+        with:
+          context: ./apps/agent
+          push: true
+          tags: |
+            ghcr.io/mattdev0/devops-control-center/devops-agent:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Scan Devops Agent Image
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: 'ghcr.io/mattdev0/devops-control-center/devops-agent:${{ github.sha }}'
+          format: 'table'
+          exit-code: '1'
+          ignore-unfixed: true
+          severity: 'CRITICAL'
+
+      - name: Build and Push Devops Orchestrator
+        uses: docker/build-push-action@v5
+        with:
+          context: ./apps/orchestrator
+          push: true
+          tags: |
+            ghcr.io/mattdev0/devops-control-center/devops-orchestrator:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Scan Devops Orchestrator Image
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: 'ghcr.io/mattdev0/devops-control-center/devops-orchestrator:${{ github.sha }}'
+          format: 'table'
+          exit-code: '1'
+          ignore-unfixed: true
+          severity: 'CRITICAL'
+
+      - name: Build and Push Devops Frontend
+        uses: docker/build-push-action@v5
+        with:
+          context: ./apps/frontend
+          push: true
+          tags: |
+            ghcr.io/mattdev0/devops-control-center/devops-frontend:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Scan Devops Frontend Image
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: 'ghcr.io/mattdev0/devops-control-center/devops-frontend:${{ github.sha }}'
+          format: 'table'
+          exit-code: '1'
+          ignore-unfixed: true
+          severity: 'CRITICAL'
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Executing Remote SSH Commands to Deploy
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.AZURE_HOST }}
+          username: ${{ secrets.AZURE_USER }}
+          key: ${{ secrets.AZURE_SSH_KEY }}
+          port: 22
+          script: |
+            set -e
+            echo "Successfully connected to Azure Production Server."
+            
+            # Navigate to devops-control-center directory
+            cd /opt/devops-control-center
+            
+            # Ensure the server is locked to the correct branch and fetch the latest code
+            git fetch origin main
+            git checkout main
+            git reset --hard origin/main
+            
+            echo "Making scripts executable..."
+            chmod +x scripts/*.sh
+            
+            echo "Logging in to GitHub Container Registry..."
+            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+            
+            echo "Pulling latest Docker images..."
+            COMMIT_SHA=${{ github.sha }} docker compose -f docker-compose.yml -f docker-compose.prod.yml pull
+            
+            echo "Updating containers..."
+            COMMIT_SHA=${{ github.sha }} docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+            
+            echo "Running post-deploy health check..."
+            bash scripts/health-check.sh
+            
+            echo "Cleaning up dangling images..."
+            docker image prune -f
+            
+            echo "Docker Compose deployment successfully executed!"
