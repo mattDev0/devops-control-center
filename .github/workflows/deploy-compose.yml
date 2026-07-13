@@ -198,25 +198,23 @@ jobs:
             mkdir -p ~/.kube
             if [ ! -s ~/.kube/config ]; then
               echo "Creating dummy kubeconfig for standalone Agent mode..."
-              cat << 'EOF' > ~/.kube/config
-apiVersion: v1
-clusters:
-- cluster:
-    server: https://localhost:8443
-  name: dummy-cluster
-contexts:
-- context:
-    cluster: dummy-cluster
-    user: dummy-user
-  name: dummy-context
-current-context: dummy-context
-kind: Config
-preferences: {}
-users:
-- name: dummy-user
-  user:
-    token: dummy-token
-EOF
+              echo "apiVersion: v1" > ~/.kube/config
+              echo "clusters:" >> ~/.kube/config
+              echo "- cluster:" >> ~/.kube/config
+              echo "    server: https://localhost:8443" >> ~/.kube/config
+              echo "  name: dummy-cluster" >> ~/.kube/config
+              echo "contexts:" >> ~/.kube/config
+              echo "- context:" >> ~/.kube/config
+              echo "    cluster: dummy-cluster" >> ~/.kube/config
+              echo "    user: dummy-user" >> ~/.kube/config
+              echo "  name: dummy-context" >> ~/.kube/config
+              echo "current-context: dummy-context" >> ~/.kube/config
+              echo "kind: Config" >> ~/.kube/config
+              echo "preferences: {}" >> ~/.kube/config
+              echo "users:" >> ~/.kube/config
+              echo "- name: dummy-user" >> ~/.kube/config
+              echo "  user:" >> ~/.kube/config
+              echo "    token: dummy-token" >> ~/.kube/config
             fi
 
             echo "Making scripts executable..."
