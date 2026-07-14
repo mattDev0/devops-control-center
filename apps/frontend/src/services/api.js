@@ -83,5 +83,33 @@ export const api = {
       headers: { 'Authorization': `Bearer ${token}` }
     });
     return handleResponse(response);
+  },
+
+  fetchDockerContainers: async (token) => {
+    const response = await fetch('api/servers/docker/containers', {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    return handleResponse(response);
+  },
+
+  executeDockerContainerAction: async (id, action, token) => {
+    const response = await fetch(`api/servers/docker/containers/${id}/${action}`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    if (response.status === 401 || response.status === 403) {
+      throw new Error('UNAUTHORIZED');
+    }
+    if (!response.ok) {
+      throw new Error(`Docker action failed: ${response.status}`);
+    }
+    return true;
+  },
+
+  fetchDockerContainerStats: async (id, token) => {
+    const response = await fetch(`api/servers/docker/containers/${id}/stats`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    return handleResponse(response);
   }
 };

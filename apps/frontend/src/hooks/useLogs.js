@@ -117,3 +117,39 @@ export function useDeploymentLogs(token, activeLogDeployment, showLogsModal) {
 
   return activeDeploymentLogs;
 }
+
+export function useDockerContainerLogs(token, activeLogContainer, showLogsModal) {
+  const [activeContainerLogs, setActiveContainerLogs] = useState([]);
+
+  useEffect(() => {
+    if (!showLogsModal || !activeLogContainer || !token) {
+      setActiveContainerLogs([]);
+      return;
+    }
+
+    setActiveContainerLogs([]);
+    const controller = new AbortController();
+
+    readSseStream(
+      `api/servers/docker/containers/${encodeURIComponent(activeLogContainer.id)}/logs`,
+      token,
+      (data) => {
+        setActiveContainerLogs((prevLogs) => {
+          const newLogs = [...prevLogs, data];
+          return newLogs.slice(-150); // limit to 150 lines
+        });
+      },
+      (err) => {
+        console.error("Docker container log stream error:", err);
+        setActiveContainerLogs((prevLogs) => [...prevLogs, "⚠️ Log stream disconnected. Retrying..."]);
+      },
+      controller.signal
+    );
+
+    return () => {
+      controller.abort();
+    };
+  }, [showLogsModal, activeLogContainer, token]);
+
+  return activeContainerLogs;
+}

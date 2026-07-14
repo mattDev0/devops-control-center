@@ -4,7 +4,7 @@ import { LogOut, LayoutDashboard, ChevronLeft, ChevronRight, Menu, Layers, GitPu
 import { api } from './services/api';
 
 // Import Hooks
-import { useSystemLogs, useDeploymentLogs } from './hooks/useLogs';
+import { useSystemLogs, useDeploymentLogs, useDockerContainerLogs } from './hooks/useLogs';
 
 // Import Components
 import Login from './components/auth/Login';
@@ -12,6 +12,8 @@ import LogViewer from './components/dashboard/LogViewer';
 import DeploymentsTable from './components/dashboard/DeploymentsTable';
 import LogsModal from './components/dashboard/LogsModal';
 import WorkflowsTable from './components/dashboard/WorkflowsTable';
+import DockerContainersTable from './components/dashboard/DockerContainersTable';
+import DockerLogsModal from './components/dashboard/DockerLogsModal';
 import MetricsCards, { SystemMetricsPanel } from './components/dashboard/MetricsCards';
 import HealthSLOPanel from './components/dashboard/HealthSLOPanel';
 import ErrorBoundary from './components/ErrorBoundary';
@@ -36,6 +38,12 @@ export default function App() {
   const [activeLogDeployment, setActiveLogDeployment] = useState(null);
   const [showLogsModal, setShowLogsModal] = useState(false);
 
+  // Docker Standalone State
+  const [containers, setContainers] = useState([]);
+  const [loadingContainers, setLoadingContainers] = useState(true);
+  const [activeLogContainer, setActiveLogContainer] = useState(null);
+  const [showDockerLogsModal, setShowDockerLogsModal] = useState(false);
+
   // Authentication UI State
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -45,10 +53,12 @@ export default function App() {
   // Refs
   const logsContainerRef = useRef(null);
   const deploymentLogsRef = useRef(null);
+  const containerLogsRef = useRef(null);
 
   // Custom Hooks
   const logs = useSystemLogs(token);
   const activeDeploymentLogs = useDeploymentLogs(token, activeLogDeployment, showLogsModal);
+  const activeContainerLogs = useDockerContainerLogs(token, activeLogContainer, showDockerLogsModal);
 
   // Auto-scroll system logs
   useEffect(() => {
@@ -219,6 +229,39 @@ export default function App() {
     }
   };
 
+  // Fetch Docker Containers
+  const fetchContainers = async (activeToken = token) => {
+    if (!activeToken) return;
+    setLoadingContainers(true);
+    try {
+      const data = await api.fetchDockerContainers(activeToken);
+      if (Array.isArray(data)) {
+        setContainers(data);
+      }
+    } catch (error) {
+      console.error("Failed to fetch Docker containers", error);
+      if (error.message === 'UNAUTHORIZED') {
+        handleLogout();
+      }
+    } finally {
+      setLoadingContainers(false);
+    }
+  };
+
+  // Execute Docker Container Action
+  const handleContainerAction = async (id, action) => {
+    if (!token || role === 'ROLE_GUEST') return;
+    try {
+      await api.executeDockerContainerAction(id, action, token);
+      fetchContainers();
+    } catch (error) {
+      console.error(`Failed to execute action ${action} on container ${id}`, error);
+      if (error.message === 'UNAUTHORIZED') {
+        handleLogout();
+      }
+    }
+  };
+
   // Initialize and periodically refresh data when Authenticated
   useEffect(() => {
     if (!token) return;
@@ -228,16 +271,20 @@ export default function App() {
     fetchDeployments(token);
     fetchWorkflows(token);
     fetchPodHealth(token);
+    fetchContainers(token);
 
     // Periodic refresh for health and deployments every 30 seconds
     const interval = setInterval(() => {
       fetchHealth(token);
       fetchDeployments(token);
       fetchPodHealth(token);
+      fetchContainers(token);
     }, 30000);
 
     return () => clearInterval(interval);
   }, [token]);
+
+
 
   // Render Login overlay if token is not available
   if (!token) {
@@ -526,7 +573,7 @@ export default function App() {
 
           {/* Row 2: Deployments & CI/CD */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div id="deployments" className="scroll-mt-20">
+            <div id="deployments" className="scroll-mt-20 flex flex-col gap-6">
               <ErrorBoundary>
                 <DeploymentsTable
                   deployments={deployments}
@@ -537,6 +584,21 @@ export default function App() {
                   onViewLogs={(deployment) => {
                     setActiveLogDeployment(deployment);
                     setShowLogsModal(true);
+                  }}
+                />
+              </ErrorBoundary>
+
+              <ErrorBoundary>
+                <DockerContainersTable
+                  token={token}
+                  role={role === 'ROLE_GUEST' ? 'viewer' : 'admin'}
+                  containers={containers}
+                  loading={loadingContainers}
+                  fetchContainers={() => fetchContainers()}
+                  handleContainerAction={handleContainerAction}
+                  onViewLogs={(container) => {
+                    setActiveLogContainer(container);
+                    setShowDockerLogsModal(true);
                   }}
                 />
               </ErrorBoundary>
@@ -573,6 +635,19 @@ export default function App() {
           onClose={() => {
             setShowLogsModal(false);
             setActiveLogDeployment(null);
+          }}
+        />
+      )}
+
+      {/* Docker Container Logs Modal */}
+      {showDockerLogsModal && activeLogContainer && (
+        <DockerLogsModal
+          activeLogContainer={activeLogContainer}
+          activeContainerLogs={activeContainerLogs}
+          containerLogsRef={containerLogsRef}
+          onClose={() => {
+            setShowDockerLogsModal(false);
+            setActiveLogContainer(null);
           }}
         />
       )}
