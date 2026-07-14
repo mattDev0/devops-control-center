@@ -163,76 +163,38 @@ jobs:
           exit-code: '1'
           ignore-unfixed: true
           severity: 'CRITICAL'
-
   deploy:
     needs: build
     runs-on: ubuntu-latest
     environment: production
+    permissions:
+      id-token: write
+      contents: read
     steps:
-      - name: Executing Remote SSH Commands to Deploy
-        uses: appleboy/ssh-action@v1.0.3
+      - name: Log in to Azure via OIDC (Workload Identity)
+        uses: azure/login@v2
         with:
-          host: ${{ secrets.AZURE_HOST }}
-          username: ${{ secrets.AZURE_USER }}
-          key: ${{ secrets.AZURE_SSH_KEY }}
-          port: 22
-          script: |
-            set -e
-            echo "Successfully connected to Azure Production Server."
-            
-            # Navigate to devops-control-center directory
-            cd /opt/devops-control-center
-            
-            # Temporarily configure HTTPS URL with token to bypass SSH authentication
-            git remote set-url origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/mattDev0/devops-control-center.git
-            
-            # Ensure the server is locked to the correct branch and fetch the latest code
-            git fetch origin main
-            git checkout main
-            git reset --hard origin/main
-            
-            # Restore original SSH remote URL
-            git remote set-url origin git@github.com:mattDev0/devops-control-center.git
-            
-            # Ensure a dummy kubeconfig file exists on the host so the Agent doesn't block on startup
-            mkdir -p ~/.kube
-            if [ ! -s ~/.kube/config ]; then
-              echo "Creating dummy kubeconfig for standalone Agent mode..."
-              echo "apiVersion: v1" > ~/.kube/config
-              echo "clusters:" >> ~/.kube/config
-              echo "- cluster:" >> ~/.kube/config
-              echo "    server: https://localhost:8443" >> ~/.kube/config
-              echo "  name: dummy-cluster" >> ~/.kube/config
-              echo "contexts:" >> ~/.kube/config
-              echo "- context:" >> ~/.kube/config
-              echo "    cluster: dummy-cluster" >> ~/.kube/config
-              echo "    user: dummy-user" >> ~/.kube/config
-              echo "  name: dummy-context" >> ~/.kube/config
-              echo "current-context: dummy-context" >> ~/.kube/config
-              echo "kind: Config" >> ~/.kube/config
-              echo "preferences: {}" >> ~/.kube/config
-              echo "users:" >> ~/.kube/config
-              echo "- name: dummy-user" >> ~/.kube/config
-              echo "  user:" >> ~/.kube/config
-              echo "    token: dummy-token" >> ~/.kube/config
-            fi
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
-            echo "Making scripts executable..."
-            chmod +x scripts/*.sh
-            
-            echo "Logging in to GitHub Container Registry..."
-            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
-            
-            echo "Pulling latest Docker images..."
-            COMMIT_SHA=${{ github.sha }} docker compose -f docker-compose.yml -f docker-compose.prod.yml pull
-            
-            echo "Updating containers..."
-            COMMIT_SHA=${{ github.sha }} docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
-            
-            echo "Running post-deploy health check..."
-            bash scripts/health-check.sh
-            
-            echo "Cleaning up dangling images..."
-            docker image prune -f
-            
-            echo "Docker Compose deployment successfully executed!"
+      - name: Deploy via Azure VM Run Command
+        uses: azure/CLI@v2
+        with:
+          inlineScript: |
+            az vm run-command invoke \
+              --resource-group DEVOPS-LAB-01_GROUP_07122138 \
+              --name devops-lab-01 \
+              --command-id RunShellScript \
+              --scripts "sudo -u matt GITHUB_TOKEN='${{ secrets.GITHUB_TOKEN }}' GITHUB_ACTOR='${{ github.actor }}' COMMIT_SHA='${{ github.sha }}' bash /opt/devops-control-center/scripts/deploy.sh"
+
+      # ROLLBACK REFERENCE: Commanded out SSH key-based deploy (To rollback: uncomment, remove azure actions/perms)
+      # - name: Executing Remote SSH Commands to Deploy
+      #   uses: appleboy/ssh-action@v1.0.3
+      #   with:
+      #     host: ${{ secrets.AZURE_HOST }}
+      #     username: ${{ secrets.AZURE_USER }}
+      #     key: ${{ secrets.AZURE_SSH_KEY }}
+      #     port: 22
+      #     script: |
+      #       # (Original SSH script content removed from execution but preserved in git history)
