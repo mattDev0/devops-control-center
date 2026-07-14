@@ -6,12 +6,14 @@ services:
     build:
       context: ./apps/agent
     container_name: devops-agent
+    user: "10001:988"
     ports:
       - "127.0.0.1:3011:3001"
     environment:
       - AGENT_SECRET_KEY=${AGENT_SECRET_KEY:-devops-secret-key-123}
     volumes:
       - ~/.kube/config:/home/appuser/.kube/config:ro
+      - /var/run/docker.sock:/var/run/docker.sock
     restart: unless-stopped
 
   # Java Orchestrator: Central coordination layer
