@@ -3,6 +3,8 @@ package com.devops.controlcenter.orchestrator.controllers;
 import com.devops.controlcenter.orchestrator.dto.AgentHealthDto;
 import com.devops.controlcenter.orchestrator.dto.DeploymentDto;
 import com.devops.controlcenter.orchestrator.dto.PodHealthDto;
+import com.devops.controlcenter.orchestrator.dto.DockerContainerDto;
+import com.devops.controlcenter.orchestrator.dto.DockerContainerStatsDto;
 import com.devops.controlcenter.orchestrator.services.AgentService;
 
 import org.slf4j.Logger;
@@ -54,5 +56,30 @@ public class AgentController {
     public ResponseEntity<List<PodHealthDto>> getPodHealth() {
         logger.info("Received request for K8s pod health status.");
         return ResponseEntity.ok(agentService.fetchPodHealth());
+    }
+
+    @GetMapping("/docker/containers")
+    public ResponseEntity<List<DockerContainerDto>> getDockerContainers() {
+        logger.info("Received request for all Docker containers.");
+        return ResponseEntity.ok(agentService.getDockerContainers());
+    }
+
+    @PostMapping("/docker/containers/{id}/{action}")
+    public ResponseEntity<Void> executeDockerContainerAction(@PathVariable String id, @PathVariable String action) {
+        logger.info("Received request to execute Docker container action {} for ID {}", action, id);
+        agentService.executeDockerContainerAction(id, action);
+        return ResponseEntity.ok().build();
+    }
+
+    @GetMapping("/docker/containers/{id}/stats")
+    public ResponseEntity<DockerContainerStatsDto> getDockerContainerStats(@PathVariable String id) {
+        logger.info("Received request for Docker container stats. ID: {}", id);
+        return ResponseEntity.ok(agentService.getDockerContainerStats(id));
+    }
+
+    @GetMapping(value = "/docker/containers/{id}/logs", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public SseEmitter streamDockerContainerLogs(@PathVariable String id) {
+        logger.info("Received request to stream logs for Docker container ID: {}", id);
+        return agentService.streamDockerContainerLogs(id);
     }
 }

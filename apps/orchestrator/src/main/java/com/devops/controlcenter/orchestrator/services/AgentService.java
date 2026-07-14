@@ -3,6 +3,8 @@ package com.devops.controlcenter.orchestrator.services;
 import com.devops.controlcenter.orchestrator.dto.AgentHealthDto;
 import com.devops.controlcenter.orchestrator.dto.DeploymentDto;
 import com.devops.controlcenter.orchestrator.dto.PodHealthDto;
+import com.devops.controlcenter.orchestrator.dto.DockerContainerDto;
+import com.devops.controlcenter.orchestrator.dto.DockerContainerStatsDto;
 import com.devops.controlcenter.orchestrator.exceptions.AgentUnreachableException;
 import jakarta.annotation.PreDestroy;
 import org.slf4j.Logger;
@@ -157,6 +159,96 @@ public class AgentService {
             logger.error("Agent is unreachable on /pods/health: {}", e.getMessage());
             throw new AgentUnreachableException("Agent is unreachable", e);
         }
+    }
+
+    public List<DockerContainerDto> getDockerContainers() {
+        try {
+            logger.info("Fetching all Docker containers from agent...");
+            return this.restClient.get().uri("/docker/containers").retrieve().body(new ParameterizedTypeReference<List<DockerContainerDto>>() {});
+        } catch (Exception e) {
+            logger.error("Agent is unreachable on /docker/containers: {}", e.getMessage());
+            throw new AgentUnreachableException("Agent is unreachable", e);
+        }
+    }
+
+    public void executeDockerContainerAction(String id, String action) {
+        try {
+            logger.info("Executing Docker container action {} for ID {}", action, id);
+            this.restClient.post().uri("/docker/containers/" + id + "/" + action).retrieve().toBodilessEntity();
+        } catch (Exception e) {
+            logger.error("Agent is unreachable on /docker/containers/{}/{}: {}", id, action, e.getMessage());
+            throw new AgentUnreachableException("Agent is unreachable", e);
+        }
+    }
+
+    public DockerContainerStatsDto getDockerContainerStats(String id) {
+        try {
+            logger.info("Fetching stats for Docker container {}...", id);
+            return this.restClient.get().uri("/docker/containers/" + id + "/stats").retrieve().body(DockerContainerStatsDto.class);
+        } catch (Exception e) {
+            logger.error("Agent is unreachable on /docker/containers/{}/stats: {}", id, e.getMessage());
+            throw new AgentUnreachableException("Agent is unreachable", e);
+        }
+    }
+
+    public SseEmitter streamDockerContainerLogs(String containerId) {
+        logger.info("Initiating log streaming for Docker container: {}", containerId);
+        SseEmitter emitter = new SseEmitter(300_000L);
+
+        AtomicBoolean clientDisconnected = new AtomicBoolean(false);
+        AtomicBoolean cancelled = new AtomicBoolean(false);
+        final InputStream[] upstreamRef = new InputStream[1];
+        final ClientHttpResponse[] responseRef = new ClientHttpResponse[1];
+
+        Runnable cancelUpstream = () -> {
+            if (cancelled.compareAndSet(false, true)) {
+                clientDisconnected.set(true);
+                ClientHttpResponse response = responseRef[0];
+                if (response != null) {
+                    try { response.close(); } catch (Exception ignored) {}
+                }
+                InputStream is = upstreamRef[0];
+                if (is != null) {
+                    try { is.close(); } catch (Exception ignored) {}
+                }
+            }
+        };
+
+        emitter.onCompletion(cancelUpstream);
+        emitter.onTimeout(cancelUpstream);
+        emitter.onError(e -> cancelUpstream.run());
+
+        executorService.execute(() -> {
+            try {
+                String uri = "/docker/containers/" + containerId + "/logs";
+                this.restClient.get().uri(uri).exchange((request, response) -> {
+                    responseRef[0] = response;
+                    upstreamRef[0] = response.getBody();
+                    BufferedReader reader = new BufferedReader(new InputStreamReader(upstreamRef[0]));
+                    String line;
+                    while (!clientDisconnected.get() && (line = reader.readLine()) != null) {
+                           if (line.startsWith("data:")) {
+                               try {
+                                   emitter.send(line.substring(5).trim());
+                               } catch (Exception sendEx) {
+                                   logger.debug("Client disconnected during container log stream send: {}", sendEx.getMessage());
+                                   break;
+                               }
+                           }
+                    }
+                    return null;
+                });
+                if (!clientDisconnected.get()) {
+                    emitter.complete();
+                }
+            } catch (Exception e) {
+                if (!clientDisconnected.get()) {
+                    logger.error("Error occurred during container log streaming: {}", e.getMessage());
+                    try { emitter.completeWithError(e); } catch (Exception ignored) {}
+                }
+            }
+        });
+        return emitter;
     }
 
     @PreDestroy
