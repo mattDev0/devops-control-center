@@ -126,3 +126,59 @@ export function SystemMetricsPanel({ token }) {
   );
 }
 
+export function DockerContainersKpiCard({ containers, loading, fetchContainers }) {
+  const totalCount = containers ? containers.length : 0;
+  const runningCount = containers ? containers.filter(c => c.state === 'running').length : 0;
+  const stoppedCount = totalCount - runningCount;
+
+  return (
+    <div className="bg-[var(--bg-surface)] border border-[var(--border-default)] rounded-[var(--radius-lg)] p-4 flex flex-col justify-between h-full">
+      <div>
+        {/* Unified Card Header */}
+        <div className="flex items-center justify-between pb-3 border-b border-[var(--border-muted)] mb-4">
+          <h2 className="text-sm font-semibold flex items-center gap-2 text-[var(--fg-default)]">
+            <Server className="w-4 h-4 text-[var(--accent-primary)]" />
+            Docker Engine
+          </h2>
+          <div className="flex items-center gap-2">
+            <span 
+              className={`w-2 h-2 rounded-full ${runningCount > 0 ? 'bg-[var(--status-success)]' : 'bg-[var(--status-neutral)]'}`}
+              title={runningCount > 0 ? 'Active' : 'Idle'}
+            ></span>
+            <button 
+              onClick={fetchContainers}
+              disabled={loading}
+              className="p-1 rounded hover:bg-[var(--interactive-hover)] text-[var(--fg-muted)] hover:text-[var(--fg-default)] transition-colors disabled:opacity-50"
+              title="Refresh Containers Status"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
+            </button>
+          </div>
+        </div>
+
+        {loading && totalCount === 0 ? (
+          <div className="animate-pulse space-y-3 py-2">
+            <div className="h-4 bg-[var(--bg-elevated)] rounded w-3/4"></div>
+            <div className="h-4 bg-[var(--bg-elevated)] rounded w-1/2"></div>
+          </div>
+        ) : (
+          <div className="grid grid-cols-3 gap-3 text-center py-1">
+            <div className="bg-[var(--bg-canvas)]/60 p-2.5 rounded-lg border border-[var(--border-default)]/40 flex flex-col justify-center">
+              <div className="text-[var(--fg-default)] font-mono text-base font-bold">{totalCount}</div>
+              <div className="text-[9px] text-[var(--fg-subtle)] uppercase font-semibold mt-0.5">Total</div>
+            </div>
+            <div className="bg-[var(--bg-canvas)]/60 p-2.5 rounded-lg border border-[var(--border-default)]/40 flex flex-col justify-center">
+              <div className="text-[var(--status-success)] font-mono text-base font-bold">{runningCount}</div>
+              <div className="text-[9px] text-[var(--fg-subtle)] uppercase font-semibold mt-0.5">Running</div>
+            </div>
+            <div className="bg-[var(--bg-canvas)]/60 p-2.5 rounded-lg border border-[var(--border-default)]/40 flex flex-col justify-center">
+              <div className="text-[var(--fg-muted)] font-mono text-base font-bold">{stoppedCount}</div>
+              <div className="text-[9px] text-[var(--fg-subtle)] uppercase font-semibold mt-0.5">Stopped</div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+

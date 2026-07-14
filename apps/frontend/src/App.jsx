@@ -14,7 +14,7 @@ import LogsModal from './components/dashboard/LogsModal';
 import WorkflowsTable from './components/dashboard/WorkflowsTable';
 import DockerContainersTable from './components/dashboard/DockerContainersTable';
 import DockerLogsModal from './components/dashboard/DockerLogsModal';
-import MetricsCards, { SystemMetricsPanel } from './components/dashboard/MetricsCards';
+import MetricsCards, { SystemMetricsPanel, DockerContainersKpiCard } from './components/dashboard/MetricsCards';
 import HealthSLOPanel from './components/dashboard/HealthSLOPanel';
 import ErrorBoundary from './components/ErrorBoundary';
 
@@ -545,12 +545,19 @@ export default function App() {
           )}
 
           {/* Row 1: Health & Overview */}
-          <div id="overview" className="scroll-mt-20 grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div id="overview" className="scroll-mt-20 grid grid-cols-1 lg:grid-cols-4 gap-6">
             <ErrorBoundary>
               <MetricsCards
                 health={health}
                 loading={loading}
                 fetchHealth={() => fetchHealth()}
+              />
+            </ErrorBoundary>
+            <ErrorBoundary>
+              <DockerContainersKpiCard
+                containers={containers}
+                loading={loadingContainers}
+                fetchContainers={() => fetchContainers()}
               />
             </ErrorBoundary>
             <div className="lg:col-span-2">
