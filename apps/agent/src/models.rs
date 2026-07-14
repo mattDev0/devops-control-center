@@ -32,3 +32,22 @@ pub struct PodHealthSummary {
     pub crash_loop: u32,
     pub total: u32,
 }
+
+#[derive(Serialize, Debug, Clone)]
+pub struct DockerContainerDto {
+    pub id: String,
+    pub name: String,
+    pub image: String,
+    pub state: String,
+    pub status: String,
+    pub ports: String,
+    pub created_at: Option<String>,
+}
+
+#[derive(Serialize, Debug, Clone)]
+pub struct DockerContainerStatsDto {
+    pub cpu_percent: f64,
+    pub memory_percent: f64,
+    pub memory_usage_bytes: u64,
+    pub memory_limit_bytes: u64,
+}

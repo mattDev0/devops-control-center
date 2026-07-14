@@ -11,6 +11,7 @@ use std::net::SocketAddr;
 mod models;
 mod k8s;
 mod system;
+mod docker;
 
 #[derive(Clone)]
 pub struct AppState {
@@ -61,6 +62,10 @@ async fn main() {
         .route("/deployments", get(k8s::list_deployments))
         .route("/deployments/:id/:action", post(k8s::deployment_action))
         .route("/pods/health", get(k8s::pod_health))
+        .route("/docker/containers", get(docker::list_containers))
+        .route("/docker/containers/:id/stats", get(docker::container_stats))
+        .route("/docker/containers/:id/logs", get(docker::container_logs))
+        .route("/docker/containers/:id/:action", post(docker::container_action))
         .route_layer(middleware::from_fn_with_state(state.clone(), auth_middleware))
         .route("/health", get(system::health))
         .route("/livez", get(system::liveness))
