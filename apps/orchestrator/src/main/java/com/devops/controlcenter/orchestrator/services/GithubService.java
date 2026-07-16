@@ -28,7 +28,7 @@ public class GithubService {
                 .baseUrl("https://api.github.com")
                 .defaultHeader("Accept", "application/vnd.github.v3+json");
         
-        if (githubToken != null && !githubToken.trim().isEmpty()) {
+        if (githubToken != null && !githubToken.trim().isEmpty() && !githubToken.trim().startsWith("ghs_")) {
             builder.defaultHeader("Authorization", "Bearer " + githubToken.trim());
         }
         
