@@ -60,6 +60,7 @@ services:
       - '--config.file=/etc/prometheus/prometheus.yml'
     volumes:
       - ./infrastructure/monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./infrastructure/monitoring/prometheus/alert.rules.yml:/etc/prometheus/alert.rules.yml:ro
     restart: unless-stopped
 
   # Grafana dashboard for visualization
