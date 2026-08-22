@@ -16,12 +16,16 @@ import DockerContainersTable from './components/dashboard/DockerContainersTable'
 import DockerLogsModal from './components/dashboard/DockerLogsModal';
 import MetricsCards, { SystemMetricsPanel, DockerContainersKpiCard } from './components/dashboard/MetricsCards';
 import HealthSLOPanel from './components/dashboard/HealthSLOPanel';
+import ClusterUnavailableCard from './components/dashboard/ClusterUnavailableCard';
 import ErrorBoundary from './components/ErrorBoundary';
 
 export default function App() {
   const [token, setToken] = useState(localStorage.getItem('token') || '');
   const [role, setRole] = useState(localStorage.getItem('role') || '');
   const [health, setHealth] = useState(null);
+  // The agent reports whether it can reach a cluster. Under Docker Compose it
+  // cannot, so the Kubernetes panels are replaced rather than left to error.
+  const kubernetesAvailable = health?.k8s === true;
   const [loading, setLoading] = useState(true);
   const [deployments, setDeployments] = useState([]);
   const [loadingDeployments, setLoadingDeployments] = useState(true);
@@ -146,7 +150,7 @@ export default function App() {
 
   // Fetch Kubernetes Deployments
   const fetchDeployments = async (activeToken = token) => {
-    if (!activeToken) return;
+    if (!activeToken || health?.k8s === false) return;
     setLoadingDeployments(true);
     try {
       const data = await api.fetchDeployments(activeToken);
@@ -165,7 +169,7 @@ export default function App() {
 
   // Fetch Kubernetes Pod Health
   const fetchPodHealth = async (activeToken = token) => {
-    if (!activeToken) return;
+    if (!activeToken || health?.k8s === false) return;
     setLoadingPodHealth(true);
     try {
       const data = await api.fetchPodHealth(activeToken);
@@ -482,7 +486,9 @@ export default function App() {
                 <div>
                   <div className="text-[10px] text-[var(--fg-subtle)] uppercase font-semibold tracking-wider">Running Pods</div>
                   <div className="text-xs font-bold mt-0.5">
-                    {podHealth ? podHealth.reduce((sum, ns) => sum + (ns.running || 0), 0) : 0} Pods
+                    {kubernetesAvailable
+                      ? `${podHealth ? podHealth.reduce((sum, ns) => sum + (ns.running || 0), 0) : 0} Pods`
+                      : 'No cluster'}
                   </div>
                 </div>
               </div>
@@ -494,10 +500,13 @@ export default function App() {
                   <div className="text-[10px] text-[var(--fg-subtle)] uppercase font-semibold tracking-wider">Availability SLI</div>
                   <div className="text-xs font-bold mt-0.5">
                     {(() => {
+                      // Reporting 100% for a cluster that is not connected would
+                      // be worse than reporting nothing.
+                      if (!kubernetesAvailable) return '—';
                       const totalPods = podHealth ? podHealth.reduce((sum, ns) => sum + (ns.total || 0), 0) : 0;
                       const runningPods = podHealth ? podHealth.reduce((sum, ns) => sum + (ns.running || 0), 0) : 0;
-                      return totalPods > 0 ? ((runningPods / totalPods) * 100).toFixed(1) : '100.0';
-                    })()}%
+                      return `${totalPods > 0 ? ((runningPods / totalPods) * 100).toFixed(1) : '100.0'}%`;
+                    })()}
                   </div>
                 </div>
               </div>
@@ -509,11 +518,12 @@ export default function App() {
                   <div className="text-[10px] text-[var(--fg-subtle)] uppercase font-semibold tracking-wider">Error Budget</div>
                   <div className="text-xs font-bold mt-0.5">
                     {(() => {
+                      if (!kubernetesAvailable) return '—';
                       const totalFailed = podHealth ? podHealth.reduce((sum, ns) => sum + (ns.failed || 0) + (ns.crash_loop || 0) + ((ns.pending || 0) * 0.5), 0) : 0;
                       const totalPods = podHealth ? podHealth.reduce((sum, ns) => sum + (ns.total || 0), 0) : 0;
                       const budgetConsumedPercent = totalPods > 0 ? Math.min(100, Math.max(0, (totalFailed / totalPods) * 100 * 10)) : 0;
-                      return (100 - budgetConsumedPercent).toFixed(1);
-                    })()}%
+                      return `${(100 - budgetConsumedPercent).toFixed(1)}%`;
+                    })()}
                   </div>
                 </div>
               </div>
@@ -562,11 +572,18 @@ export default function App() {
             </ErrorBoundary>
             <div className="lg:col-span-2">
               <ErrorBoundary>
-                <HealthSLOPanel
-                  podHealth={podHealth}
-                  loading={loadingPodHealth}
-                  fetchPodHealth={() => fetchPodHealth()}
-                />
+                {kubernetesAvailable ? (
+                  <HealthSLOPanel
+                    podHealth={podHealth}
+                    loading={loadingPodHealth}
+                    fetchPodHealth={() => fetchPodHealth()}
+                  />
+                ) : (
+                  <ClusterUnavailableCard
+                    title="K8s Cluster Health & SLO"
+                    description="This environment runs on Docker Compose. Pod health and SLO tracking become available when the agent is connected to a cluster."
+                  />
+                )}
               </ErrorBoundary>
             </div>
           </div>
@@ -582,17 +599,24 @@ export default function App() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <div id="deployments" className="scroll-mt-20 flex flex-col gap-6">
               <ErrorBoundary>
-                <DeploymentsTable
-                  deployments={deployments}
-                  loading={loadingDeployments}
-                  role={role}
-                  fetchDeployments={() => fetchDeployments()}
-                  handleDeploymentAction={handleDeploymentAction}
-                  onViewLogs={(deployment) => {
-                    setActiveLogDeployment(deployment);
-                    setShowLogsModal(true);
-                  }}
-                />
+                {kubernetesAvailable ? (
+                  <DeploymentsTable
+                    deployments={deployments}
+                    loading={loadingDeployments}
+                    role={role}
+                    fetchDeployments={() => fetchDeployments()}
+                    handleDeploymentAction={handleDeploymentAction}
+                    onViewLogs={(deployment) => {
+                      setActiveLogDeployment(deployment);
+                      setShowLogsModal(true);
+                    }}
+                  />
+                ) : (
+                  <ClusterUnavailableCard
+                    title="Kubernetes Deployments"
+                    description="Deployment controls apply to a Kubernetes cluster. Container management for this environment is available in the Docker panel below."
+                  />
+                )}
               </ErrorBoundary>
 
               <ErrorBoundary>

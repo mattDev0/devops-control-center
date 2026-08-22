@@ -101,7 +101,7 @@ pub async fn get_all_deployments_internal(client: Client) -> Result<Vec<Deployme
 }
 
 pub async fn list_deployments(State(state): State<AppState>) -> Result<Json<Vec<DeploymentDto>>, StatusCode> {
-    let client = state.kube_client.clone();
+    let client = super::require_cluster(&state)?;
     let result = get_all_deployments_internal(client).await.map_err(|e| {
         tracing::error!("Failed to fetch deployments: {:?}", e);
         StatusCode::INTERNAL_SERVER_ERROR
@@ -113,7 +113,7 @@ pub async fn deployment_action(
     State(state): State<AppState>,
     Path((id, action)): Path<(String, String)>,
 ) -> Result<StatusCode, StatusCode> {
-    let client = state.kube_client.clone();
+    let client = super::require_cluster(&state)?;
 
     // Parse the id: namespace:deployment_name
     let parts: Vec<&str> = id.split(':').collect();

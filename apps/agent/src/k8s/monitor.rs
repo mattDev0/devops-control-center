@@ -1,7 +1,6 @@
 use std::collections::HashMap;
 use std::time::Duration;
 
-use super::client::get_k8s_client_with_backoff;
 use super::deployments::get_all_deployments_internal;
 
 async fn send_discord_notification(webhook_url: &str, content: &str) -> Result<(), reqwest::Error> {
@@ -16,10 +15,8 @@ async fn send_discord_notification(webhook_url: &str, content: &str) -> Result<(
     Ok(())
 }
 
-pub fn start_deployment_monitor() {
+pub fn start_deployment_monitor(client: kube::Client) {
     tokio::spawn(async move {
-        // Initialize client with backoff retry
-        let client = get_k8s_client_with_backoff().await;
 
         let webhook_url = std::env::var("DISCORD_WEBHOOK_URL").ok();
         if webhook_url.is_none() {

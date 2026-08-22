@@ -16,7 +16,9 @@ mod docker;
 #[derive(Clone)]
 pub struct AppState {
     secret_key: String,
-    kube_client: kube::Client,
+    /// `None` when the agent runs without a cluster (the Docker Compose
+    /// deployment). Cluster-backed routes return 503 in that case.
+    kube_client: Option<kube::Client>,
 }
 
 // --- Middleware ---
@@ -48,9 +50,12 @@ async fn main() {
         )
         .init();
 
-    k8s::start_deployment_monitor();
+    let kube_client = k8s::client::try_connect().await;
 
-    let kube_client = k8s::client::get_k8s_client_with_backoff().await;
+    match kube_client.clone() {
+        Some(client) => k8s::start_deployment_monitor(client),
+        None => tracing::info!("Deployment monitor not started: no Kubernetes cluster available."),
+    }
 
     let state = AppState {
         secret_key: std::env::var("AGENT_SECRET_KEY")
@@ -100,7 +105,7 @@ mod tests {
     async fn test_auth_middleware_authorized() {
         let state = AppState {
             secret_key: "secret-123".to_string(),
-            kube_client: dummy_client(),
+            kube_client: Some(dummy_client()),
         };
         let app = Router::new()
             .route("/test", get(|| async { "ok" }))
@@ -121,7 +126,7 @@ mod tests {
     async fn test_auth_middleware_unauthorized() {
         let state = AppState {
             secret_key: "secret-123".to_string(),
-            kube_client: dummy_client(),
+            kube_client: Some(dummy_client()),
         };
         let app = Router::new()
             .route("/test", get(|| async { "ok" }))
@@ -136,5 +141,51 @@ mod tests {
 
         let response = app.oneshot(req).await.unwrap();
         assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
+    }
+
+    // Without a cluster these routes must say so explicitly. A 500 here would
+    // read as a bug in the agent rather than an absent dependency.
+    #[tokio::test]
+    async fn test_cluster_routes_report_unavailable_without_kubernetes() {
+        let state = AppState {
+            secret_key: "secret-123".to_string(),
+            kube_client: None,
+        };
+        let app = Router::new()
+            .route("/deployments", get(k8s::list_deployments))
+            .route("/pods/health", get(k8s::pod_health))
+            .with_state(state);
+
+        for path in ["/deployments", "/pods/health"] {
+            let req = Request::builder().uri(path).body(Body::empty()).unwrap();
+            let response = app.clone().oneshot(req).await.unwrap();
+            assert_eq!(
+                response.status(),
+                StatusCode::SERVICE_UNAVAILABLE,
+                "{path} should report 503 when no cluster is configured"
+            );
+        }
+    }
+
+    // The agent is healthy without a cluster - Docker and system features work
+    // - so /health must stay 200 and simply report k8s=false.
+    #[tokio::test]
+    async fn test_health_is_ok_and_honest_without_kubernetes() {
+        let state = AppState {
+            secret_key: "secret-123".to_string(),
+            kube_client: None,
+        };
+        let app = Router::new()
+            .route("/health", get(system::health))
+            .with_state(state);
+
+        let req = Request::builder().uri("/health").body(Body::empty()).unwrap();
+        let response = app.oneshot(req).await.unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
+        let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        assert_eq!(json["k8s"], serde_json::Value::Bool(false));
+        assert_eq!(json["status"], "degraded");
     }
 }

@@ -26,29 +26,6 @@ git reset --hard origin/main
 # Restore original SSH remote URL
 git remote set-url origin git@github.com:mattDev0/devops-control-center.git
 
-# Ensure a dummy kubeconfig file exists on the host so the Agent doesn't block on startup
-mkdir -p ~/.kube
-if [ ! -s ~/.kube/config ]; then
-  echo "Creating dummy kubeconfig for standalone Agent mode..."
-  echo "apiVersion: v1" > ~/.kube/config
-  echo "clusters:" >> ~/.kube/config
-  echo "- cluster:" >> ~/.kube/config
-  echo "    server: https://localhost:8443" >> ~/.kube/config
-  echo "  name: dummy-cluster" >> ~/.kube/config
-  echo "contexts:" >> ~/.kube/config
-  echo "- context:" >> ~/.kube/config
-  echo "    cluster: dummy-cluster" >> ~/.kube/config
-  echo "    user: dummy-user" >> ~/.kube/config
-  echo "  name: dummy-context" >> ~/.kube/config
-  echo "current-context: dummy-context" >> ~/.kube/config
-  echo "kind: Config" >> ~/.kube/config
-  echo "preferences: {}" >> ~/.kube/config
-  echo "users:" >> ~/.kube/config
-  echo "- name: dummy-user" >> ~/.kube/config
-  echo "  user:" >> ~/.kube/config
-  echo "    token: dummy-token" >> ~/.kube/config
-fi
-
 echo "Making scripts executable..."
 chmod +x scripts/*.sh
 

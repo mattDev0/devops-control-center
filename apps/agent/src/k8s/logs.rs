@@ -57,9 +57,19 @@ pub async fn stream_logs(
     State(state): State<AppState>,
     Query(query): Query<LogParamsQuery>,
 ) -> impl IntoResponse {
-    let client = state.kube_client.clone();
-
     let (tx, rx) = tokio::sync::mpsc::channel::<Result<Event, Infallible>>(1000);
+
+    let client = match state.kube_client.clone() {
+        Some(client) => client,
+        None => {
+            let _ = tx.try_send(Ok(Event::default().data(
+                "Kubernetes is not available in this deployment, so pod logs cannot be streamed.",
+            )));
+            return Sse::new(tokio_stream::wrappers::ReceiverStream::new(rx))
+                .keep_alive(KeepAlive::new())
+                .into_response();
+        }
+    };
 
     if let Some(id) = query.id {
         // Stream logs for a specific deployment
