@@ -17,7 +17,19 @@ A custom, end-to-end DevOps orchestration and observability platform built from 
 
 # 🏗️ Architecture
 
-The platform runs on a lightweight, secure microservices architecture orchestrated via **Docker Compose with Caddy reverse proxy** on Azure Linux VM (with Kubernetes manifests in `infrastructure/k8s/` maintained for multi-node cluster deployments):
+The platform runs on a lightweight, secure microservices architecture orchestrated via **Docker Compose with Caddy reverse proxy** on an Azure Linux VM. Kubernetes manifests under `infrastructure/k8s/` are maintained as a supported alternative target for multi-node deployments.
+
+> **Kubernetes features in the current deployment**
+> Production runs on Docker Compose, so there is no cluster attached. The agent
+> verifies connectivity to an API server before reporting Kubernetes as
+> available; when there is none it reports `k8s: false`, cluster-backed routes
+> return `503`, and the dashboard replaces the deployment and pod-health panels
+> with an explicit "no cluster connected" state rather than showing empty tables
+> or a 100% availability figure for a cluster that is not there. Docker,
+> monitoring, CI/CD and system features are unaffected. Deploying the manifests
+> under `infrastructure/k8s/` restores the cluster features automatically, with
+> credentials supplied by the agent's service account. See
+> [adr_01](../docs/adr/adr_01_compose-migration-and-cloud-split.md).
 
 ```mermaid
 graph TD
@@ -72,12 +84,12 @@ The central gateway and security dispatcher responsible for:
 * **Observability:** Completely standardized on SLF4J structured logging and exposes `/actuator/health` and `/actuator/prometheus` scrape metrics.
 
 ## 3. Agent — Rust + Axum + kube-rs
-A lightweight, high-performance, modular system agent running as a Kubernetes pod.
-* **Pod Health Reporter:** Dynamically queries the local K3s API server for pod states across target namespaces, aggregating them into Running/Pending/Failed/CrashLoop counts.
-* **Merged Kubernetes Logs:** Streams logs from pods in `portfolio` and `devops` namespaces concurrently using async `tokio::sync::mpsc::channel` streams.
-* **Deployment Orchestrator:** Interacts directly with the local K3s API server via `kube-rs` to fetch deployment lists, scale replicas, and patch timestamps to trigger zero-downtime rolling updates.
+A lightweight, high-performance, modular system agent. It runs as a container under Docker Compose in the current deployment, or as a pod when the Kubernetes manifests are used.
+* **Pod Health Reporter:** *(requires a cluster)* Queries the Kubernetes API server for pod states across target namespaces, aggregating them into Running/Pending/Failed/CrashLoop counts.
+* **Merged Kubernetes Logs:** *(requires a cluster)* Streams logs from pods in `portfolio` and `devops` namespaces concurrently using async `tokio::sync::mpsc::channel` streams.
+* **Deployment Orchestrator:** *(requires a cluster)* Interacts with the Kubernetes API server via `kube-rs` to fetch deployment lists, scale replicas, and patch timestamps to trigger zero-downtime rolling updates.
 * **State Transition Webhooks:** Actively monitors deployment state changes and broadcasts real-time alerts to Discord webhooks upon state transitions (e.g., Running, Failed).
-* **Resilience & Observability:** Implements exponential backoff for a singleton K8s client initialization and emits rich, structured telemetry via the `tracing` crate.
+* **Resilience & Observability:** Verifies the Kubernetes API actually answers before advertising cluster support, degrades to Docker-only operation when no cluster is present, and emits rich, structured telemetry via the `tracing` crate.
 
 ## 4. Observability Stack — Prometheus & Grafana
 * **Node Exporter:** Gathers host telemetry as a DaemonSet inside the cluster.
@@ -150,7 +162,7 @@ To deploy to a live server, create a `.env` file on the VM from the provided exa
 cp .env.example .env
 nano .env
 ```
-Provide your GitHub token and public domain. The deployment steps on the VM will convert this `.env` file into a Kubernetes Secret (`devops-secrets`) automatically.
+Provide your GitHub token and public domain. `JWT_SECRET`, `ADMIN_PASSWORD` and `AGENT_SECRET_KEY` are mandatory - `scripts/deploy.sh` refuses to deploy without them. When deploying the Kubernetes manifests instead, the same values are supplied as the `devops-secrets` Secret.
 
 ```mermaid
 sequenceDiagram

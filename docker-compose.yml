@@ -12,7 +12,9 @@ services:
     environment:
       - AGENT_SECRET_KEY=${AGENT_SECRET_KEY}
     volumes:
-      - ~/.kube/config:/home/appuser/.kube/config:ro
+      # No kubeconfig is mounted: this deployment has no cluster, and the
+      # agent reports Kubernetes as unavailable rather than pretending.
+      # Under infrastructure/k8s the service account supplies credentials.
       - /var/run/docker.sock:/var/run/docker.sock
     restart: unless-stopped
 

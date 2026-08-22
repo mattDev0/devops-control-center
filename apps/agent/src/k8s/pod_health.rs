@@ -5,7 +5,7 @@ use crate::models::PodHealthSummary;
 use crate::AppState;
 
 pub async fn pod_health(State(state): State<AppState>) -> Result<Json<Vec<PodHealthSummary>>, StatusCode> {
-    let client = state.kube_client.clone();
+    let client = super::require_cluster(&state)?;
     let namespaces = vec!["portfolio", "devops"];
     let mut summaries = Vec::new();
 
