@@ -77,7 +77,8 @@ services:
       - GF_SERVER_ROOT_URL=${GRAFANA_ROOT_URL:-http://localhost:8085/grafana/}
       - GF_SERVER_SERVE_FROM_SUB_PATH=true
       - GF_SECURITY_COOKIE_SAMESITE=${COOKIE_SAMESITE:-lax}
-      - GF_SECURITY_COOKIE_SECURE=${COOKIE_SECURE:-false}
+      # Caddy terminates TLS in production, so secure cookies are required. Set COOKIE_SECURE=false in local non-TLS dev.
+      - GF_SECURITY_COOKIE_SECURE=${COOKIE_SECURE:-true}
       - GF_SERVER_ENFORCE_DOMAIN=false
     volumes:
       - grafana-data:/var/lib/grafana
