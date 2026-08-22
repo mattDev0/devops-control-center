@@ -112,4 +112,50 @@ public class OrchestratorSecurityTest {
                 .andExpect(status().isTooManyRequests())
                 .andExpect(jsonPath("$.error").value("Too many requests. Please try again later."));
     }
+
+    @Test
+    public void testGuestCannotStopDockerContainer() throws Exception {
+        String guestToken = jwtUtil.generateToken("u", "ROLE_GUEST");
+        mockMvc.perform(post("/api/servers/docker/containers/abc123/stop")
+                        .header("Authorization", "Bearer " + guestToken))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    public void testGuestCannotStartDockerContainer() throws Exception {
+        String guestToken = jwtUtil.generateToken("u", "ROLE_GUEST");
+        mockMvc.perform(post("/api/servers/docker/containers/abc123/start")
+                        .header("Authorization", "Bearer " + guestToken))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    public void testGuestCannotRestartDockerContainer() throws Exception {
+        String guestToken = jwtUtil.generateToken("u", "ROLE_GUEST");
+        mockMvc.perform(post("/api/servers/docker/containers/abc123/restart")
+                        .header("Authorization", "Bearer " + guestToken))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    public void testAnonymousCannotStopDockerContainer() throws Exception {
+        mockMvc.perform(post("/api/servers/docker/containers/abc123/stop"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    public void testGuestCannotExecuteDeploymentAction() throws Exception {
+        String guestToken = jwtUtil.generateToken("u", "ROLE_GUEST");
+        mockMvc.perform(post("/api/servers/deployments/devops:devops-agent/stop")
+                        .header("Authorization", "Bearer " + guestToken))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    public void testGuestCannotTriggerWorkflow() throws Exception {
+        String guestToken = jwtUtil.generateToken("u", "ROLE_GUEST");
+        mockMvc.perform(post("/api/ci/workflows/123")
+                        .header("Authorization", "Bearer " + guestToken))
+                .andExpect(status().isForbidden());
+    }
 }
