@@ -1,6 +1,15 @@
 #!/bin/bash
 set -e
 
+# Fail closed: load .env if present, and refuse to deploy without required secrets
+if [ -f /opt/devops-control-center/.env ]; then
+  set -a; . /opt/devops-control-center/.env; set +a
+fi
+
+: "${JWT_SECRET:?JWT_SECRET is not set - refusing to deploy}"
+: "${ADMIN_PASSWORD:?ADMIN_PASSWORD is not set - refusing to deploy}"
+: "${AGENT_SECRET_KEY:?AGENT_SECRET_KEY is not set - refusing to deploy}"
+
 echo "Successfully triggered keyless deployment via Azure Run Command."
 
 # Navigate to devops-control-center directory

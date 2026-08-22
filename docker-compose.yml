@@ -11,6 +11,7 @@ services:
       - "127.0.0.1:3011:3001"
     environment:
       - AGENT_SECRET_KEY=${AGENT_SECRET_KEY:-devops-secret-key-123}
+      - AGENT_SECRET_KEY=${AGENT_SECRET_KEY}
     volumes:
       - ~/.kube/config:/home/appuser/.kube/config:ro
       - /var/run/docker.sock:/var/run/docker.sock
@@ -26,9 +27,12 @@ services:
     environment:
       - AGENT_URL=http://devops-agent:3001
       - AGENT_SECRET_KEY=${AGENT_SECRET_KEY:-devops-secret-key-123}
+      - AGENT_SECRET_KEY=${AGENT_SECRET_KEY}
       - ADMIN_USERNAME=${ADMIN_USERNAME:-admin}
       - ADMIN_PASSWORD=${ADMIN_PASSWORD:-admin-password-change-me}
       - JWT_SECRET=${JWT_SECRET:-jwt-signing-secret-key-change-me-should-be-long-and-random-32-bytes}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD}
+      - JWT_SECRET=${JWT_SECRET}
       - GITHUB_TOKEN=${GITHUB_TOKEN}
     depends_on:
       - agent
