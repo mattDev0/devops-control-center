@@ -22,8 +22,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
     "management.endpoints.web.exposure.include=health,prometheus",
     "management.endpoint.health.show-details=always",
     "agent.secret-key=test-agent-secret-key-123",
-    "admin.password=admin-password-change-me",
-    "jwt.secret=jwt-signing-secret-key-change-me-should-be-long-and-random-32-bytes"
+    "admin.password=test-only-password",
+    "jwt.secret=test-only-jwt-signing-secret-not-used-in-production"
 })
 @AutoConfigureMockMvc
 @org.springframework.boot.test.autoconfigure.actuate.observability.AutoConfigureObservability
@@ -65,7 +65,7 @@ public class OrchestratorSecurityTest {
 
     @Test
     public void testAuthLoginFlowSuccess() throws Exception {
-        Map<String, String> payload = Map.of("username", "admin", "password", "admin-password-change-me");
+        Map<String, String> payload = Map.of("username", "admin", "password", "test-only-password");
         mockMvc.perform(post("/api/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(payload)))
@@ -111,5 +111,124 @@ public class OrchestratorSecurityTest {
                         .content(objectMapper.writeValueAsString(payload)))
                 .andExpect(status().isTooManyRequests())
                 .andExpect(jsonPath("$.error").value("Too many requests. Please try again later."));
+    }
+
+    @Test
+    public void testGuestCannotStopDockerContainer() throws Exception {
+        String guestToken = jwtUtil.generateToken("u", "ROLE_GUEST");
+        mockMvc.perform(post("/api/servers/docker/containers/abc123/stop")
+                        .header("Authorization", "Bearer " + guestToken))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    public void testGuestCannotStartDockerContainer() throws Exception {
+        String guestToken = jwtUtil.generateToken("u", "ROLE_GUEST");
+        mockMvc.perform(post("/api/servers/docker/containers/abc123/start")
+                        .header("Authorization", "Bearer " + guestToken))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    public void testGuestCannotRestartDockerContainer() throws Exception {
+        String guestToken = jwtUtil.generateToken("u", "ROLE_GUEST");
+        mockMvc.perform(post("/api/servers/docker/containers/abc123/restart")
+                        .header("Authorization", "Bearer " + guestToken))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    public void testAnonymousCannotStopDockerContainer() throws Exception {
+        mockMvc.perform(post("/api/servers/docker/containers/abc123/stop"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    public void testGuestCannotExecuteDeploymentAction() throws Exception {
+        String guestToken = jwtUtil.generateToken("u", "ROLE_GUEST");
+        mockMvc.perform(post("/api/servers/deployments/devops:devops-agent/stop")
+                        .header("Authorization", "Bearer " + guestToken))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    public void testGuestCannotTriggerWorkflow() throws Exception {
+        String guestToken = jwtUtil.generateToken("u", "ROLE_GUEST");
+        mockMvc.perform(post("/api/ci/workflows/123")
+                        .header("Authorization", "Bearer " + guestToken))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    public void testGuestCannotStreamSystemLogs() throws Exception {
+        String guestToken = jwtUtil.generateToken("u", "ROLE_GUEST");
+        mockMvc.perform(get("/api/servers/logs")
+                        .header("Authorization", "Bearer " + guestToken))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    public void testGuestCannotStreamDockerLogs() throws Exception {
+        String guestToken = jwtUtil.generateToken("u", "ROLE_GUEST");
+        mockMvc.perform(get("/api/servers/docker/containers/abc123/logs")
+                        .header("Authorization", "Bearer " + guestToken))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    public void testGuestCanStillReadDeployments() throws Exception {
+        String guestToken = jwtUtil.generateToken("u", "ROLE_GUEST");
+        mockMvc.perform(get("/api/servers/deployments")
+                        .header("Authorization", "Bearer " + guestToken))
+                .andExpect(result -> {
+                    int status = result.getResponse().getStatus();
+                    assertNotEquals(401, status);
+                    assertNotEquals(403, status);
+                });
+    }
+
+    @Test
+    public void testUnmappedPathIsDenied() throws Exception {
+        mockMvc.perform(get("/some/unmapped/path"))
+                .andExpect(result -> {
+                    int status = result.getResponse().getStatus();
+                    assertTrue(status == 401 || status == 403, "Expected 401 or 403 but was: " + status);
+                });
+    }
+
+    @Test
+    public void testSpoofedLeadingXffSharesRateLimitBucket() throws Exception {
+        Map<String, String> payload = Map.of("username", "admin", "password", "wrongpassword");
+
+        for (int i = 0; i < 5; i++) {
+            mockMvc.perform(post("/api/auth/login")
+                            .header("X-Forwarded-For", "1.2.3." + i + ", 203.0.113.195")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(payload)))
+                    .andExpect(status().isUnauthorized());
+        }
+
+        mockMvc.perform(post("/api/auth/login")
+                        .header("X-Forwarded-For", "1.2.3.99, 203.0.113.195")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(payload)))
+                .andExpect(status().isTooManyRequests())
+                .andExpect(jsonPath("$.error").value("Too many requests. Please try again later."));
+    }
+
+    @Test
+    public void testAdminRejectedForInvalidDockerAction() throws Exception {
+        String adminToken = jwtUtil.generateToken("admin", "ROLE_ADMIN");
+        mockMvc.perform(post("/api/servers/docker/containers/abc123/destroy")
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    public void testAdminRejectedForMalformedDeploymentId() throws Exception {
+        String adminToken = jwtUtil.generateToken("admin", "ROLE_ADMIN");
+        mockMvc.perform(post("/api/servers/deployments/not-a-valid-id/stop")
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isBadRequest());
     }
 }

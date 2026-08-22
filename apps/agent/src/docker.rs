@@ -72,6 +72,14 @@ pub async fn list_containers() -> Result<Json<Vec<DockerContainerDto>>, StatusCo
     Ok(Json(dtos))
 }
 
+pub fn is_protected_container(name: &str) -> bool {
+    let clean_name = name.trim_start_matches('/');
+    matches!(
+        clean_name,
+        "caddy-proxy" | "devops-orchestrator" | "devops-agent" | "devops-frontend"
+    )
+}
+
 pub async fn container_action(
     Path((id, action)): Path<(String, String)>,
 ) -> Result<StatusCode, StatusCode> {
@@ -79,6 +87,17 @@ pub async fn container_action(
         error!("Failed to connect to Docker socket: {}", e);
         StatusCode::INTERNAL_SERVER_ERROR
     })?;
+
+    let inspect = docker.inspect_container(&id, None).await.map_err(|e| {
+        error!("Failed to inspect container {}: {}", id, e);
+        StatusCode::NOT_FOUND
+    })?;
+
+    let container_name = inspect.name.as_deref().unwrap_or(&id);
+    if is_protected_container(container_name) || is_protected_container(&id) {
+        warn!("Blocked container action targeting protected platform container: {}", container_name);
+        return Err(StatusCode::FORBIDDEN);
+    }
 
     match action.as_str() {
         "start" => {
@@ -213,4 +232,26 @@ pub async fn container_logs(
 
     Sse::new(tokio_stream::wrappers::ReceiverStream::new(rx))
         .keep_alive(KeepAlive::new())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_is_protected_container() {
+        assert!(is_protected_container("caddy-proxy"));
+        assert!(is_protected_container("/caddy-proxy"));
+        assert!(is_protected_container("devops-orchestrator"));
+        assert!(is_protected_container("/devops-orchestrator"));
+        assert!(is_protected_container("devops-agent"));
+        assert!(is_protected_container("/devops-agent"));
+        assert!(is_protected_container("devops-frontend"));
+        assert!(is_protected_container("/devops-frontend"));
+
+        assert!(!is_protected_container("my-custom-service"));
+        assert!(!is_protected_container("/my-custom-service"));
+        assert!(!is_protected_container("prometheus"));
+        assert!(!is_protected_container("grafana"));
+    }
 }

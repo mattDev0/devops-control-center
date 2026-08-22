@@ -25,9 +25,11 @@ async fn auth_middleware(
     req: Request<axum::body::Body>,
     next: Next,
 ) -> Result<Response, StatusCode> {
+    use subtle::ConstantTimeEq;
+
     if let Some(auth_header) = req.headers().get("X-Agent-Key") {
         if let Ok(auth_str) = auth_header.to_str() {
-            if auth_str == state.secret_key {
+            if auth_str.as_bytes().ct_eq(state.secret_key.as_bytes()).into() {
                 return Ok(next.run(req).await);
             }
         }

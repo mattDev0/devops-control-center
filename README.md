@@ -17,7 +17,7 @@ A custom, end-to-end DevOps orchestration and observability platform built from 
 
 # 🏗️ Architecture
 
-The platform is built on a modern, secure microservices architecture deployed via Kubernetes (K3s) inside the `devops` namespace, protected by strict default-deny Network Policies:
+The platform runs on a lightweight, secure microservices architecture orchestrated via **Docker Compose with Caddy reverse proxy** on Azure Linux VM (with Kubernetes manifests in `infrastructure/k8s/` maintained for multi-node cluster deployments):
 
 ```mermaid
 graph TD
@@ -232,8 +232,8 @@ devops-control-center/
 | **Frontend**         | React, Vite, Tailwind CSS, `lucide-react` |
 | **Backend**          | Java Spring Boot, Spring Security, JWT (io.jsonwebtoken), SLF4J, Actuator |
 | **Agent**            | Rust, Axum, `kube-rs`, `tokio`, `tracing` |
-| **Orchestration**    | Kubernetes (K3s), Docker Compose (Local Dev) |
-| **Web Server / Proxy**| Traefik Ingress (TLS termination, HTTP→HTTPS redirect), `cert-manager` (Let's Encrypt) + Nginx (in-pod reverse proxy for API/Grafana routing) |
+| **Orchestration**    | Docker Compose (Primary Runtime), Kubernetes Manifests (Multi-node Target) |
+| **Web Server / Proxy**| Caddy (TLS termination & Host Reverse Proxy) + Nginx (Frontend Container) |
 | **Observability**    | Prometheus, Grafana, Node Exporter, Blackbox Exporter |
 
 ---

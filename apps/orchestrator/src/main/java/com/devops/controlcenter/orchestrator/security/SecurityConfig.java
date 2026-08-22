@@ -36,11 +36,19 @@ public class SecurityConfig {
             ))
             .authorizeHttpRequests(auth -> auth
                 .dispatcherTypeMatchers(jakarta.servlet.DispatcherType.ASYNC).permitAll()
-                .requestMatchers("/api/auth/login", "/api/auth/guest", "/health", "/actuator/**").permitAll()
-                .requestMatchers(org.springframework.http.HttpMethod.POST, "/api/servers/deployments/**").hasAuthority("ROLE_ADMIN")
-                .requestMatchers(org.springframework.http.HttpMethod.POST, "/api/ci/workflows/**").hasAuthority("ROLE_ADMIN")
-                .requestMatchers("/api/**").hasAnyAuthority("ROLE_GUEST", "ROLE_ADMIN")
-                .anyRequest().permitAll()
+                .requestMatchers(
+                    org.springframework.security.web.util.matcher.AntPathRequestMatcher.antMatcher("/api/auth/login"),
+                    org.springframework.security.web.util.matcher.AntPathRequestMatcher.antMatcher("/api/auth/guest"),
+                    org.springframework.security.web.util.matcher.AntPathRequestMatcher.antMatcher("/health"),
+                    org.springframework.security.web.util.matcher.AntPathRequestMatcher.antMatcher("/actuator/**")
+                ).permitAll()
+                .requestMatchers(org.springframework.security.web.util.matcher.AntPathRequestMatcher.antMatcher(org.springframework.http.HttpMethod.POST, "/api/servers/deployments/**")).hasAuthority("ROLE_ADMIN")
+                .requestMatchers(org.springframework.security.web.util.matcher.AntPathRequestMatcher.antMatcher(org.springframework.http.HttpMethod.POST, "/api/ci/workflows/**")).hasAuthority("ROLE_ADMIN")
+                .requestMatchers(org.springframework.security.web.util.matcher.AntPathRequestMatcher.antMatcher(org.springframework.http.HttpMethod.POST, "/api/servers/docker/**")).hasAuthority("ROLE_ADMIN")
+                .requestMatchers(org.springframework.security.web.util.matcher.AntPathRequestMatcher.antMatcher("/api/servers/logs")).hasAuthority("ROLE_ADMIN")
+                .requestMatchers(org.springframework.security.web.util.matcher.AntPathRequestMatcher.antMatcher("/api/servers/docker/containers/*/logs")).hasAuthority("ROLE_ADMIN")
+                .requestMatchers(org.springframework.security.web.util.matcher.AntPathRequestMatcher.antMatcher("/api/**")).hasAnyAuthority("ROLE_GUEST", "ROLE_ADMIN")
+                .anyRequest().denyAll()
             )
             .addFilterBefore(rateLimitFilter, UsernamePasswordAuthenticationFilter.class)
             .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);

@@ -10,7 +10,7 @@ services:
     ports:
       - "127.0.0.1:3011:3001"
     environment:
-      - AGENT_SECRET_KEY=${AGENT_SECRET_KEY:-devops-secret-key-123}
+      - AGENT_SECRET_KEY=${AGENT_SECRET_KEY}
     volumes:
       - ~/.kube/config:/home/appuser/.kube/config:ro
       - /var/run/docker.sock:/var/run/docker.sock
@@ -25,10 +25,10 @@ services:
       - "127.0.0.1:8090:8080"
     environment:
       - AGENT_URL=http://devops-agent:3001
-      - AGENT_SECRET_KEY=${AGENT_SECRET_KEY:-devops-secret-key-123}
+      - AGENT_SECRET_KEY=${AGENT_SECRET_KEY}
       - ADMIN_USERNAME=${ADMIN_USERNAME:-admin}
-      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-admin-password-change-me}
-      - JWT_SECRET=${JWT_SECRET:-jwt-signing-secret-key-change-me-should-be-long-and-random-32-bytes}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD}
+      - JWT_SECRET=${JWT_SECRET}
       - GITHUB_TOKEN=${GITHUB_TOKEN}
     depends_on:
       - agent
@@ -56,6 +56,7 @@ services:
       - '--config.file=/etc/prometheus/prometheus.yml'
     volumes:
       - ./infrastructure/monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./infrastructure/monitoring/prometheus/alert.rules.yml:/etc/prometheus/alert.rules.yml:ro
     restart: unless-stopped
 
   # Grafana dashboard for visualization
@@ -73,7 +74,8 @@ services:
       - GF_SERVER_ROOT_URL=${GRAFANA_ROOT_URL:-http://localhost:8085/grafana/}
       - GF_SERVER_SERVE_FROM_SUB_PATH=true
       - GF_SECURITY_COOKIE_SAMESITE=${COOKIE_SAMESITE:-lax}
-      - GF_SECURITY_COOKIE_SECURE=${COOKIE_SECURE:-false}
+      # Caddy terminates TLS in production, so secure cookies are required. Set COOKIE_SECURE=false in local non-TLS dev.
+      - GF_SECURITY_COOKIE_SECURE=${COOKIE_SECURE:-true}
       - GF_SERVER_ENFORCE_DOMAIN=false
     volumes:
       - grafana-data:/var/lib/grafana
