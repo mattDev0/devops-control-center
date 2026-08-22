@@ -15,6 +15,7 @@ dependencies = [
  "reqwest",
  "serde",
  "serde_json",
+ "subtle",
  "sysinfo",
  "tokio",
  "tokio-stream",
