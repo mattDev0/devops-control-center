@@ -22,6 +22,7 @@ public class RateLimitFilter extends OncePerRequestFilter {
 
     private static final int MAX_REQUESTS_PER_MINUTE = 5;
     private static final long WINDOW_SIZE_MS = 60 * 1000L; // 1 minute
+    private static final int MAX_TRACKED_IPS = 10_000;
 
     // Map IP to list of request timestamps
     private static final Map<String, List<Long>> requestTimestamps = new ConcurrentHashMap<>();
@@ -58,6 +59,16 @@ public class RateLimitFilter extends OncePerRequestFilter {
             String ip = getClientIp(request);
             long now = System.currentTimeMillis();
             
+            if (requestTimestamps.size() >= MAX_TRACKED_IPS && !requestTimestamps.containsKey(ip)) {
+                requestTimestamps.entrySet().removeIf(entry -> {
+                    List<Long> ts = entry.getValue();
+                    synchronized (ts) {
+                        ts.removeIf(t -> now - t > WINDOW_SIZE_MS);
+                        return ts.isEmpty();
+                    }
+                });
+            }
+
             List<Long> timestamps = requestTimestamps.computeIfAbsent(ip, k -> Collections.synchronizedList(new ArrayList<>()));
             
             synchronized (timestamps) {
@@ -79,11 +90,21 @@ public class RateLimitFilter extends OncePerRequestFilter {
     }
 
     private String getClientIp(HttpServletRequest request) {
+    String getClientIp(HttpServletRequest request) {
         String xfHeader = request.getHeader("X-Forwarded-For");
         if (xfHeader == null || xfHeader.isEmpty()) {
+        if (xfHeader == null || xfHeader.isBlank()) {
             return request.getRemoteAddr();
         }
         return xfHeader.split(",")[0].trim();
+        String[] parts = xfHeader.split(",");
+        for (int i = parts.length - 1; i >= 0; i--) {
+            String ip = parts[i].trim();
+            if (!ip.isEmpty()) {
+                return ip;
+            }
+        }
+        return request.getRemoteAddr();
     }
 
     public void reset() {

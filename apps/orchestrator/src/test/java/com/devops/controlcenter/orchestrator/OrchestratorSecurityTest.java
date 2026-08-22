@@ -195,4 +195,24 @@ public class OrchestratorSecurityTest {
                     assertTrue(status == 401 || status == 403, "Expected 401 or 403 but was: " + status);
                 });
     }
+
+    @Test
+    public void testSpoofedLeadingXffSharesRateLimitBucket() throws Exception {
+        Map<String, String> payload = Map.of("username", "admin", "password", "wrongpassword");
+
+        for (int i = 0; i < 5; i++) {
+            mockMvc.perform(post("/api/auth/login")
+                            .header("X-Forwarded-For", "1.2.3." + i + ", 203.0.113.195")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(payload)))
+                    .andExpect(status().isUnauthorized());
+        }
+
+        mockMvc.perform(post("/api/auth/login")
+                        .header("X-Forwarded-For", "1.2.3.99, 203.0.113.195")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(payload)))
+                .andExpect(status().isTooManyRequests())
+                .andExpect(jsonPath("$.error").value("Too many requests. Please try again later."));
+    }
 }
