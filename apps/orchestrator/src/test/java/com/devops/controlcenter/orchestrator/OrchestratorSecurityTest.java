@@ -158,4 +158,41 @@ public class OrchestratorSecurityTest {
                         .header("Authorization", "Bearer " + guestToken))
                 .andExpect(status().isForbidden());
     }
+
+    @Test
+    public void testGuestCannotStreamSystemLogs() throws Exception {
+        String guestToken = jwtUtil.generateToken("u", "ROLE_GUEST");
+        mockMvc.perform(get("/api/servers/logs")
+                        .header("Authorization", "Bearer " + guestToken))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    public void testGuestCannotStreamDockerLogs() throws Exception {
+        String guestToken = jwtUtil.generateToken("u", "ROLE_GUEST");
+        mockMvc.perform(get("/api/servers/docker/containers/abc123/logs")
+                        .header("Authorization", "Bearer " + guestToken))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    public void testGuestCanStillReadDeployments() throws Exception {
+        String guestToken = jwtUtil.generateToken("u", "ROLE_GUEST");
+        mockMvc.perform(get("/api/servers/deployments")
+                        .header("Authorization", "Bearer " + guestToken))
+                .andExpect(result -> {
+                    int status = result.getResponse().getStatus();
+                    assertNotEquals(401, status);
+                    assertNotEquals(403, status);
+                });
+    }
+
+    @Test
+    public void testUnmappedPathIsDenied() throws Exception {
+        mockMvc.perform(get("/some/unmapped/path"))
+                .andExpect(result -> {
+                    int status = result.getResponse().getStatus();
+                    assertTrue(status == 401 || status == 403, "Expected 401 or 403 but was: " + status);
+                });
+    }
 }
