@@ -78,12 +78,19 @@ public class RateLimitFilter extends OncePerRequestFilter {
         filterChain.doFilter(request, response);
     }
 
-    private String getClientIp(HttpServletRequest request) {
+    String getClientIp(HttpServletRequest request) {
         String xfHeader = request.getHeader("X-Forwarded-For");
-        if (xfHeader == null || xfHeader.isEmpty()) {
+        if (xfHeader == null || xfHeader.isBlank()) {
             return request.getRemoteAddr();
         }
-        return xfHeader.split(",")[0].trim();
+        String[] parts = xfHeader.split(",");
+        for (int i = parts.length - 1; i >= 0; i--) {
+            String ip = parts[i].trim();
+            if (!ip.isEmpty()) {
+                return ip;
+            }
+        }
+        return request.getRemoteAddr();
     }
 
     public void reset() {
