@@ -45,8 +45,15 @@ public class AgentController {
         return ResponseEntity.ok(agentService.getDeployments());
     }
 
+    private static final java.util.Set<String> ALLOWED_ACTIONS = java.util.Set.of("start", "stop", "restart");
+    private static final java.util.regex.Pattern DOCKER_ID_PATTERN = java.util.regex.Pattern.compile("^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,63}$");
+    private static final java.util.regex.Pattern DEPLOYMENT_ID_PATTERN = java.util.regex.Pattern.compile("^(devops|portfolio):[a-z0-9]([-a-z0-9]*[a-z0-9])?$");
+
     @PostMapping("/deployments/{id}/{action}")
     public ResponseEntity<Void> deploymentAction(@PathVariable String id, @PathVariable String action) {
+        if (!ALLOWED_ACTIONS.contains(action) || !DEPLOYMENT_ID_PATTERN.matcher(id).matches()) {
+            return ResponseEntity.badRequest().build();
+        }
         logger.info("Received request to execute deployment action {} for deployment ID {}", action, id);
         agentService.executeDeploymentAction(id, action);
         return ResponseEntity.ok().build();
@@ -66,6 +73,9 @@ public class AgentController {
 
     @PostMapping("/docker/containers/{id}/{action}")
     public ResponseEntity<Void> executeDockerContainerAction(@PathVariable String id, @PathVariable String action) {
+        if (!ALLOWED_ACTIONS.contains(action) || !DOCKER_ID_PATTERN.matcher(id).matches()) {
+            return ResponseEntity.badRequest().build();
+        }
         logger.info("Received request to execute Docker container action {} for ID {}", action, id);
         agentService.executeDockerContainerAction(id, action);
         return ResponseEntity.ok().build();
