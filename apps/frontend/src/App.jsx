@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { LogOut, LayoutDashboard, ChevronLeft, ChevronRight, Menu, Layers, GitPullRequest, FileText, Globe, LineChart, Server, Activity } from 'lucide-react';
+import { LogOut, Lock, Loader2, LayoutDashboard, ChevronLeft, ChevronRight, Menu, Layers, GitPullRequest, FileText, Globe, LineChart, Server, Activity } from 'lucide-react';
 // Import Services
 import { api } from './services/api';
 
@@ -7,7 +7,7 @@ import { api } from './services/api';
 import { useSystemLogs, useDeploymentLogs, useDockerContainerLogs } from './hooks/useLogs';
 
 // Import Components
-import Login from './components/auth/Login';
+import AdminLoginModal from './components/auth/AdminLoginModal';
 import LogViewer from './components/dashboard/LogViewer';
 import DeploymentsTable from './components/dashboard/DeploymentsTable';
 import LogsModal from './components/dashboard/LogsModal';
@@ -48,11 +48,8 @@ export default function App() {
   const [activeLogContainer, setActiveLogContainer] = useState(null);
   const [showDockerLogsModal, setShowDockerLogsModal] = useState(false);
 
-  // Authentication UI State
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
-  const [authError, setAuthError] = useState('');
-  const [authLoading, setAuthLoading] = useState(false);
+  // Admin Login Modal State
+  const [showAdminLogin, setShowAdminLogin] = useState(false);
 
   // Refs
   const logsContainerRef = useRef(null);
@@ -63,6 +60,25 @@ export default function App() {
   const logs = useSystemLogs(token);
   const activeDeploymentLogs = useDeploymentLogs(token, activeLogDeployment, showLogsModal);
   const activeContainerLogs = useDockerContainerLogs(token, activeLogContainer, showDockerLogsModal);
+
+  // Auto-acquire guest token on initial load if no existing session
+  useEffect(() => {
+    const existingToken = localStorage.getItem('token');
+    if (existingToken) return;
+
+    const acquireGuestToken = async () => {
+      try {
+        const data = await api.guestLogin();
+        localStorage.setItem('token', data.token);
+        localStorage.setItem('role', data.role);
+        setToken(data.token);
+        setRole(data.role);
+      } catch (error) {
+        console.error('Failed to acquire guest token:', error);
+      }
+    };
+    acquireGuestToken();
+  }, []);
 
   // Auto-scroll system logs
   useEffect(() => {
@@ -78,44 +94,16 @@ export default function App() {
     }
   }, [activeDeploymentLogs]);
 
-  // Handle User Login
-  const handleLogin = async (e) => {
-    e.preventDefault();
-    setAuthError('');
-    setAuthLoading(true);
-    try {
-      const data = await api.login(username, password);
-      localStorage.setItem('token', data.token);
-      localStorage.setItem('role', data.role);
-      setToken(data.token);
-      setRole(data.role);
-    } catch (error) {
-      console.error("Login failure", error);
-      setAuthError(error.message || 'Connection to authorization service failed');
-    } finally {
-      setAuthLoading(false);
-    }
+  // Handle Admin Login Success
+  const handleAdminLoginSuccess = ({ token: newToken, role: newRole }) => {
+    localStorage.setItem('token', newToken);
+    localStorage.setItem('role', newRole);
+    setToken(newToken);
+    setRole(newRole);
+    setShowAdminLogin(false);
   };
 
-  // Handle Guest Login
-  const handleGuestLogin = async () => {
-    setAuthError('');
-    setAuthLoading(true);
-    try {
-      const data = await api.guestLogin();
-      localStorage.setItem('token', data.token);
-      localStorage.setItem('role', data.role);
-      setToken(data.token);
-      setRole(data.role);
-    } catch (error) {
-      console.error("Guest login failure", error);
-      setAuthError(error.message || 'Connection to authorization service failed');
-    } finally {
-      setAuthLoading(false);
-    }
-  };
-
-  // Handle Logout
+  // Handle Logout (clears admin session and returns to guest mode)
   function handleLogout() {
     localStorage.removeItem('token');
     localStorage.removeItem('role');
@@ -125,8 +113,20 @@ export default function App() {
     setPodHealth(null);
     setDeployments([]);
     setWorkflows([]);
-    setUsername('');
-    setPassword('');
+
+    // Re-acquire guest token so dashboard stays visible
+    const reacquireGuest = async () => {
+      try {
+        const data = await api.guestLogin();
+        localStorage.setItem('token', data.token);
+        localStorage.setItem('role', data.role);
+        setToken(data.token);
+        setRole(data.role);
+      } catch (error) {
+        console.error('Failed to re-acquire guest token:', error);
+      }
+    };
+    reacquireGuest();
   }
 
   // Fetch Server Health
@@ -290,19 +290,12 @@ export default function App() {
 
 
 
-  // Render Login overlay if token is not available
+  // Render loading spinner while acquiring guest token on initial load
   if (!token) {
     return (
-      <Login
-        username={username}
-        setUsername={setUsername}
-        password={password}
-        setPassword={setPassword}
-        authError={authError}
-        authLoading={authLoading}
-        handleLogin={handleLogin}
-        handleGuestLogin={handleGuestLogin}
-      />
+      <div className="min-h-screen flex items-center justify-center bg-[var(--bg-canvas)]">
+        <Loader2 className="w-8 h-8 animate-spin text-[var(--accent-primary)]" />
+      </div>
     );
   }
 
@@ -454,13 +447,23 @@ export default function App() {
             )}
           </div>
 
-          <button
-            onClick={handleLogout}
-            className="flex items-center gap-2 bg-[var(--bg-elevated)] hover:bg-red-500/10 hover:text-red-400 border border-[var(--border-default)] px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer"
-          >
-            <LogOut className="w-3.5 h-3.5" />
-            Logout
-          </button>
+          {role === 'ROLE_GUEST' ? (
+            <button
+              onClick={() => setShowAdminLogin(true)}
+              className="flex items-center gap-2 bg-[var(--accent-primary)] hover:bg-[var(--accent-primary-hover)] text-white px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer shadow-sm"
+            >
+              <Lock className="w-3.5 h-3.5" />
+              Login as Admin
+            </button>
+          ) : (
+            <button
+              onClick={handleLogout}
+              className="flex items-center gap-2 bg-[var(--bg-elevated)] hover:bg-red-500/10 hover:text-red-400 border border-[var(--border-default)] px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+              Logout
+            </button>
+          )}
         </header>
 
         {/* Scrollable Panel Container */}
@@ -680,6 +683,14 @@ export default function App() {
             setShowDockerLogsModal(false);
             setActiveLogContainer(null);
           }}
+        />
+      )}
+
+      {/* Admin Login Modal */}
+      {showAdminLogin && (
+        <AdminLoginModal
+          onClose={() => setShowAdminLogin(false)}
+          onLoginSuccess={handleAdminLoginSuccess}
         />
       )}
     </div>
