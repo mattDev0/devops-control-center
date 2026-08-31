@@ -1,36 +1,56 @@
 #!/bin/bash
 set -e
 
+# The caller (CI) passes the commit to deploy. Capture it before sourcing .env,
+# which may carry a stale COMMIT_SHA from a previous deploy and would otherwise
+# silently overwrite it.
+_incoming_sha="${COMMIT_SHA:-}"
+
 # Fail closed: load .env if present, and refuse to deploy without required secrets
 if [ -f /opt/devops-control-center/.env ]; then
   set -a; . /opt/devops-control-center/.env; set +a
 fi
 
+# Incoming value wins; .env is only a fallback for manual runs.
+COMMIT_SHA="${_incoming_sha:-${COMMIT_SHA:-}}"
+export COMMIT_SHA
+
 : "${JWT_SECRET:?JWT_SECRET is not set - refusing to deploy}"
 : "${ADMIN_PASSWORD:?ADMIN_PASSWORD is not set - refusing to deploy}"
 : "${AGENT_SECRET_KEY:?AGENT_SECRET_KEY is not set - refusing to deploy}"
+: "${COMMIT_SHA:?COMMIT_SHA is not set - refusing to deploy}"
 
-echo "Successfully triggered keyless deployment via Azure Run Command."
+echo "Starting deployment of ${COMMIT_SHA:-<unset>}"
 
 # Navigate to devops-control-center directory
 cd /opt/devops-control-center
 
-# Temporarily configure HTTPS URL with token to bypass SSH authentication
-git remote set-url origin https://x-access-token:${GITHUB_TOKEN}@github.com/mattDev0/devops-control-center.git
+# The repository is public, so a token is optional. Use it when supplied so
+# this still works if the repository is ever made private.
+if [ -n "${GITHUB_TOKEN:-}" ]; then
+  git remote set-url origin "https://x-access-token:${GITHUB_TOKEN}@github.com/mattDev0/devops-control-center.git"
+else
+  git remote set-url origin "https://github.com/mattDev0/devops-control-center.git"
+fi
 
 # Ensure the server is locked to the correct branch and fetch the latest code
 git fetch origin main
 git checkout main
 git reset --hard origin/main
 
-# Restore original SSH remote URL
-git remote set-url origin git@github.com:mattDev0/devops-control-center.git
+# Never leave a token sitting in .git/config
+git remote set-url origin "https://github.com/mattDev0/devops-control-center.git"
 
 echo "Making scripts executable..."
 chmod +x scripts/*.sh
 
-echo "Logging in to GitHub Container Registry..."
-echo "${GITHUB_TOKEN}" | docker login ghcr.io -u "${GITHUB_ACTOR}" --password-stdin
+# GHCR images for this repository are public; authenticate only if we can.
+if [ -n "${GITHUB_TOKEN:-}" ] && [ -n "${GITHUB_ACTOR:-}" ]; then
+  echo "Logging in to GitHub Container Registry..."
+  echo "${GITHUB_TOKEN}" | docker login ghcr.io -u "${GITHUB_ACTOR}" --password-stdin
+else
+  echo "No GITHUB_TOKEN supplied; pulling anonymously."
+fi
 
 echo "Pulling latest Docker images..."
 COMMIT_SHA="${COMMIT_SHA}" docker compose -f docker-compose.yml -f docker-compose.prod.yml pull
