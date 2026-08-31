@@ -1,5 +1,5 @@
-import { useState, useEffect, useRef } from 'react';
-import { LogOut, LayoutDashboard, ChevronLeft, ChevronRight, Menu, Layers, GitPullRequest, FileText, Globe, LineChart, Server, Activity } from 'lucide-react';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { LogOut, Lock, Loader2, AlertTriangle, RefreshCw, LayoutDashboard, ChevronLeft, ChevronRight, Menu, Layers, GitPullRequest, FileText, Globe, LineChart, Server, Activity } from 'lucide-react';
 // Import Services
 import { api } from './services/api';
 
@@ -7,7 +7,7 @@ import { api } from './services/api';
 import { useSystemLogs, useDeploymentLogs, useDockerContainerLogs } from './hooks/useLogs';
 
 // Import Components
-import Login from './components/auth/Login';
+import AdminLoginModal from './components/auth/AdminLoginModal';
 import LogViewer from './components/dashboard/LogViewer';
 import DeploymentsTable from './components/dashboard/DeploymentsTable';
 import LogsModal from './components/dashboard/LogsModal';
@@ -18,6 +18,10 @@ import MetricsCards, { SystemMetricsPanel, DockerContainersKpiCard } from './com
 import HealthSLOPanel from './components/dashboard/HealthSLOPanel';
 import ClusterUnavailableCard from './components/dashboard/ClusterUnavailableCard';
 import ErrorBoundary from './components/ErrorBoundary';
+
+// Minimum gap between guest-session attempts, so a rejected token cannot
+// drive an acquire/reject loop against the rate limiter.
+const GUEST_RETRY_COOLDOWN_MS = 5000;
 
 export default function App() {
   const [token, setToken] = useState(localStorage.getItem('token') || '');
@@ -48,11 +52,9 @@ export default function App() {
   const [activeLogContainer, setActiveLogContainer] = useState(null);
   const [showDockerLogsModal, setShowDockerLogsModal] = useState(false);
 
-  // Authentication UI State
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
-  const [authError, setAuthError] = useState('');
-  const [authLoading, setAuthLoading] = useState(false);
+  // Admin Login Modal State
+  const [showAdminLogin, setShowAdminLogin] = useState(false);
+  const [guestError, setGuestError] = useState('');
 
   // Refs
   const logsContainerRef = useRef(null);
@@ -63,6 +65,60 @@ export default function App() {
   const logs = useSystemLogs(token);
   const activeDeploymentLogs = useDeploymentLogs(token, activeLogDeployment, showLogsModal);
   const activeContainerLogs = useDockerContainerLogs(token, activeLogContainer, showDockerLogsModal);
+
+  // Guest sessions are acquired through this single entry point.
+  //
+  // Every one of the dashboard's fetch error handlers can request one on a 401,
+  // and the dashboard runs five fetches in parallel on load and again every 30
+  // seconds. /api/auth/guest is rate limited to 5 requests per minute per IP,
+  // so unguarded callers trip the limit and lock the user out. Concurrent
+  // callers share one in-flight request, and a short cooldown stops a rejected
+  // guest token from driving an acquire/reject loop.
+  const guestRequestRef = useRef(null);
+  const lastGuestAttemptRef = useRef(0);
+
+  const acquireGuestSession = useCallback(async ({ force = false } = {}) => {
+    if (guestRequestRef.current) return guestRequestRef.current;
+
+    const sinceLast = Date.now() - lastGuestAttemptRef.current;
+    if (!force && sinceLast < GUEST_RETRY_COOLDOWN_MS) {
+      setGuestError('Guest access is temporarily unavailable. Please retry in a moment.');
+      return null;
+    }
+
+    lastGuestAttemptRef.current = Date.now();
+    setGuestError('');
+
+    const request = (async () => {
+      try {
+        const data = await api.guestLogin();
+        localStorage.setItem('token', data.token);
+        localStorage.setItem('role', data.role);
+        setToken(data.token);
+        setRole(data.role);
+        return data;
+      } catch (error) {
+        console.error('Failed to acquire guest session:', error);
+        setGuestError(
+          error.message === 'UNAUTHORIZED'
+            ? 'Guest access was refused by the server.'
+            : error.message || 'Could not reach the authorization service.'
+        );
+        return null;
+      } finally {
+        guestRequestRef.current = null;
+      }
+    })();
+
+    guestRequestRef.current = request;
+    return request;
+  }, []);
+
+  // Acquire a guest session on first load when there is no existing one.
+  useEffect(() => {
+    if (localStorage.getItem('token')) return;
+    acquireGuestSession({ force: true });
+  }, [acquireGuestSession]);
 
   // Auto-scroll system logs
   useEffect(() => {
@@ -78,44 +134,16 @@ export default function App() {
     }
   }, [activeDeploymentLogs]);
 
-  // Handle User Login
-  const handleLogin = async (e) => {
-    e.preventDefault();
-    setAuthError('');
-    setAuthLoading(true);
-    try {
-      const data = await api.login(username, password);
-      localStorage.setItem('token', data.token);
-      localStorage.setItem('role', data.role);
-      setToken(data.token);
-      setRole(data.role);
-    } catch (error) {
-      console.error("Login failure", error);
-      setAuthError(error.message || 'Connection to authorization service failed');
-    } finally {
-      setAuthLoading(false);
-    }
+  // Handle Admin Login Success
+  const handleAdminLoginSuccess = ({ token: newToken, role: newRole }) => {
+    localStorage.setItem('token', newToken);
+    localStorage.setItem('role', newRole);
+    setToken(newToken);
+    setRole(newRole);
+    setShowAdminLogin(false);
   };
 
-  // Handle Guest Login
-  const handleGuestLogin = async () => {
-    setAuthError('');
-    setAuthLoading(true);
-    try {
-      const data = await api.guestLogin();
-      localStorage.setItem('token', data.token);
-      localStorage.setItem('role', data.role);
-      setToken(data.token);
-      setRole(data.role);
-    } catch (error) {
-      console.error("Guest login failure", error);
-      setAuthError(error.message || 'Connection to authorization service failed');
-    } finally {
-      setAuthLoading(false);
-    }
-  };
-
-  // Handle Logout
+  // Handle Logout (clears admin session and returns to guest mode)
   function handleLogout() {
     localStorage.removeItem('token');
     localStorage.removeItem('role');
@@ -125,8 +153,11 @@ export default function App() {
     setPodHealth(null);
     setDeployments([]);
     setWorkflows([]);
-    setUsername('');
-    setPassword('');
+
+    // Fall back to a guest session so the dashboard stays viewable. Goes
+    // through the guarded acquirer so the eight error handlers that call this
+    // cannot stampede /api/auth/guest.
+    acquireGuestSession();
   }
 
   // Fetch Server Health
@@ -290,19 +321,52 @@ export default function App() {
 
 
 
-  // Render Login overlay if token is not available
+  // No session yet: either still acquiring, or acquisition failed. The failure
+  // case must stay actionable - the admin login lives in the header, which is
+  // not rendered here, so without this an API hiccup locks everyone out.
   if (!token) {
     return (
-      <Login
-        username={username}
-        setUsername={setUsername}
-        password={password}
-        setPassword={setPassword}
-        authError={authError}
-        authLoading={authLoading}
-        handleLogin={handleLogin}
-        handleGuestLogin={handleGuestLogin}
-      />
+      <div className="min-h-screen flex items-center justify-center bg-[var(--bg-canvas)] p-4">
+        {guestError ? (
+          <div
+            className="w-full max-w-md bg-[var(--bg-surface)] border border-[var(--border-default)] rounded-[var(--radius-xl)] p-8 text-center"
+            role="alert"
+          >
+            <div className="flex justify-center mb-3 text-[var(--status-error)]">
+              <AlertTriangle className="w-6 h-6" aria-hidden="true" />
+            </div>
+            <h1 className="text-sm font-semibold text-[var(--fg-default)] mb-1">
+              Could not start a guest session
+            </h1>
+            <p className="text-xs text-[var(--fg-muted)] leading-relaxed mb-6">{guestError}</p>
+            <div className="flex items-center justify-center gap-2">
+              <button
+                onClick={() => acquireGuestSession({ force: true })}
+                className="flex items-center gap-2 bg-[var(--accent-primary)] hover:bg-[var(--accent-primary-hover)] text-white px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer"
+              >
+                <RefreshCw className="w-3.5 h-3.5" aria-hidden="true" />
+                Retry
+              </button>
+              <button
+                onClick={() => setShowAdminLogin(true)}
+                className="flex items-center gap-2 bg-[var(--bg-elevated)] hover:bg-[var(--interactive-hover)] border border-[var(--border-default)] text-[var(--fg-default)] px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer"
+              >
+                <Lock className="w-3.5 h-3.5" aria-hidden="true" />
+                Sign in as admin
+              </button>
+            </div>
+          </div>
+        ) : (
+          <Loader2 className="w-8 h-8 animate-spin text-[var(--accent-primary)]" aria-label="Loading" />
+        )}
+
+        {showAdminLogin && (
+          <AdminLoginModal
+            onClose={() => setShowAdminLogin(false)}
+            onLoginSuccess={handleAdminLoginSuccess}
+          />
+        )}
+      </div>
     );
   }
 
@@ -454,13 +518,23 @@ export default function App() {
             )}
           </div>
 
-          <button
-            onClick={handleLogout}
-            className="flex items-center gap-2 bg-[var(--bg-elevated)] hover:bg-red-500/10 hover:text-red-400 border border-[var(--border-default)] px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer"
-          >
-            <LogOut className="w-3.5 h-3.5" />
-            Logout
-          </button>
+          {role === 'ROLE_GUEST' ? (
+            <button
+              onClick={() => setShowAdminLogin(true)}
+              className="flex items-center gap-2 bg-[var(--accent-primary)] hover:bg-[var(--accent-primary-hover)] text-white px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer shadow-sm"
+            >
+              <Lock className="w-3.5 h-3.5" />
+              Login as Admin
+            </button>
+          ) : (
+            <button
+              onClick={handleLogout}
+              className="flex items-center gap-2 bg-[var(--bg-elevated)] hover:bg-red-500/10 hover:text-red-400 border border-[var(--border-default)] px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+              Logout
+            </button>
+          )}
         </header>
 
         {/* Scrollable Panel Container */}
@@ -680,6 +754,14 @@ export default function App() {
             setShowDockerLogsModal(false);
             setActiveLogContainer(null);
           }}
+        />
+      )}
+
+      {/* Admin Login Modal */}
+      {showAdminLogin && (
+        <AdminLoginModal
+          onClose={() => setShowAdminLogin(false)}
+          onLoginSuccess={handleAdminLoginSuccess}
         />
       )}
     </div>
