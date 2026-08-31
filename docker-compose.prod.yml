@@ -21,7 +21,7 @@ services:
 
   agent:
     image: ghcr.io/mattdev0/devops-control-center/devops-agent:${COMMIT_SHA:-latest}
-    user: "10001:988"
+    user: "10001:${DOCKER_GID:-998}"
     ports:
       - "127.0.0.1:3011:3001"
     volumes:

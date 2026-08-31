@@ -6,7 +6,7 @@ services:
     build:
       context: ./apps/agent
     container_name: devops-agent
-    user: "10001:988"
+    user: "10001:${DOCKER_GID:-998}"
     ports:
       - "127.0.0.1:3011:3001"
     environment:
