@@ -25,25 +25,35 @@ echo "Starting deployment of ${COMMIT_SHA:-<unset>}"
 # Navigate to devops-control-center directory
 cd /opt/devops-control-center
 
-# The repository is public, so a token is optional. Use it when supplied so
-# this still works if the repository is ever made private.
-if [ -n "${GITHUB_TOKEN:-}" ]; then
-  git remote set-url origin "https://x-access-token:${GITHUB_TOKEN}@github.com/mattDev0/devops-control-center.git"
-else
+# --- Stage 1: sync the checkout, then re-exec ------------------------------
+# This script updates its own file via "git reset --hard". Bash reads a script
+# incrementally by byte offset, so continuing after the swap would execute a
+# mixture of the old and new file. Sync first, then re-exec the fresh copy and
+# skip straight to stage 2.
+if [ "${DCC_DEPLOY_STAGE:-sync}" = "sync" ]; then
+  # The repository is public, so a token is optional. Use it when supplied so
+  # this still works if the repository is ever made private.
+  if [ -n "${GITHUB_TOKEN:-}" ]; then
+    git remote set-url origin "https://x-access-token:${GITHUB_TOKEN}@github.com/mattDev0/devops-control-center.git"
+  else
+    git remote set-url origin "https://github.com/mattDev0/devops-control-center.git"
+  fi
+
+  git fetch origin main
+  git checkout main
+  git reset --hard origin/main
+
+  # Never leave a token sitting in .git/config
   git remote set-url origin "https://github.com/mattDev0/devops-control-center.git"
+
+  chmod +x scripts/*.sh
+
+  echo "Checkout synced; re-executing the updated deploy script."
+  export DCC_DEPLOY_STAGE=run
+  exec bash scripts/deploy.sh
 fi
 
-# Ensure the server is locked to the correct branch and fetch the latest code
-git fetch origin main
-git checkout main
-git reset --hard origin/main
-
-# Never leave a token sitting in .git/config
-git remote set-url origin "https://github.com/mattDev0/devops-control-center.git"
-
-echo "Making scripts executable..."
-chmod +x scripts/*.sh
-
+# --- Stage 2: deploy the synced checkout -----------------------------------
 # GHCR images for this repository are public; authenticate only if we can.
 if [ -n "${GITHUB_TOKEN:-}" ] && [ -n "${GITHUB_ACTOR:-}" ]; then
   echo "Logging in to GitHub Container Registry..."
