@@ -6,6 +6,10 @@ import tailwindcss from '@tailwindcss/vite'
 // environment with e.g.
 //   API_PROXY_TARGET=https://devops.mattdev0.tech npm run dev
 const apiProxyTarget = process.env.API_PROXY_TARGET || 'http://localhost:8080'
+// Optional: route /api/spotify straight at a locally running spotify-service,
+// bypassing the orchestrator. Only used when SPOTIFY_PROXY_TARGET is set.
+const spotifyProxyTarget = process.env.SPOTIFY_PROXY_TARGET
+const spotifyServiceKey = process.env.SPOTIFY_SERVICE_KEY || ''
 
 export default defineConfig({
   plugins: [
@@ -14,6 +18,16 @@ export default defineConfig({
   ],
   server: {
     proxy: {
+      ...(spotifyProxyTarget
+        ? {
+            '/api/spotify': {
+              target: spotifyProxyTarget,
+              changeOrigin: true,
+              rewrite: (path) => path.replace(/^\/api\/spotify/, ''),
+              headers: { 'X-Service-Key': spotifyServiceKey },
+            },
+          }
+        : {}),
       '/api': {
         target: apiProxyTarget,
         changeOrigin: true,
