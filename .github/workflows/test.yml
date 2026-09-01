@@ -18,6 +18,12 @@ jobs:
           dockerfile: "apps/agent/Dockerfile"
           ignore: DL3008
 
+      - name: Lint Spotify Service Dockerfile
+        uses: hadolint/hadolint-action@v3.1.0
+        with:
+          dockerfile: "apps/spotify-service/Dockerfile"
+          ignore: DL3008
+
       - name: Lint Orchestrator Dockerfile
         uses: hadolint/hadolint-action@v3.1.0
         with:
@@ -51,6 +57,11 @@ jobs:
       - name: Run Agent Tests
         run: |
           cd apps/agent
+          cargo test
+
+      - name: Run Spotify Service Tests
+        run: |
+          cd apps/spotify-service
           cargo test
 
       - name: Set up JDK 21

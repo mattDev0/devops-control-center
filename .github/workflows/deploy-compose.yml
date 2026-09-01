@@ -23,6 +23,12 @@ jobs:
           dockerfile: "apps/agent/Dockerfile"
           ignore: DL3008
 
+      - name: Lint Spotify Service Dockerfile
+        uses: hadolint/hadolint-action@v3.1.0
+        with:
+          dockerfile: "apps/spotify-service/Dockerfile"
+          ignore: DL3008
+
       - name: Lint Orchestrator Dockerfile
         uses: hadolint/hadolint-action@v3.1.0
         with:
@@ -56,6 +62,11 @@ jobs:
       - name: Run Agent Tests
         run: |
           cd apps/agent
+          cargo test
+
+      - name: Run Spotify Service Tests
+        run: |
+          cd apps/spotify-service
           cargo test
 
       - name: Set up JDK 21
@@ -163,6 +174,25 @@ jobs:
           exit-code: '1'
           ignore-unfixed: true
           severity: 'CRITICAL'
+      - name: Build and Push Devops Spotify Service
+        uses: docker/build-push-action@v5
+        with:
+          context: ./apps/spotify-service
+          push: true
+          tags: |
+            ghcr.io/mattdev0/devops-control-center/devops-spotify:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Scan Devops Spotify Service Image
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: 'ghcr.io/mattdev0/devops-control-center/devops-spotify:${{ github.sha }}'
+          format: 'table'
+          exit-code: '1'
+          ignore-unfixed: true
+          severity: 'CRITICAL'
+
   deploy:
     needs: build
     runs-on: ubuntu-latest
