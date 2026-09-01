@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { LogOut, Lock, Loader2, AlertTriangle, RefreshCw, LayoutDashboard, ChevronLeft, ChevronRight, Menu, Layers, GitPullRequest, FileText, Globe, LineChart, Server, Activity } from 'lucide-react';
+import { LogOut, Lock, Loader2, AlertTriangle, RefreshCw, Music, LayoutDashboard, ChevronLeft, ChevronRight, Menu, Layers, GitPullRequest, FileText, Globe, LineChart, Server, Activity } from 'lucide-react';
 // Import Services
 import { api } from './services/api';
 
@@ -17,6 +17,7 @@ import DockerLogsModal from './components/dashboard/DockerLogsModal';
 import MetricsCards, { SystemMetricsPanel, DockerContainersKpiCard } from './components/dashboard/MetricsCards';
 import HealthSLOPanel from './components/dashboard/HealthSLOPanel';
 import ClusterUnavailableCard from './components/dashboard/ClusterUnavailableCard';
+import SpotifyDashboard from './components/spotify/SpotifyDashboard';
 import ErrorBoundary from './components/ErrorBoundary';
 
 // Minimum gap between guest-session attempts, so a rejected token cannot
@@ -455,6 +456,19 @@ export default function App() {
 
           <button
             onClick={() => {
+              document.getElementById('listening')?.scrollIntoView({ behavior: 'smooth' });
+              setMobileOpen(false);
+            }}
+            className="flex items-center w-full gap-3 px-3 py-2 text-sm font-medium rounded-md hover:bg-[var(--interactive-hover)] text-[var(--fg-muted)] hover:text-[var(--fg-default)] transition-colors"
+            aria-label="Navigate to Spotify"
+            title="Spotify"
+          >
+            <Music className="w-5 h-5 shrink-0 text-[var(--fg-subtle)]" />
+            {!sidebarCollapsed && <span>Spotify</span>}
+          </button>
+
+          <button
+            onClick={() => {
               document.getElementById('logs')?.scrollIntoView({ behavior: 'smooth' });
               setMobileOpen(false);
             }}
@@ -666,6 +680,17 @@ export default function App() {
           <div id="metrics" className="scroll-mt-20">
             <ErrorBoundary>
               <SystemMetricsPanel token={token} />
+            </ErrorBoundary>
+          </div>
+
+          {/* Row 2.5: Spotify listening analytics */}
+          <div id="listening" className="scroll-mt-20 space-y-3">
+            <div className="flex items-center gap-2">
+              <Music className="w-4 h-4 text-[var(--accent-primary)] shrink-0" aria-hidden="true" />
+              <h2 className="text-sm font-semibold text-[var(--fg-default)]">Spotify</h2>
+            </div>
+            <ErrorBoundary>
+              <SpotifyDashboard token={token} />
             </ErrorBoundary>
           </div>
 

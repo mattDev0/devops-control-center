@@ -231,4 +231,34 @@ public class OrchestratorSecurityTest {
                         .header("Authorization", "Bearer " + adminToken))
                 .andExpect(status().isBadRequest());
     }
+
+    @Test
+    public void testSpotifyRejectsUnknownResource() throws Exception {
+        String guest = jwtUtil.generateToken("g", "ROLE_GUEST");
+        mockMvc.perform(get("/api/spotify/../secrets")
+                        .header("Authorization", "Bearer " + guest))
+                .andExpect(status().is4xxClientError());
+    }
+
+    @Test
+    public void testSpotifyRejectsInvalidRange() throws Exception {
+        String guest = jwtUtil.generateToken("g", "ROLE_GUEST");
+        mockMvc.perform(get("/api/spotify/top/artists?range=all_time")
+                        .header("Authorization", "Bearer " + guest))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    public void testSpotifyRejectsInvalidKind() throws Exception {
+        String guest = jwtUtil.generateToken("g", "ROLE_GUEST");
+        mockMvc.perform(get("/api/spotify/top/albums")
+                        .header("Authorization", "Bearer " + guest))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    public void testSpotifyRequiresAuthentication() throws Exception {
+        mockMvc.perform(get("/api/spotify/overview"))
+                .andExpect(status().isUnauthorized());
+    }
 }
