@@ -229,3 +229,95 @@ pub fn genre_breakdown(db: &Db, limit: i64) -> rusqlite::Result<Vec<GenreSlice>>
     out.truncate(limit as usize);
     Ok(out)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::models::Play;
+
+    fn play(track: &str, at: &str) -> Play {
+        Play {
+            track_id: track.to_string(),
+            track_name: format!("Track {track}"),
+            artist_id: "artist1".to_string(),
+            artist_name: "Artist One".to_string(),
+            album_art: None,
+            duration_ms: 180_000,
+            played_at: at.to_string(),
+        }
+    }
+
+    fn memdb() -> Db {
+        open(":memory:").expect("open in-memory db")
+    }
+
+    /// The recently-played endpoint returns overlapping windows on every poll,
+    /// so re-inserting the same play must not double count it.
+    #[test]
+    fn reinserting_the_same_play_is_ignored() {
+        let db = memdb();
+        let plays = vec![play("t1", "2026-09-01T10:00:00Z")];
+
+        assert_eq!(insert_plays(&db, &plays).unwrap(), 1);
+        assert_eq!(insert_plays(&db, &plays).unwrap(), 0, "second insert should be a no-op");
+        assert_eq!(overview(&db).unwrap().total_plays, 1);
+    }
+
+    /// Same track at a different time is a genuinely separate play.
+    #[test]
+    fn same_track_at_a_new_time_counts_again() {
+        let db = memdb();
+        insert_plays(&db, &[play("t1", "2026-09-01T10:00:00Z")]).unwrap();
+        insert_plays(&db, &[play("t1", "2026-09-01T11:00:00Z")]).unwrap();
+
+        let o = overview(&db).unwrap();
+        assert_eq!(o.total_plays, 2);
+        assert_eq!(o.distinct_tracks, 1);
+    }
+
+    #[test]
+    fn discovery_separates_repeats_from_distinct_tracks() {
+        let db = memdb();
+        insert_plays(&db, &[
+            play("t1", "2026-09-01T10:00:00Z"),
+            play("t1", "2026-09-01T11:00:00Z"),
+            play("t2", "2026-09-01T12:00:00Z"),
+        ]).unwrap();
+
+        let d = discovery(&db).unwrap();
+        assert_eq!(d.total_plays, 3);
+        assert_eq!(d.distinct_tracks, 2);
+        assert_eq!(d.repeat_plays, 1);
+    }
+
+    /// Empty slots must still be emitted so the chart keeps a stable axis.
+    #[test]
+    fn hour_buckets_cover_the_whole_day() {
+        let db = memdb();
+        insert_plays(&db, &[play("t1", "2026-09-01T10:00:00Z")]).unwrap();
+
+        let buckets = by_hour(&db).unwrap();
+        assert_eq!(buckets.len(), 24);
+        assert_eq!(buckets.iter().map(|b| b.plays).sum::<i64>(), 1);
+    }
+
+    #[test]
+    fn weekday_buckets_cover_the_whole_week() {
+        let db = memdb();
+        assert_eq!(by_weekday(&db).unwrap().len(), 7);
+    }
+
+    #[test]
+    fn genre_breakdown_weights_by_play_count() {
+        let db = memdb();
+        insert_plays(&db, &[
+            play("t1", "2026-09-01T10:00:00Z"),
+            play("t2", "2026-09-01T11:00:00Z"),
+        ]).unwrap();
+        cache_genres(&db, "artist1", &["indie folk".into(), "folk".into()]).unwrap();
+
+        let genres = genre_breakdown(&db, 10).unwrap();
+        assert_eq!(genres.len(), 2);
+        assert!(genres.iter().all(|g| g.count == 2), "both genres carry the artist's two plays");
+    }
+}
