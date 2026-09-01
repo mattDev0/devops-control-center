@@ -50,8 +50,11 @@ services:
       - ADMIN_PASSWORD=${ADMIN_PASSWORD}
       - JWT_SECRET=${JWT_SECRET}
       - GITHUB_TOKEN=${GITHUB_TOKEN}
+      - SPOTIFY_URL=http://devops-spotify:3002
+      - SPOTIFY_SERVICE_KEY=${SPOTIFY_SERVICE_KEY}
     depends_on:
       - agent
+      - spotify-service
     restart: unless-stopped
 
   # React Frontend: Sleek dashboard (served via Nginx)
