@@ -18,6 +18,24 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
     restart: unless-stopped
 
+  # Spotify Service: listening analytics, polls Spotify and stores play history
+  spotify-service:
+    build:
+      context: ./apps/spotify-service
+    container_name: devops-spotify
+    ports:
+      - "127.0.0.1:3012:3002"
+    environment:
+      - SPOTIFY_CLIENT_ID=${SPOTIFY_CLIENT_ID}
+      - SPOTIFY_CLIENT_SECRET=${SPOTIFY_CLIENT_SECRET}
+      - SPOTIFY_REFRESH_TOKEN=${SPOTIFY_REFRESH_TOKEN}
+      - SPOTIFY_SERVICE_KEY=${SPOTIFY_SERVICE_KEY}
+      - SPOTIFY_UTC_OFFSET_HOURS=${SPOTIFY_UTC_OFFSET_HOURS:-0}
+      - SPOTIFY_DB_PATH=/data/spotify.db
+    volumes:
+      - spotify-data:/data
+    restart: unless-stopped
+
   # Java Orchestrator: Central coordination layer
   orchestrator:
     build:
@@ -95,3 +113,4 @@ services:
 
 volumes:
   grafana-data:
+  spotify-data:

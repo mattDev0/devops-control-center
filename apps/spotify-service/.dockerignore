@@ -1,0 +1,6 @@
+target
+.env
+*.db
+*.db-wal
+*.db-shm
+scripts/spotify_refresh_token.txt

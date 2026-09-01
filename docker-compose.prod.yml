@@ -31,6 +31,15 @@ services:
         limits:
           memory: 32M
 
+  spotify-service:
+    image: ghcr.io/mattdev0/devops-control-center/devops-spotify:${COMMIT_SHA:-latest}
+    ports:
+      - "127.0.0.1:3012:3002"
+    deploy:
+      resources:
+        limits:
+          memory: 48M
+
   orchestrator:
     image: ghcr.io/mattdev0/devops-control-center/devops-orchestrator:${COMMIT_SHA:-latest}
     ports:
