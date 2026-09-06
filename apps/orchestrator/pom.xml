@@ -22,7 +22,13 @@
 
     <properties>
         <java.version>21</java.version>
-        <tomcat.version>10.1.56</tomcat.version>
+        <!-- 10.1.56 carries CVE-2026-65182 (CRITICAL), CVE-2026-68525 and
+             CVE-2026-65905. The advisories name 10.1.58 as the fix, but that
+             version was never published to Maven Central - 10.1.57 and 10.1.59
+             exist and 10.1.58 does not - so pin the first published release
+             that carries it. Drop this override once the Spring Boot parent
+             manages 10.1.59 or later. -->
+        <tomcat.version>10.1.59</tomcat.version>
         <spring-security.version>6.5.9</spring-security.version>
     </properties>
 
