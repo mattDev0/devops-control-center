@@ -33,38 +33,34 @@ The platform runs on a lightweight, secure microservices architecture orchestrat
 
 ```mermaid
 graph TD
-    Client[Client Browser] -->|HTTPS 443| Traefik[Traefik Ingress Controller]
-    
-    subgraph "Azure Virtual Machine (Host)"
-        subgraph "Namespace: kube-system"
-            Traefik
-        end
+    Client[Client Browser] -->|HTTPS 443| Caddy[Caddy reverse proxy<br/>automatic TLS]
 
-        subgraph "Namespace: devops"
-            Traefik -->|Ingress Route| K8sDevOpsFE[Service: devops-frontend ClusterIP]
-            K8sDevOpsFE --> DevOpsFE[devops-frontend Pod]
-            DevOpsFE -->|Internal Nginx Proxy| Orchestrator[devops-orchestrator Pod]
-            DevOpsFE -->|Internal Nginx Proxy| Grafana[devops-grafana Pod]
-            
-            Orchestrator --> Agent[devops-agent Pod]
-            Agent -->|kube-rs API Calls| K8sAPI[K3s API Server]
-            
-            Grafana -->|Query Metrics| Prom[devops-prometheus Pod]
-            Prom -->|Scrape Telemetry| NodeExp[node-exporter DaemonSet]
-        end
+    subgraph VM["Azure VM &mdash; Docker Compose"]
+        Caddy --> FE[devops-frontend<br/>React + Nginx]
+        FE -->|/api/| Orch[devops-orchestrator<br/>Spring Boot]
+        FE -->|/grafana/| Graf[devops-grafana]
 
-        subgraph "Namespace: portfolio"
-            Blackbox[blackbox-exporter Pod]
-        end
+        Orch -->|X-Agent-Key| Agent[devops-agent<br/>Rust]
+        Orch -->|X-Service-Key| Spot[devops-spotify<br/>Rust + SQLite]
+
+        Agent -->|Unix socket| Sock[/var/run/docker.sock/]
+        Spot --> DB[(spotify.db<br/>named volume)]
+
+        Graf -->|query| Prom[devops-prometheus]
+        Prom -->|scrape| NodeExp[node-exporter]
+        Prom -->|scrape| Orch
     end
 
-    Orchestrator -->|GitHub Actions API| GitHub[GitHub API]
-    Prom -->|Scrapes ICMP Probes| Blackbox
-    Blackbox -->|Pings ICMP| Internet[External Internet: Google / Cloudflare / Riot Games]
+    Orch -->|Actions API| GitHub[GitHub API]
+    Spot -->|Web API| Spotify[Spotify API]
 
-    classDef devops fill:#0f172a,stroke:#8b5cf6,stroke-width:2px,color:#f8fafc;
-    class DevOpsFE,Orchestrator,Agent,Grafana,Prom,NodeExp devops;
+    classDef svc fill:#0f172a,stroke:#6366f1,stroke-width:2px,color:#f8fafc;
+    class FE,Orch,Agent,Spot,Graf,Prom,NodeExp svc;
 ```
+
+> The agent also speaks to a Kubernetes API when one is present. This deployment
+> has no cluster, so those features report themselves unavailable rather than
+> failing; see the note above.
 
 ## 1. Frontend — React + Vite + Tailwind CSS + Nginx
 A responsive single-page dashboard featuring:
@@ -91,17 +87,25 @@ A lightweight, high-performance, modular system agent. It runs as a container un
 * **State Transition Webhooks:** Actively monitors deployment state changes and broadcasts real-time alerts to Discord webhooks upon state transitions (e.g., Running, Failed).
 * **Resilience & Observability:** Verifies the Kubernetes API actually answers before advertising cluster support, degrades to Docker-only operation when no cluster is present, and emits rich, structured telemetry via the `tracing` crate.
 
-## 4. Observability Stack — Prometheus & Grafana
+## 4. Spotify Service — Rust + Axum + SQLite
+A small analytics service for listening history.
+
+Spotify's Web API cannot answer most of what a listening dashboard wants: it exposes top artists and tracks over three fixed windows and the **last 50 plays**, and nothing else historical. `audio-features` and `recommendations` return 403 and 404 for newer apps.
+* **Builds its own history:** polls recently-played every 20 minutes and stores plays in SQLite keyed on `(track_id, played_at)`, which is what the overlapping response windows dedupe against. History lives on a named volume and survives redeploys.
+* **Genre aggregation:** genres come from the artists endpoint, cached since they are effectively static, then weighted by play count.
+* **Local-time bucketing:** Spotify timestamps are UTC; `SPOTIFY_UTC_OFFSET_HOURS` shifts the hour and weekday buckets so "when do I listen" means something.
+
+## 5. Observability Stack — Prometheus & Grafana
 * **Node Exporter:** Gathers host telemetry as a DaemonSet inside the cluster.
 * **Prometheus:** Pulls metrics from the exporter, Java Spring Boot actuator endpoints, and external network pings (via Blackbox Exporter). Backed by a PersistentVolumeClaim (PVC).
 * **Grafana:** Displays visual CPU and Memory dashboard panels embedded as iframes in the UI. Anonymous access is strictly limited to the `Viewer` role.
 
-## 5. Security & Hardening
+## 6. Security & Hardening
 * All microservices (Agent, Orchestrator, Frontend) explicitly drop privileges to run as non-root users inside the containers.
 * Kubernetes deployments strictly enforce `securityContext.runAsNonRoot: true` to prevent container runtime privilege escalation, and utilize `readOnlyRootFilesystem: true` to guarantee immutable container states (with `emptyDir` mounts for `/tmp` where necessary).
 * **Network Policies:** The `devops` namespace is secured by a default-deny Network Policy, explicitly allowing only necessary inter-pod ingress (e.g., Orchestrator to Agent, Frontend to Orchestrator).
 * **Agent Security:** The rust agent enforces strict startup failures if the `AGENT_SECRET_KEY` is missing, preventing accidental bypasses.
-* **Pod Disruption Budgets (PDB):** Enforces a `minAvailable: 1` requirement across all devops pods to protect against voluntary evictions and maintain zero downtime during single-node K3s maintenance.
+* **Least-privilege service identities:** the orchestrator reaches the agent and the Spotify service through separate shared secrets, both compared in constant time; the browser never talks to either directly. Docker container actions require `ROLE_ADMIN`, and the agent refuses actions targeting the platform's own containers.
 
 ---
 
@@ -109,27 +113,40 @@ A lightweight, high-performance, modular system agent. It runs as a container un
 
 ### 🔒 Secure JWT Authentication & RBAC
 Enforces role-based permissions to protect platform modifications:
-* **User Authentication:** Sign in using credentials or enter as a guest with one click.
+* **Guest by default:** visitors enter read-only guest mode automatically; administrators sign in through a modal when they need to act.
 * **Access Controls:** Read-only access for guests (monitoring only), with mutating actions (scaling deployments, running pipelines) restricted strictly to `ROLE_ADMIN` users.
 * **Rate Limiting:** Protects against brute-force login attacks using an eviction-managed token bucket filter.
 
-### 📊 Kubernetes Health & SLO Dashboard
+### 📊 Kubernetes Health & SLO Dashboard *(requires a cluster)*
 Visualize real-time cluster workloads and Service Level Objectives (SLOs):
 * **Monitored Namespaces Overview:** View pod status summaries (Running, Pending, Failed, CrashLoop) for target namespaces (`devops` and `portfolio`).
 * **Availability SLI:** Track real-time pod availability percentages mapped via a dynamic progress ring.
 * **Error Budget remaining:** Visual progress bar showing consumed vs. remaining error budget based on a targeted 99.9% availability objective.
 
-### 🪵 Real-Time Pod Log Streaming
+### 🪵 Real-Time Pod Log Streaming *(requires a cluster)*
 Stream logs dynamically from Kubernetes deployments inside the cluster.
 * **Kube-rs Integration:** Directly queries pod logs from Kubernetes namespaces, merging and broadcasting system and deployment logs.
 * **Resource Safe:** The Orchestrator safely terminates downstream agent connections upon client drop to prevent thread pool exhaustion.
 * **Glassmorphic Viewer:** Displays log streams in a styled window, color-coding and labeling lines by pod name with auto-scrolling features.
 
-### ☸️ Kubernetes Deployment Management
+### ☸️ Kubernetes Deployment Management *(requires a cluster)*
 Manage Kubernetes deployments directly from the dashboard.
 * **Live Status List:** Checks replication readiness, uptime, and runtime states across all namespaces via unified JSON DTOs.
 * **Scaling Controls:** Spin up deployments (start) or scale them down to zero (stop).
 * **Rolling Updates:** Trigger clean rolling restarts of your deployments with a single click.
+
+### 🐳 Docker Container Management
+Manage the containers on the host directly from the dashboard.
+* **Live inventory:** state, image, ports and uptime for every container, with per-container CPU and memory.
+* **Lifecycle actions:** start, stop and restart, restricted to `ROLE_ADMIN`. The agent refuses actions targeting the platform's own containers, so the dashboard cannot stop the proxy out from under itself.
+* **Log streaming:** follow container stdout/stderr over SSE.
+
+### 🎧 Spotify Listening Analytics
+A listening dashboard built on data the Spotify API does not itself provide.
+* **Top artists, tracks and genres** over Spotify's four-week window.
+* **Listening patterns** by hour and weekday, computed from play history this platform records itself, in local time.
+* **Discovery ratio** separating first plays from repeats.
+* **Honest about its limits:** Spotify exposes only the last 50 plays, so history accumulates from first deploy and the UI says so rather than showing an empty chart.
 
 ### 🔄 CI/CD Pipeline Monitoring
 Integrated GitHub Actions monitoring fetching real data.
@@ -151,9 +168,15 @@ This project uses a flexible runtime configuration strategy allowing it to run e
 ## Local Development
 Clone the repo and run:
 ```bash
+cp .env.example .env   # fill in the required secrets first
 docker compose up --build
 ```
-It will automatically default to `localhost` configurations, bypassing secure cookie requirements for easy development.
+
+`JWT_SECRET`, `ADMIN_PASSWORD` and `AGENT_SECRET_KEY` are mandatory; the stack fails closed without them rather than starting with defaults. The Spotify service additionally needs `SPOTIFY_CLIENT_ID`, `SPOTIFY_CLIENT_SECRET`, `SPOTIFY_REFRESH_TOKEN` and `SPOTIFY_SERVICE_KEY` - `apps/spotify-service/scripts/authorize.py` obtains a refresh token with the required scopes.
+
+`DOCKER_GID` must match the host's `docker` group so the agent can read the socket; find it with `getent group docker | cut -d: -f3`.
+
+Local runs default to `localhost` configuration, relaxing the secure-cookie requirement.
 * Dashboard: `http://localhost:8085`
 
 ## Production Deployment & CI/CD
@@ -162,47 +185,48 @@ To deploy to a live server, create a `.env` file on the VM from the provided exa
 cp .env.example .env
 nano .env
 ```
-Provide your GitHub token and public domain. `JWT_SECRET`, `ADMIN_PASSWORD` and `AGENT_SECRET_KEY` are mandatory - `scripts/deploy.sh` refuses to deploy without them. When deploying the Kubernetes manifests instead, the same values are supplied as the `devops-secrets` Secret.
+Provide your GitHub token and public domain. `JWT_SECRET`, `ADMIN_PASSWORD` and `AGENT_SECRET_KEY` are mandatory - `scripts/deploy.sh` refuses to deploy without them rather than falling back to defaults. `SPOTIFY_SERVICE_KEY` is shared between the orchestrator and the Spotify service, and `DOCKER_GID` must match the host's `docker` group. When deploying the Kubernetes manifests instead, the same values are supplied as the `devops-secrets` Secret.
 
 ```mermaid
 sequenceDiagram
     actor Developer
-    participant GitHub as GitHub Repository (devops-control-center)
+    participant GitHub as GitHub Repository
     participant Runner as GitHub Actions Runner
-    participant GHCR as GitHub Container Registry (ghcr.io)
-    participant VM as Azure VM Host
-    participant K3s as K3s Cluster
+    participant GHCR as ghcr.io
+    participant VM as Azure VM
 
     Developer->>GitHub: git push origin main
-    GitHub->>Runner: Trigger Production Deployment Workflow
-    
-    Note over Runner: STAGE: TEST<br/>hadolint, kubeconform, mvn test, cargo test, npm run lint
-    Runner->>Runner: Execute Quality Gates
-    
-    Note over Runner: STAGE: BUILD
-    Runner->>Runner: Build Docker images using Buildx & GHA Cache
-    Runner->>GHCR: Push built images: devops-agent, devops-orchestrator, devops-frontend
-    
-    Note over Runner: STAGE: DEPLOY
-    Runner->>VM: SSH Connection (using AZURE_SSH_KEY)
-    Note over VM: Pulls latest commits<br/>git reset --hard origin/main
-    VM->>K3s: Apply environment Secrets (devops-secrets)
-    VM->>K3s: Apply Network Policies & Namespaces
-    VM->>K3s: Apply dynamically tagged manifests in infrastructure/k8s/
-    VM->>K3s: Trigger zero-downtime rolling update (rollout restart)
-    K3s-->>VM: Pull new images & Rollout Complete
-    VM-->>Runner: Pipeline Complete
-    Runner-->>GitHub: Update Status to Green
+    GitHub->>Runner: Trigger Production Deployment
+
+    Note over Runner: TEST<br/>hadolint · kubeconform · mvn test · cargo test · npm lint
+    Runner->>Runner: Quality gates
+
+    Note over Runner: BUILD
+    Runner->>GHCR: Push SHA-tagged images<br/>agent · orchestrator · frontend · spotify
+    Runner->>Runner: Trivy scan each image (fails on CRITICAL)
+
+    Note over Runner: DEPLOY
+    Runner->>VM: ssh with a deploy key pinned to a forced command
+    Note over VM: The key may pass only a commit SHA.<br/>No shell, no arbitrary commands.
+    VM->>VM: git reset --hard, then re-exec the updated script
+    VM->>GHCR: docker compose pull
+    VM->>VM: docker compose up -d
+    VM->>VM: scripts/health-check.sh
+    VM-->>Runner: Pipeline complete
 ```
 
-The automated GitHub Action runs across three stages (`test` → `build` → `deploy`):
-1. **PR Validation:** A dedicated `test.yml` workflow strictly gates pull requests with linting (`hadolint`, `kubeconform`) and unit tests.
-2. **Build Stage:** Builds the Docker images on the GitHub Actions runner using Docker Buildx and GHA caching.
-3. **Push Stage:** Pushes dynamically Git-SHA-tagged images to GitHub Container Registry (GHCR).
-4. **Deploy Stage:** Connects to the Azure VM via SSH and pulls the latest code changes.
-5. Injects dynamic image tags into Kubernetes manifests and applies Network Policies and secrets.
-6. Restarts the pods to load the updated images with zero-downtime rolling updates.
-   - *Note: Deployments can also be triggered manually using `workflow_dispatch`.*
+The pipeline runs `test` → `build` → `deploy`:
+
+1. **PR validation** — `test.yml` gates pull requests with `hadolint`, `kubeconform`, and the Java, Rust and frontend test suites.
+2. **Build** — images built with Buildx and GHA caching, tagged with the commit SHA, then scanned with Trivy. A CRITICAL finding fails the build.
+3. **Deploy** — SSH to the VM using a **dedicated deploy key restricted to a forced command**. The key can trigger a deploy of a given commit and nothing else: no shell, no arbitrary commands, no port forwarding. The host key is pinned rather than trusted on first use.
+4. **On the host** — `deploy.sh` syncs the checkout, re-execs itself so the rest of the run uses the updated script, pulls the SHA-tagged images, recreates changed containers, and runs the health check.
+
+> **Why not OIDC?** The previous pipeline used GitHub OIDC workload identity with
+> `az vm run-command`, which stored no long-lived credentials. The current Azure
+> tenant blocks Entra app registration, so no service principal can be created and
+> that route is unavailable. The trade-off and its mitigations are recorded in
+> [adr_02](../docs/adr/adr_02_ssh_deploy.md).
 
 ---
 
@@ -219,6 +243,10 @@ devops-control-center/
 │   │   ├── src/main/java/.../  # Layered architecture (controllers, services, dto, security, exceptions)
 │   │   ├── Dockerfile
 │   │   └── pom.xml
+│   ├── spotify-service/        # Spotify listening analytics 🎧
+│   │   ├── src/                # axum handlers, SQLite storage, Spotify client
+│   │   ├── scripts/            # authorize.py - one-off OAuth for the refresh token
+│   │   └── Dockerfile
 │   └── frontend/               # React Dashboard ⚛️
 │       ├── src/                # Refactored components, services, and hooks with Error Boundaries
 │       ├── Dockerfile
@@ -226,11 +254,12 @@ devops-control-center/
 │       └── vite.config.js
 ├── infrastructure/             # Reverse Proxy & Deployments 🌐
 │   ├── nginx/                  # Nginx configuration
-│   ├── k8s/                    # Kubernetes Manifests ☸️ (Deployments, Services, NetworkPolicies)
+│   ├── k8s/                    # Kubernetes manifests ☸️ - a supported alternative target, not what production runs
 │   ├── monitoring/             # Monitoring config (Grafana dashboards, Prometheus config)
 │   └── terraform/              # Terraform example placeholder scripts
-├── .github/workflows/          # CI/CD Pipeline (deploy.yml)
-├── docker-compose.yml          # Local stack orchestration
+├── .github/workflows/          # CI/CD (deploy-compose.yml, test.yml)
+├── docker-compose.yml          # Stack definition (also the production base)
+├── docker-compose.prod.yml     # Production overrides: images, memory limits
 ├── .env.example                # Production environment template
 └── README.md
 ```
@@ -243,10 +272,12 @@ devops-control-center/
 | -------------------- | -------------------------- |
 | **Frontend**         | React, Vite, Tailwind CSS, `lucide-react` |
 | **Backend**          | Java Spring Boot, Spring Security, JWT (io.jsonwebtoken), SLF4J, Actuator |
-| **Agent**            | Rust, Axum, `kube-rs`, `tokio`, `tracing` |
+| **Agent**            | Rust, Axum, `kube-rs`, `bollard` (Docker), `tokio`, `tracing` |
+| **Spotify Service**  | Rust, Axum, `rusqlite` (bundled SQLite), `reqwest` |
 | **Orchestration**    | Docker Compose (Primary Runtime), Kubernetes Manifests (Multi-node Target) |
 | **Web Server / Proxy**| Caddy (TLS termination & Host Reverse Proxy) + Nginx (Frontend Container) |
-| **Observability**    | Prometheus, Grafana, Node Exporter, Blackbox Exporter |
+| **Observability**    | Prometheus (with alerting rules), Grafana, Node Exporter, Blackbox Exporter |
+| **CI/CD**            | GitHub Actions, Buildx + GHA cache, Trivy, hadolint, SSH deploy behind a forced command |
 
 ---
 
