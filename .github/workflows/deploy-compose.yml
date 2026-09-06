@@ -4,6 +4,14 @@ on:
   push:
     branches:
       - main
+    # A documentation-only change rebuilds four images and recreates every
+    # container for no reason. workflow_dispatch remains available if a
+    # deploy is ever wanted for one of these.
+    paths-ignore:
+      - '**/*.md'
+      - 'docs/**'
+      - 'LICENSE'
+      - '.gitignore'
   workflow_dispatch:
 
 concurrency:
