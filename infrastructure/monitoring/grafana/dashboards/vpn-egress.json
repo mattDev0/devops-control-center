@@ -1,0 +1,602 @@
+{
+  "uid": "vpn-egress",
+  "title": "VPN Egress",
+  "description": "Egress budget for the personal WireGuard/L2TP box on GCP. Leads with burn rate rather than percent-of-budget: the box idles at ~0.1% of its ceiling, so a change in rate is the informative event, not proximity to the cap.",
+  "tags": [
+    "vpn",
+    "gcp",
+    "egress"
+  ],
+  "timezone": "browser",
+  "schemaVersion": 41,
+  "version": 1,
+  "refresh": "1m",
+  "time": {
+    "from": "now-24h",
+    "to": "now"
+  },
+  "editable": true,
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "Burn rate",
+      "description": "GiB/day over the last 6h. Idle baseline is ~0.008; genuine use ran ~1.6 during setup. This is the panel worth watching - a change here precedes any budget problem by weeks.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "cfmh94yfqwjcwd"
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 6,
+        "x": 0,
+        "y": 0
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "cfmh94yfqwjcwd"
+          },
+          "expr": "rate(vpn_egress_bytes_lifetime_total[6h]) * 86400 / 1024^3",
+          "refId": "A",
+          "instant": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "decgbytes",
+          "decimals": 3,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "#f59e0b",
+                "value": 0.5
+              },
+              {
+                "color": "red",
+                "value": 1.97
+              }
+            ]
+          },
+          "mappings": []
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "textMode": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      }
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Headroom",
+      "description": "Days until the budget is exhausted at the current burn rate. Capped at 999: at the idle rate the true figure is roughly 7,400 days, which is precise but not informative.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "cfmh94yfqwjcwd"
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 6,
+        "x": 6,
+        "y": 0
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "cfmh94yfqwjcwd"
+          },
+          "expr": "clamp_max((vpn_egress_budget_bytes - vpn_egress_bytes_total) / clamp_min(rate(vpn_egress_bytes_lifetime_total[6h]) * 86400, 1), 999)",
+          "refId": "A",
+          "instant": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "d",
+          "decimals": 0,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "#f59e0b",
+                "value": 7
+              },
+              {
+                "color": "green",
+                "value": 30
+              }
+            ]
+          },
+          "mappings": [
+            {
+              "type": "special",
+              "options": {
+                "match": "null",
+                "result": {
+                  "text": "\u2014"
+                }
+              }
+            },
+            {
+              "type": "range",
+              "options": {
+                "from": 999,
+                "to": 100000,
+                "result": {
+                  "text": "> 999"
+                }
+              }
+            }
+          ]
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "textMode": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      }
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Used this month",
+      "description": "Month-to-date egress. Resets to zero at each calendar month boundary.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "cfmh94yfqwjcwd"
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 6,
+        "x": 12,
+        "y": 0
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "cfmh94yfqwjcwd"
+          },
+          "expr": "vpn_egress_bytes_total / 1024^3",
+          "refId": "A",
+          "instant": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "decgbytes",
+          "decimals": 2,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "mappings": []
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "textMode": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      }
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Tunnels up",
+      "description": "wg0 and l2tp. Reported separately below so a failure names the daemon.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "cfmh94yfqwjcwd"
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 6,
+        "x": 18,
+        "y": 0
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "cfmh94yfqwjcwd"
+          },
+          "expr": "sum(vpn_tunnel_up)",
+          "refId": "A",
+          "instant": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "decimals": 0,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "#f59e0b",
+                "value": 1
+              },
+              {
+                "color": "green",
+                "value": 2
+              }
+            ]
+          },
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "both down",
+                  "color": "red"
+                },
+                "1": {
+                  "text": "1 of 2",
+                  "color": "#f59e0b"
+                },
+                "2": {
+                  "text": "2 of 2",
+                  "color": "green"
+                }
+              }
+            }
+          ]
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "textMode": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      }
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "Burn rate over time",
+      "description": "The signal that matters. A step change here is the earliest sign of the VPN being used, or of abuse. Prometheus retention is 3 days, so this window is short.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "cfmh94yfqwjcwd"
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 16,
+        "x": 0,
+        "y": 5
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "cfmh94yfqwjcwd"
+          },
+          "expr": "rate(vpn_egress_bytes_lifetime_total[6h]) * 86400 / 1024^3",
+          "refId": "A",
+          "legendFormat": "burn rate"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "decgbytes",
+          "decimals": 3,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "#6366f1"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 8,
+            "showPoints": "never",
+            "pointSize": 8,
+            "spanNulls": true,
+            "axisLabel": "GiB/day",
+            "gradientMode": "opacity"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "showLegend": false,
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      }
+    },
+    {
+      "id": 6,
+      "type": "gauge",
+      "title": "Budget consumed",
+      "description": "Secondary by design. At current usage this reads ~0.1% and will stay there; a permanently green gauge is not a monitoring signal. Kept for the case where usage becomes real.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "cfmh94yfqwjcwd"
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 8,
+        "x": 16,
+        "y": 5
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "cfmh94yfqwjcwd"
+          },
+          "expr": "100 * vpn_egress_ratio",
+          "refId": "A",
+          "instant": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "max": 100,
+          "decimals": 2,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "#f59e0b",
+                "value": 80
+              },
+              {
+                "color": "red",
+                "value": 95
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "showThresholdLabels": false,
+        "showThresholdMarkers": true,
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      }
+    },
+    {
+      "id": 7,
+      "type": "timeseries",
+      "title": "Tunnel health",
+      "description": "Per-daemon, so a drop names which one failed without needing SSH.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "cfmh94yfqwjcwd"
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 16,
+        "x": 0,
+        "y": 14
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "cfmh94yfqwjcwd"
+          },
+          "expr": "vpn_tunnel_up",
+          "refId": "A",
+          "legendFormat": "{{tunnel}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "min": 0,
+          "max": 1,
+          "decimals": 0,
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "stepAfter",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "spanNulls": false
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "showLegend": true,
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      }
+    },
+    {
+      "id": 8,
+      "type": "stat",
+      "title": "Auto-shutdown guard",
+      "description": "The on-box guard is the only thing that ACTS on the budget - no Alertmanager is deployed, so alerts here are visibility only. If this reads disarmed, nothing stops the VM at 100%.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "cfmh94yfqwjcwd"
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 8,
+        "x": 16,
+        "y": 14
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "cfmh94yfqwjcwd"
+          },
+          "expr": "vpn_autostop_armed",
+          "refId": "A",
+          "instant": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "decimals": 0,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
+            ]
+          },
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "DISARMED",
+                  "color": "red"
+                },
+                "1": {
+                  "text": "Armed",
+                  "color": "green"
+                }
+              }
+            }
+          ]
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "textMode": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      }
+    }
+  ]
+}

@@ -27,3 +27,88 @@ groups:
         annotations:
           summary: "Disk space running low on {{ $labels.instance }}"
           description: "Available disk space on {{ $labels.mountpoint }} is below 15% for more than 5 minutes."
+
+  - name: vpn-egress
+    rules:
+      # PRIMARY signal. This box idles at ~0.008 GiB/day of background scan
+      # traffic; genuine use ran ~1.6 GiB/day during setup. 0.5 sits two orders
+      # of magnitude above the noise floor and well below the 1.97 GiB/day that
+      # would exactly exhaust the monthly budget, so it catches usage starting
+      # rather than usage becoming a problem.
+      #
+      # Uses the lifetime counter, not the monthly one: rate() over a window
+      # spanning the calendar-month reset is distorted for a day each month,
+      # which is when a budget panel is most likely to be believed.
+      - alert: VpnEgressBurnRateElevated
+        expr: rate(vpn_egress_bytes_lifetime_total[6h]) * 86400 / 1024^3 > 0.5
+        for: 30m
+        labels:
+          severity: warning
+        annotations:
+          summary: "VPN egress burn rate is {{ $value | printf \"%.2f\" }} GiB/day"
+          description: "Sustained well above the idle baseline. Expected when the VPN is genuinely in use; unexpected otherwise."
+
+      # BACKSTOP. At the idle rate this can only fire after roughly a 250x
+      # increase, so it is not the early warning - the burn-rate alert above is.
+      - alert: VpnEgressProjectedOverBudget
+        expr: rate(vpn_egress_bytes_lifetime_total[24h]) * 86400 * 30 > vpn_egress_budget_bytes
+        for: 6h
+        labels:
+          severity: critical
+        annotations:
+          summary: "VPN 30-day egress projection exceeds the monthly budget"
+          description: "Projection is above vpn_egress_budget_bytes. The on-box guard stops the VM at 100%; this fires days earlier."
+
+      - alert: VpnTunnelDown
+        expr: vpn_tunnel_up == 0
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "VPN tunnel {{ $labels.tunnel }} is down"
+
+      # The guard is the only thing that acts on the budget; nothing here
+      # delivers alerts. If it is disarmed, the budget has no enforcement.
+      - alert: VpnAutostopDisarmed
+        expr: vpn_autostop_armed == 0
+        for: 15m
+        labels:
+          severity: critical
+        annotations:
+          summary: "VPN auto-shutdown guard is disarmed"
+          description: "Nothing will stop the VM at 100% of budget."
+
+      - alert: VpnExporterDown
+        expr: up{job="vpn-us-01"} == 0
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "VPN exporter unreachable - egress figures are stale"
+
+      # up{...} == 0 only evaluates while the target EXISTS. Delete the scrape
+      # job, rename it, or ship a config Prometheus never loads, and the series
+      # vanishes rather than going to zero - so every rule above silently stops
+      # evaluating and absence of data is indistinguishable from health.
+      # absent() is the only expression that fires on the series not being there.
+      - alert: VpnScrapeJobMissing
+        expr: absent(up{job="vpn-us-01"})
+        for: 15m
+        labels:
+          severity: critical
+        annotations:
+          summary: "No vpn-us-01 scrape target exists in Prometheus"
+          description: "The job is absent from the running config, so no VPN egress rule can fire. The dashboard will render empty rather than wrong."
+
+      # Same reasoning, narrowed to the metric that guards the money. If a
+      # future exporter change drops this series, "== 0" would never fire and
+      # the budget would be unenforced with nothing saying so.
+      - alert: VpnAutostopMetricMissing
+        expr: absent(vpn_autostop_armed)
+        for: 15m
+        labels:
+          severity: critical
+        annotations:
+          summary: "vpn_autostop_armed is not being reported"
+          description: "Cannot confirm the on-box guard is armed. It is the only thing that stops the VM at 100% of budget."
+
