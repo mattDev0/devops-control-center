@@ -18,6 +18,7 @@ import MetricsCards, { SystemMetricsPanel, DockerContainersKpiCard } from './com
 import HealthSLOPanel from './components/dashboard/HealthSLOPanel';
 import ClusterUnavailableCard from './components/dashboard/ClusterUnavailableCard';
 import SpotifyDashboard from './components/spotify/SpotifyDashboard';
+import VpnUsagePanel from './components/vpn/VpnUsagePanel';
 import ErrorBoundary from './components/ErrorBoundary';
 
 // Minimum gap between guest-session attempts, so a rejected token cannot
@@ -658,7 +659,12 @@ export default function App() {
                 fetchContainers={() => fetchContainers()}
               />
             </ErrorBoundary>
-            <div className="lg:col-span-2">
+            <div>
+              <ErrorBoundary>
+                <VpnUsagePanel token={token} />
+              </ErrorBoundary>
+            </div>
+            <div>
               <ErrorBoundary>
                 {kubernetesAvailable ? (
                   <HealthSLOPanel
