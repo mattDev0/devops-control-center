@@ -120,4 +120,12 @@ export const api = {
     });
     return handleResponse(response);
   },
+
+  // --- VPN egress usage ---
+  fetchVpnUsage: async (token) => {
+    const response = await fetch('api/vpn/usage', {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    return handleResponse(response);
+  },
 };
