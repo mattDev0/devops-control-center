@@ -18,3 +18,15 @@ scrape_configs:
     metrics_path: '/actuator/prometheus'
     static_configs:
       - targets: ['orchestrator:8080']
+
+  # Personal VPN on GCP. Scraped across the internet; the exporter's firewall
+  # admits only this host's static address. It serves seven series and no host
+  # metrics, so a wider scrape here would return nothing extra.
+  - job_name: 'vpn-us-01'
+    scrape_interval: 60s
+    static_configs:
+      - targets: ['136.116.244.92:9100']
+        labels:
+          instance: vpn-us-01
+          provider: gcp
+          region: us-central1
