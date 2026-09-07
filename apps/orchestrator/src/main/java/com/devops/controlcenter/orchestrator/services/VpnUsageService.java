@@ -7,7 +7,10 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
-import org.springframework.web.util.UriComponentsBuilder;
+
+import java.net.URI;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 
 import java.util.Map;
 
@@ -27,23 +30,31 @@ public class VpnUsageService {
     private static final double FALLBACK_USD_PER_GIB = 0.12;
 
     private final RestClient restClient;
+    private final String prometheusUrl;
 
     public VpnUsageService(
             RestClient.Builder restClientBuilder,
             @Value("${prometheus.url:http://devops-prometheus:9090}") String prometheusUrl) {
-        this.restClient = restClientBuilder.baseUrl(prometheusUrl).build();
+        this.restClient = restClientBuilder.build();
+        this.prometheusUrl = prometheusUrl.replaceAll("/+$", "");
     }
 
     /** Returns the scalar value of an instant query, or null when the series is absent. */
     private Double query(String promql) {
         try {
-            String uri = UriComponentsBuilder.fromPath("/api/v1/query")
-                    .queryParam("query", promql)
-                    .build()
-                    .encode()
-                    .toUriString();
+            // PromQL is passed as a fully-formed URI rather than a string or a
+            // uriBuilder. Both of those route through Spring's URI *template*
+            // machinery, where the braces in up{job="..."} read as a placeholder
+            // and the request never leaves. Encoding by hand first and passing
+            // the result to uri(String) instead encodes twice, so '{' arrives as
+            // %257B, Prometheus decodes one layer, reads the surviving '%' as
+            // modulo and answers 400. uri(URI) bypasses templating entirely and
+            // URLEncoder encodes exactly once.
+            URI uri = URI.create(prometheusUrl + "/api/v1/query?query="
+                    + URLEncoder.encode(promql, StandardCharsets.UTF_8));
 
             Map<?, ?> body = this.restClient.get().uri(uri).retrieve().body(Map.class);
+
             if (body == null || !"success".equals(body.get("status"))) return null;
 
             Map<?, ?> data = (Map<?, ?>) body.get("data");
