@@ -85,3 +85,30 @@ groups:
           severity: warning
         annotations:
           summary: "VPN exporter unreachable - egress figures are stale"
+
+      # up{...} == 0 only evaluates while the target EXISTS. Delete the scrape
+      # job, rename it, or ship a config Prometheus never loads, and the series
+      # vanishes rather than going to zero - so every rule above silently stops
+      # evaluating and absence of data is indistinguishable from health.
+      # absent() is the only expression that fires on the series not being there.
+      - alert: VpnScrapeJobMissing
+        expr: absent(up{job="vpn-us-01"})
+        for: 15m
+        labels:
+          severity: critical
+        annotations:
+          summary: "No vpn-us-01 scrape target exists in Prometheus"
+          description: "The job is absent from the running config, so no VPN egress rule can fire. The dashboard will render empty rather than wrong."
+
+      # Same reasoning, narrowed to the metric that guards the money. If a
+      # future exporter change drops this series, "== 0" would never fire and
+      # the budget would be unenforced with nothing saying so.
+      - alert: VpnAutostopMetricMissing
+        expr: absent(vpn_autostop_armed)
+        for: 15m
+        labels:
+          severity: critical
+        annotations:
+          summary: "vpn_autostop_armed is not being reported"
+          description: "Cannot confirm the on-box guard is armed. It is the only thing that stops the VM at 100% of budget."
+
