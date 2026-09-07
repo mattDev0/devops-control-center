@@ -89,10 +89,10 @@ export default function VpnUsagePanel({ token }) {
     );
   }
 
-  const credit = data.creditUsd ?? 10;
+  const credit = data.creditUsd;
   const cost = data.costUsd ?? 0;
   const pct = credit > 0 ? Math.min((cost / credit) * 100, 100) : 0;
-  const remaining = Math.max(credit - cost, 0);
+  const remaining = credit != null ? Math.max(credit - cost, 0) : null;
   const days = daysUntil(data.cycleEnd);
   const usedGiB = data.usedBytes != null ? data.usedBytes / GIB : null;
   const burnGiB = data.burnBytesPerDay != null ? data.burnBytesPerDay / GIB : null;
@@ -108,7 +108,9 @@ export default function VpnUsagePanel({ token }) {
         <span className="text-3xl font-bold text-[var(--fg-default)] tabular-nums leading-none">
           {data.costEstimated ? '~' : ''}${cost.toFixed(2)}
         </span>
-        <span className="text-sm text-[var(--fg-muted)]">of ${credit.toFixed(0)}</span>
+        {credit != null && (
+          <span className="text-sm text-[var(--fg-muted)]">of ${credit.toFixed(2)}</span>
+        )}
         {data.costEstimated && (
           <span className="text-[10px] text-[var(--fg-subtle)] border border-[var(--border-emphasis)] rounded px-1.5 py-0.5">
             estimated
@@ -116,15 +118,18 @@ export default function VpnUsagePanel({ token }) {
         )}
       </div>
       <p className="text-[11px] text-[var(--fg-muted)] mb-4">
-        ${remaining.toFixed(2)} left{days != null ? ` · renews in ${days} day${days === 1 ? '' : 's'}` : ''}
+        {remaining != null ? `$${remaining.toFixed(2)} left` : 'credit balance unknown'}
+        {days != null ? ` · renews in ${days} day${days === 1 ? '' : 's'}` : ''}
       </p>
 
+      {credit != null && (
       <div className="h-2 rounded-full bg-[var(--bg-inset)] overflow-hidden mb-4">
         <div className="h-full rounded-full transition-all"
              style={{ width: `${Math.max(pct, cost > 0 ? 1.5 : 0)}%`, background: barColor }}
              role="progressbar" aria-valuenow={Math.round(pct)} aria-valuemin={0} aria-valuemax={100}
              aria-label="Credit consumed" />
       </div>
+      )}
 
       <dl className="grid grid-cols-2 gap-y-2.5 text-[11px]">
         <dt className="text-[var(--fg-muted)]">Egress used</dt>
