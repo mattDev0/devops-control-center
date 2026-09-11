@@ -139,7 +139,7 @@ export default function DockerContainersTable({
                           </div>
                           <div className="w-full h-1 bg-[var(--bg-inset)] rounded-full overflow-hidden">
                             <div 
-                              className="h-full bg-emerald-500" 
+                              className="h-full bg-[var(--status-success)]" 
                               style={{ width: `${Math.min(100, containerStats.memory_percent)}%` }}
                             ></div>
                           </div>
@@ -165,7 +165,7 @@ export default function DockerContainersTable({
                                 handleContainerAction(confirmAction.id, confirmAction.type);
                                 setConfirmAction(null);
                               }}
-                              className="px-1.5 py-0.5 rounded bg-[var(--status-error)] hover:bg-[var(--status-error)]/85 text-white text-[9px] font-bold cursor-pointer"
+                              className="px-1.5 py-0.5 rounded bg-[var(--status-error)] hover:bg-[var(--status-error)]/85 text-[var(--fg-on-emphasis)] text-[9px] font-bold cursor-pointer"
                             >
                               Yes
                             </button>

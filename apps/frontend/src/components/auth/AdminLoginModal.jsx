@@ -37,7 +37,7 @@ export default function AdminLoginModal({ onClose, onLoginSuccess }) {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--bg-overlay)] backdrop-blur-sm p-4"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
@@ -129,7 +129,7 @@ export default function AdminLoginModal({ onClose, onLoginSuccess }) {
             <button
               type="submit"
               disabled={authLoading}
-              className="flex-1 bg-[var(--accent-primary)] hover:bg-[var(--accent-primary-hover)] text-white font-bold py-2.5 px-4 rounded-[var(--radius-md)] transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed text-xs cursor-pointer"
+              className="flex-1 bg-[var(--accent-primary)] hover:bg-[var(--accent-primary-hover)] text-[var(--fg-on-emphasis)] font-bold py-2.5 px-4 rounded-[var(--radius-md)] transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed text-xs cursor-pointer"
             >
               {authLoading ? (
                 <>

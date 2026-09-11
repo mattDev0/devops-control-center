@@ -1,4 +1,5 @@
 import { Server, Activity, Clock, LineChart, RefreshCw } from 'lucide-react';
+import { useTheme } from '../../context/ThemeContext';
 
 export default function MetricsCards({
   health,
@@ -68,6 +69,7 @@ export default function MetricsCards({
 }
 
 export function SystemMetricsPanel({ token }) {
+  const { resolvedTheme } = useTheme();
   return (
     <div className="bg-[var(--bg-surface)] border border-[var(--border-default)] rounded-[var(--radius-lg)] p-4 flex flex-col">
       {/* Unified Card Header */}
@@ -94,7 +96,7 @@ export function SystemMetricsPanel({ token }) {
           </div>
           {token && (
             <iframe 
-              src="grafana/d-solo/rYdddlPWk/node-exporter-full?orgId=1&timezone=browser&var-ds_prometheus=cfmh94yfqwjcwd&var-job=node&var-nodename=ac1f709ef5f4&var-node=node-exporter:9100&refresh=1m&panelId=77" 
+              src={`grafana/d-solo/rYdddlPWk/node-exporter-full?orgId=1&timezone=browser&var-ds_prometheus=cfmh94yfqwjcwd&var-job=node&var-nodename=ac1f709ef5f4&var-node=node-exporter:9100&refresh=1m&panelId=77&theme=${resolvedTheme}`} 
               width="100%" 
               height="100%" 
               frameBorder="0" 
@@ -112,7 +114,7 @@ export function SystemMetricsPanel({ token }) {
           </div>
           {token && (
             <iframe 
-              src="grafana/d-solo/rYdddlPWk/node-exporter-full?orgId=1&timezone=browser&var-ds_prometheus=cfmh94yfqwjcwd&var-job=node&var-nodename=ac1f709ef5f4&var-node=node-exporter:9100&refresh=1m&panelId=78" 
+              src={`grafana/d-solo/rYdddlPWk/node-exporter-full?orgId=1&timezone=browser&var-ds_prometheus=cfmh94yfqwjcwd&var-job=node&var-nodename=ac1f709ef5f4&var-node=node-exporter:9100&refresh=1m&panelId=78&theme=${resolvedTheme}`} 
               width="100%" 
               height="100%" 
               frameBorder="0" 

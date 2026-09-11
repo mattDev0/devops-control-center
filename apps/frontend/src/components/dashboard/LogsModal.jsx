@@ -81,7 +81,7 @@ export default function LogsModal({
           </span>
           <button
             onClick={onClose}
-            className="bg-[var(--accent-primary)] hover:bg-[var(--accent-primary-hover)] text-white font-semibold text-xs py-2 px-4 rounded-[var(--radius-md)] transition-colors cursor-pointer"
+            className="bg-[var(--accent-primary)] hover:bg-[var(--accent-primary-hover)] text-[var(--fg-on-emphasis)] font-semibold text-xs py-2 px-4 rounded-[var(--radius-md)] transition-colors cursor-pointer"
           >
             Close Logs
           </button>
