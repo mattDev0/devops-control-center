@@ -20,6 +20,7 @@ import ClusterUnavailableCard from './components/dashboard/ClusterUnavailableCar
 import SpotifyDashboard from './components/spotify/SpotifyDashboard';
 import VpnUsagePanel from './components/vpn/VpnUsagePanel';
 import ErrorBoundary from './components/ErrorBoundary';
+import ThemeToggle from './components/ThemeToggle';
 
 // Minimum gap between guest-session attempts, so a rejected token cannot
 // drive an acquire/reject loop against the rate limiter.
@@ -344,7 +345,7 @@ export default function App() {
             <div className="flex items-center justify-center gap-2">
               <button
                 onClick={() => acquireGuestSession({ force: true })}
-                className="flex items-center gap-2 bg-[var(--accent-primary)] hover:bg-[var(--accent-primary-hover)] text-white px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer"
+                className="flex items-center gap-2 bg-[var(--accent-primary)] hover:bg-[var(--accent-primary-hover)] text-[var(--fg-on-emphasis)] px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer"
               >
                 <RefreshCw className="w-3.5 h-3.5" aria-hidden="true" />
                 Retry
@@ -379,7 +380,7 @@ export default function App() {
       {mobileOpen && (
         <div 
           onClick={() => setMobileOpen(false)}
-          className="fixed inset-0 z-40 bg-black/60 md:hidden"
+          className="fixed inset-0 z-40 bg-[var(--bg-overlay)] md:hidden"
         />
       )}
 
@@ -533,23 +534,26 @@ export default function App() {
             )}
           </div>
 
-          {role === 'ROLE_GUEST' ? (
-            <button
-              onClick={() => setShowAdminLogin(true)}
-              className="flex items-center gap-2 bg-[var(--accent-primary)] hover:bg-[var(--accent-primary-hover)] text-white px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer shadow-sm"
-            >
-              <Lock className="w-3.5 h-3.5" />
-              Login as Admin
-            </button>
-          ) : (
-            <button
-              onClick={handleLogout}
-              className="flex items-center gap-2 bg-[var(--bg-elevated)] hover:bg-red-500/10 hover:text-red-400 border border-[var(--border-default)] px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer"
-            >
-              <LogOut className="w-3.5 h-3.5" />
-              Logout
-            </button>
-          )}
+          <div className="flex items-center gap-2">
+            <ThemeToggle />
+            {role === 'ROLE_GUEST' ? (
+              <button
+                onClick={() => setShowAdminLogin(true)}
+                className="flex items-center gap-2 bg-[var(--accent-primary)] hover:bg-[var(--accent-primary-hover)] text-[var(--fg-on-emphasis)] px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer shadow-sm"
+              >
+                <Lock className="w-3.5 h-3.5" />
+                Login as Admin
+              </button>
+            ) : (
+              <button
+                onClick={handleLogout}
+                className="flex items-center gap-2 bg-[var(--bg-elevated)] hover:bg-[var(--status-error-muted)] hover:text-[var(--status-error)] border border-[var(--border-default)] px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+                Logout
+              </button>
+            )}
+          </div>
         </header>
 
         {/* Scrollable Panel Container */}

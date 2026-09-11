@@ -97,7 +97,7 @@ export default function DeploymentsTable({
                               handleDeploymentAction(confirmAction.id, confirmAction.type);
                               setConfirmAction(null);
                             }}
-                            className="px-1.5 py-0.5 rounded bg-[var(--status-error)] hover:bg-[var(--status-error)]/85 text-white text-[9px] font-bold cursor-pointer"
+                            className="px-1.5 py-0.5 rounded bg-[var(--status-error)] hover:bg-[var(--status-error)]/85 text-[var(--fg-on-emphasis)] text-[9px] font-bold cursor-pointer"
                           >
                             Yes
                           </button>
