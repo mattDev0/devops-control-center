@@ -1,0 +1,13 @@
+# Copy to terraform.tfvars and fill in. terraform.tfvars is gitignored.
+
+subscription_id = "00000000-0000-0000-0000-000000000000"
+
+# Public keys only — never a private key. These are the boot-time authorised keys;
+# the CI deploy key is installed on the host with a forced command and is not
+# managed by Terraform.
+ssh_public_keys = [
+  "ssh-ed25519 AAAA... dcc-prod@example",
+]
+
+# Narrow this to your own address if deploys stop coming from GitHub-hosted runners.
+# ssh_source_address_prefix = "1.2.3.4/32"
