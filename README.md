@@ -28,8 +28,7 @@ The platform runs on a lightweight, secure microservices architecture orchestrat
 > or a 100% availability figure for a cluster that is not there. Docker,
 > monitoring, CI/CD and system features are unaffected. Deploying the manifests
 > under `infrastructure/k8s/` restores the cluster features automatically, with
-> credentials supplied by the agent's service account. See
-> [adr_01](../docs/adr/adr_01_compose-migration-and-cloud-split.md).
+> credentials supplied by the agent's service account.
 
 ```mermaid
 graph TD
@@ -225,8 +224,8 @@ The pipeline runs `test` → `build` → `deploy`:
 > **Why not OIDC?** The previous pipeline used GitHub OIDC workload identity with
 > `az vm run-command`, which stored no long-lived credentials. The current Azure
 > tenant blocks Entra app registration, so no service principal can be created and
-> that route is unavailable. The trade-off and its mitigations are recorded in
-> [adr_02](../docs/adr/adr_02_ssh_deploy.md).
+> that route is unavailable. The mitigations are the forced command on the host,
+> which accepts only a validated commit SHA, and a key that grants no shell.
 
 ---
 
