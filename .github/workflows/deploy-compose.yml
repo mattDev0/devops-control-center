@@ -212,7 +212,7 @@ jobs:
       # identity is unavailable on this subscription. This uses a dedicated
       # deploy key pinned to a forced command on the host: the key can trigger
       # a deploy of a given commit and nothing else - no shell, no arbitrary
-      # commands. See docs/adr/adr_02_ssh_deploy.md.
+      # commands.
       - name: Deploy over SSH
         env:
           DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
