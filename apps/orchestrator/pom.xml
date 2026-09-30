@@ -9,7 +9,7 @@
     <parent>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-parent</artifactId>
-        <version>3.4.1</version>
+        <version>4.1.1</version>
         <relativePath/>
     </parent>
 
@@ -22,14 +22,6 @@
 
     <properties>
         <java.version>21</java.version>
-        <!-- 10.1.56 carries CVE-2026-65182 (CRITICAL), CVE-2026-68525 and
-             CVE-2026-65905. The advisories name 10.1.58 as the fix, but that
-             version was never published to Maven Central - 10.1.57 and 10.1.59
-             exist and 10.1.58 does not - so pin the first published release
-             that carries it. Drop this override once the Spring Boot parent
-             manages 10.1.59 or later. -->
-        <tomcat.version>10.1.59</tomcat.version>
-        <spring-security.version>6.5.9</spring-security.version>
     </properties>
 
     <dependencies>
@@ -37,13 +29,21 @@
         <!-- Spring Boot Web -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-web</artifactId>
+            <artifactId>spring-boot-starter-webmvc</artifactId>
         </dependency>
 
         <!-- Spring Boot Security -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-security</artifactId>
+        </dependency>
+
+        <!-- Boot 4 split RestClient's auto-configuration out of the web starter.
+             Every upstream call this service makes - agent, GitHub, Spotify,
+             Prometheus - goes through an injected RestClient.Builder. -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-restclient</artifactId>
         </dependency>
 
 
@@ -80,6 +80,23 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <!-- Boot 4 moved MockMvc's test auto-configuration out of the core test
+             starter and into a web-stack-specific module. -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-webmvc-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <!-- Boot 4 replaced @AutoConfigureObservability with the finer-grained
+             @AutoConfigureMetrics and @AutoConfigureTracing. The security tests
+             assert on /actuator/prometheus, so only metrics are needed. -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-micrometer-metrics-test</artifactId>
             <scope>test</scope>
         </dependency>
 

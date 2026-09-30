@@ -2,10 +2,13 @@ package com.devops.controlcenter.orchestrator.security;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.HttpStatusEntryPoint;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
@@ -32,22 +35,21 @@ public class SecurityConfig {
             .csrf(csrf -> csrf.disable())
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .exceptionHandling(eh -> eh.authenticationEntryPoint(
-                new org.springframework.security.web.authentication.HttpStatusEntryPoint(org.springframework.http.HttpStatus.UNAUTHORIZED)
+                new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED)
             ))
+            // Spring Security 7 removed AntPathRequestMatcher; string patterns now
+            // resolve through PathPattern, which is equivalent for these rules.
+            // Order matters: the narrow admin rules must precede the /api/**
+            // catch-all that admits guests.
             .authorizeHttpRequests(auth -> auth
                 .dispatcherTypeMatchers(jakarta.servlet.DispatcherType.ASYNC).permitAll()
-                .requestMatchers(
-                    org.springframework.security.web.util.matcher.AntPathRequestMatcher.antMatcher("/api/auth/login"),
-                    org.springframework.security.web.util.matcher.AntPathRequestMatcher.antMatcher("/api/auth/guest"),
-                    org.springframework.security.web.util.matcher.AntPathRequestMatcher.antMatcher("/health"),
-                    org.springframework.security.web.util.matcher.AntPathRequestMatcher.antMatcher("/actuator/**")
-                ).permitAll()
-                .requestMatchers(org.springframework.security.web.util.matcher.AntPathRequestMatcher.antMatcher(org.springframework.http.HttpMethod.POST, "/api/servers/deployments/**")).hasAuthority("ROLE_ADMIN")
-                .requestMatchers(org.springframework.security.web.util.matcher.AntPathRequestMatcher.antMatcher(org.springframework.http.HttpMethod.POST, "/api/ci/workflows/**")).hasAuthority("ROLE_ADMIN")
-                .requestMatchers(org.springframework.security.web.util.matcher.AntPathRequestMatcher.antMatcher(org.springframework.http.HttpMethod.POST, "/api/servers/docker/**")).hasAuthority("ROLE_ADMIN")
-                .requestMatchers(org.springframework.security.web.util.matcher.AntPathRequestMatcher.antMatcher("/api/servers/logs")).hasAuthority("ROLE_ADMIN")
-                .requestMatchers(org.springframework.security.web.util.matcher.AntPathRequestMatcher.antMatcher("/api/servers/docker/containers/*/logs")).hasAuthority("ROLE_ADMIN")
-                .requestMatchers(org.springframework.security.web.util.matcher.AntPathRequestMatcher.antMatcher("/api/**")).hasAnyAuthority("ROLE_GUEST", "ROLE_ADMIN")
+                .requestMatchers("/api/auth/login", "/api/auth/guest", "/health", "/actuator/**").permitAll()
+                .requestMatchers(HttpMethod.POST, "/api/servers/deployments/**").hasAuthority("ROLE_ADMIN")
+                .requestMatchers(HttpMethod.POST, "/api/ci/workflows/**").hasAuthority("ROLE_ADMIN")
+                .requestMatchers(HttpMethod.POST, "/api/servers/docker/**").hasAuthority("ROLE_ADMIN")
+                .requestMatchers("/api/servers/logs").hasAuthority("ROLE_ADMIN")
+                .requestMatchers("/api/servers/docker/containers/*/logs").hasAuthority("ROLE_ADMIN")
+                .requestMatchers("/api/**").hasAnyAuthority("ROLE_GUEST", "ROLE_ADMIN")
                 .anyRequest().denyAll()
             )
             .addFilterBefore(rateLimitFilter, UsernamePasswordAuthenticationFilter.class)
