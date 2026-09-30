@@ -22,6 +22,12 @@
 
     <properties>
         <java.version>21</java.version>
+        <!-- Spring Boot 4.1.1 manages Tomcat 11.0.24, which still carries
+             CVE-2026-65182 (CRITICAL), CVE-2026-65905 and CVE-2026-68525.
+             The advisories name 11.0.25 as the fix; 11.0.26 is the latest
+             published patch and carries it. Drop this override once the
+             parent manages 11.0.25 or later. -->
+        <tomcat.version>11.0.26</tomcat.version>
     </properties>
 
     <dependencies>
