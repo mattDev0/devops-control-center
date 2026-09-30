@@ -77,6 +77,14 @@ services:
         limits:
           memory: 128M
 
+  # The exporter that watches the host's memory was the one container allowed to
+  # consume it without a ceiling. It sits well under 32M in practice.
+  node-exporter:
+    deploy:
+      resources:
+        limits:
+          memory: 64M
+
 volumes:
   caddy-data:
   caddy-config:
