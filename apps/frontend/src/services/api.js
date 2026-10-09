@@ -29,15 +29,17 @@ export const api = {
     return handleResponse(response);
   },
 
-  fetchHealth: async (token) => {
+  fetchHealth: async (token, signal) => {
     const response = await fetch('api/servers/health', {
+      signal,
       headers: { 'Authorization': `Bearer ${token}` }
     });
     return handleResponse(response);
   },
 
-  fetchDeployments: async (token) => {
+  fetchDeployments: async (token, signal) => {
     const response = await fetch('api/servers/deployments', {
+      signal,
       headers: { 'Authorization': `Bearer ${token}` }
     });
     return handleResponse(response);
@@ -57,8 +59,9 @@ export const api = {
     return true;
   },
 
-  fetchWorkflows: async (token) => {
+  fetchWorkflows: async (token, signal) => {
     const response = await fetch('api/ci/workflows', {
+      signal,
       headers: { 'Authorization': `Bearer ${token}` }
     });
     return handleResponse(response);
@@ -78,15 +81,17 @@ export const api = {
     return true;
   },
 
-  fetchPodHealth: async (token) => {
+  fetchPodHealth: async (token, signal) => {
     const response = await fetch('api/servers/pods/health', {
+      signal,
       headers: { 'Authorization': `Bearer ${token}` }
     });
     return handleResponse(response);
   },
 
-  fetchDockerContainers: async (token) => {
+  fetchDockerContainers: async (token, signal) => {
     const response = await fetch('api/servers/docker/containers', {
+      signal,
       headers: { 'Authorization': `Bearer ${token}` }
     });
     return handleResponse(response);
