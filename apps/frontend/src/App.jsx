@@ -5,6 +5,7 @@ import { api } from './services/api';
 
 // Import Hooks
 import { useSystemLogs, useDeploymentLogs, useDockerContainerLogs } from './hooks/useLogs';
+import { useServerHealth, useDeployments, usePodHealth, useWorkflows, useDockerContainers } from './hooks/useDashboardResources';
 
 // Import Components
 import AdminLoginModal from './components/auth/AdminLoginModal';
@@ -29,18 +30,6 @@ const GUEST_RETRY_COOLDOWN_MS = 5000;
 export default function App() {
   const [token, setToken] = useState(localStorage.getItem('token') || '');
   const [role, setRole] = useState(localStorage.getItem('role') || '');
-  const [health, setHealth] = useState(null);
-  // The agent reports whether it can reach a cluster. Under Docker Compose it
-  // cannot, so the Kubernetes panels are replaced rather than left to error.
-  const kubernetesAvailable = health?.k8s === true;
-  const [loading, setLoading] = useState(true);
-  const [deployments, setDeployments] = useState([]);
-  const [loadingDeployments, setLoadingDeployments] = useState(true);
-  const [workflows, setWorkflows] = useState([]);
-  const [loadingWorkflows, setLoadingWorkflows] = useState(true);
-  const [podHealth, setPodHealth] = useState(null);
-  const [loadingPodHealth, setLoadingPodHealth] = useState(false);
-
   // Sidebar Layout State
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -50,8 +39,6 @@ export default function App() {
   const [showLogsModal, setShowLogsModal] = useState(false);
 
   // Docker Standalone State
-  const [containers, setContainers] = useState([]);
-  const [loadingContainers, setLoadingContainers] = useState(true);
   const [activeLogContainer, setActiveLogContainer] = useState(null);
   const [showDockerLogsModal, setShowDockerLogsModal] = useState(false);
 
@@ -147,78 +134,29 @@ export default function App() {
   };
 
   // Handle Logout (clears admin session and returns to guest mode)
-  function handleLogout() {
+  const handleLogout = useCallback(() => {
     localStorage.removeItem('token');
     localStorage.removeItem('role');
     setToken('');
     setRole('');
-    setHealth(null);
-    setPodHealth(null);
-    setDeployments([]);
-    setWorkflows([]);
 
     // Fall back to a guest session so the dashboard stays viewable. Goes
     // through the guarded acquirer so the eight error handlers that call this
     // cannot stampede /api/auth/guest.
     acquireGuestSession();
-  }
+  }, [acquireGuestSession]);
 
-  // Fetch Server Health
-  const fetchHealth = async (activeToken = token) => {
-    if (!activeToken) return;
-    setLoading(true);
-    try {
-      const data = await api.fetchHealth(activeToken);
-      setHealth(data);
-    } catch (error) {
-      console.error("Failed to fetch health", error);
-      if (error.message === 'UNAUTHORIZED') {
-        handleLogout();
-      } else {
-        setHealth({ os_name: "Error", os_version: "N/A", uptime_seconds: 0 });
-      }
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Fetch Kubernetes Deployments
-  const fetchDeployments = async (activeToken = token) => {
-    if (!activeToken || health?.k8s === false) return;
-    setLoadingDeployments(true);
-    try {
-      const data = await api.fetchDeployments(activeToken);
-      if (Array.isArray(data)) {
-        setDeployments(data);
-      }
-    } catch (error) {
-      console.error("Failed to fetch deployments", error);
-      if (error.message === 'UNAUTHORIZED') {
-        handleLogout();
-      }
-    } finally {
-      setLoadingDeployments(false);
-    }
-  };
-
-  // Fetch Kubernetes Pod Health
-  const fetchPodHealth = async (activeToken = token) => {
-    if (!activeToken || health?.k8s === false) return;
-    setLoadingPodHealth(true);
-    try {
-      const data = await api.fetchPodHealth(activeToken);
-      if (Array.isArray(data)) {
-        setPodHealth(data);
-      }
-    } catch (error) {
-      console.error("Failed to fetch pod health", error);
-      if (error.message === 'UNAUTHORIZED') {
-        handleLogout();
-      }
-    } finally {
-      setLoadingPodHealth(false);
-    }
-  };
+  const { data: health, loading, refresh: fetchHealth } = useServerHealth(token, handleLogout);
+  // Cluster resources start only after the agent confirms a reachable API.
+  const kubernetesAvailable = health?.k8s === true;
+  const { data: deployments, loading: loadingDeployments, refresh: fetchDeployments } =
+    useDeployments(token, kubernetesAvailable, handleLogout);
+  const { data: podHealth, loading: loadingPodHealth, refresh: fetchPodHealth } =
+    usePodHealth(token, kubernetesAvailable, handleLogout);
+  const { data: workflows, loading: loadingWorkflows, refresh: fetchWorkflows } =
+    useWorkflows(token, handleLogout);
+  const { data: containers, loading: loadingContainers, refresh: fetchContainers } =
+    useDockerContainers(token, handleLogout);
 
   // Perform Deployment Action
   const handleDeploymentAction = async (id, action) => {
@@ -234,55 +172,17 @@ export default function App() {
     }
   };
 
-  // Fetch GitHub Workflows
-  const fetchWorkflows = async (activeToken = token) => {
-    if (!activeToken) return;
-    setLoadingWorkflows(true);
-    try {
-      const data = await api.fetchWorkflows(activeToken);
-      if (Array.isArray(data)) {
-        setWorkflows(data);
-      }
-    } catch (error) {
-      console.error("Failed to fetch workflows", error);
-      if (error.message === 'UNAUTHORIZED') {
-        handleLogout();
-      }
-    } finally {
-      setLoadingWorkflows(false);
-    }
-  };
-
   // Trigger GitHub Workflow
   const triggerWorkflow = async (id) => {
     if (!token || role === 'ROLE_GUEST') return;
     try {
       await api.triggerWorkflow(id, token);
-      setTimeout(fetchWorkflows, 1500); // Refresh the workflow list shortly after triggering
+      fetchWorkflows(1500); // Refresh the workflow list shortly after triggering
     } catch (error) {
       console.error(`Failed to trigger workflow ${id}`, error);
       if (error.message === 'UNAUTHORIZED') {
         handleLogout();
       }
-    }
-  };
-
-  // Fetch Docker Containers
-  const fetchContainers = async (activeToken = token) => {
-    if (!activeToken) return;
-    setLoadingContainers(true);
-    try {
-      const data = await api.fetchDockerContainers(activeToken);
-      if (Array.isArray(data)) {
-        setContainers(data);
-      }
-    } catch (error) {
-      console.error("Failed to fetch Docker containers", error);
-      if (error.message === 'UNAUTHORIZED') {
-        handleLogout();
-      }
-    } finally {
-      setLoadingContainers(false);
     }
   };
 
@@ -299,30 +199,6 @@ export default function App() {
       }
     }
   };
-
-  // Initialize and periodically refresh data when Authenticated
-  useEffect(() => {
-    if (!token) return;
-
-    // Initial fetch
-    fetchHealth(token);
-    fetchDeployments(token);
-    fetchWorkflows(token);
-    fetchPodHealth(token);
-    fetchContainers(token);
-
-    // Periodic refresh for health and deployments every 30 seconds
-    const interval = setInterval(() => {
-      fetchHealth(token);
-      fetchDeployments(token);
-      fetchPodHealth(token);
-      fetchContainers(token);
-    }, 30000);
-
-    return () => clearInterval(interval);
-  }, [token]);
-
-
 
   // No session yet: either still acquiring, or acquisition failed. The failure
   // case must stay actionable - the admin login lives in the header, which is
