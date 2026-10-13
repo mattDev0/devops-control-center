@@ -15,6 +15,11 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
+      - name: Verify backup and restore behavior
+        run: |
+          bash -n scripts/backup.sh
+          python3 -m unittest discover -s scripts -p 'test*backup.py'
+
       - name: Lint Agent Dockerfile
         uses: hadolint/hadolint-action@v3.1.0
         with:

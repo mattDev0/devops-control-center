@@ -1,0 +1,9 @@
+/opt/devops-control-center/backups/backup.log {
+    weekly
+    rotate 2
+    size 64k
+    missingok
+    notifempty
+    compress
+    create 0600 root root
+}

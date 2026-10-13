@@ -4,6 +4,11 @@ A custom, end-to-end DevOps orchestration and observability platform built from 
 
 ---
 
+## Backups
+
+Backup scripts, retention, installation and recovery instructions are documented in
+[Backup and recovery](scripts/BACKUPS.md). Scheduling requires installing the host cron entry.
+
 ## 🌐 Live Preview
 **Check out the live dashboard here:**  
 👉 **[https://devops.mattdev0.tech](https://devops.mattdev0.tech)**
