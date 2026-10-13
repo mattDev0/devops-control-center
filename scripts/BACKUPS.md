@@ -23,8 +23,9 @@ certificate keys: never commit or share them.
 ## Authorization and installation
 
 Use user OAuth for a personal Google One account; service accounts do not inherit
-personal Drive storage. Configure rclone using an existing trusted rclone OAuth
-client or a personal desktop OAuth client. If using your own external OAuth app,
+personal Drive storage. Configure rclone using a dedicated desktop OAuth client;
+rclone v1.75.2 warns its shared Drive client will be retired during 2026.
+For an external OAuth app,
 its publishing status must be Production: Testing tokens with Drive scopes expire
 after seven days. Google authorization is a one-time interactive step, after which
 rclone refreshes tokens unattended. Token revocation still requires reauthorization.
