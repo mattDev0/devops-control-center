@@ -7,4 +7,5 @@
 /infrastructure/terraform/.terraform/
 .env
 .env.local
+__pycache__/
 
