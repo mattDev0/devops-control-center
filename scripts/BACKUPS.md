@@ -1,9 +1,11 @@
 # Backup and recovery
 
-The nightly job uses existing VM disk, Python 3, cron and Docker volume metadata.
-It adds no container, disk, VM or paid storage service. Off-host copies use existing
-WSL disk and a small SSH download, subject to existing bandwidth allowances.
-WSL must be running and connected to download a copy.
+The nightly job uses existing VM disk, Python 3, cron and a short-lived rclone process.
+It adds no container, disk, VM or paid storage service. Encrypted off-host copies go
+directly to an existing Google One Drive account, independently of the laptop.
+Small uploads/download verification use the existing bandwidth allowance. Drive API
+standard use currently has no additional charge; review published quota/pricing
+changes periodically.
 
 Each archive includes `.env`, both Compose files, Caddy configuration, Spotify and
 Grafana database snapshots, and Caddy data/config volumes. Prometheus's disposable
@@ -13,13 +15,36 @@ and checked against its SHA-256 inventory, SQLite integrity checks and Spotify p
 count before publication. This verifies data recovery, rather than a full VM rebuild.
 
 Seven successful archives are retained in `/opt/devops-control-center/backups` and
-seven downloaded copies in `~/.local/share/dcc-backups`. Failures do not prune older
-copies. Directories are mode 700 and files 600. Archives contain secrets and
+seven encrypted copies in a dedicated Google Drive folder. Uploads must be downloaded
+and decrypted successfully and pass restore checks before remote retention runs.
+Failures do not prune earlier remote copies. Directories are mode 700 and files 600. Archives contain secrets and
 certificate keys: never commit or share them.
 
-## Install after approval
+## Authorization and installation
 
-After the files are deployed, run on the VM:
+Use user OAuth for a personal Google One account; service accounts do not inherit
+personal Drive storage. Configure rclone using an existing trusted rclone OAuth
+client or a personal desktop OAuth client. If using your own external OAuth app,
+its publishing status must be Production: Testing tokens with Drive scopes expire
+after seven days. Google authorization is a one-time interactive step, after which
+rclone refreshes tokens unattended. Token revocation still requires reauthorization.
+
+Prefer the `drive.file` scope, which limits access to files created/opened by this
+app. Create a dedicated backup folder through that authorized rclone client. Set
+its folder ID as the Drive remote's `root_folder_id`; do not use a broadly shared
+folder. Configure a `crypt` remote named `dcc-crypt` wrapping that Drive remote,
+with file and directory name encryption and strong independently saved passwords.
+No personal Drive file listing is required to operate the dedicated backup folder.
+
+Store the crypt password and salt in a password manager or another safe place
+independent of the VM. Losing them makes the backups unrecoverable. Keep OAuth
+configuration private (root-owned mode 600) and out of git and backup archives.
+Do not paste tokens/passwords into chat. Restrict the containing directory to 700.
+
+Install a checksum-verified rclone binary to `/usr/local/bin/rclone`, and install
+`backup.env.example` as `/etc/dcc-backup.env` mode 600. The scripts check that the
+configured remote is a crypt wrapper; configuration must point it to the dedicated
+Drive folder. After scripts and authorization are ready, run on the VM:
 
 ```bash
 sudo install -d -m 700 /opt/devops-control-center/backups
@@ -28,24 +53,20 @@ sudo install -m 644 /opt/devops-control-center/scripts/backup.cron /etc/cron.d/d
 sudo install -m 644 /opt/devops-control-center/scripts/backup.logrotate /etc/logrotate.d/dcc-backup
 ```
 
+Install the schedule only after the first full backup/upload/download check passes.
 The job runs at 02:15 UTC / 03:15 Lagos, with low CPU priority and a ten-minute
 deadline. Check `sudo tail /opt/devops-control-center/backups/backup.log` and archive
-timestamps periodically; failure logs do not provide notifications.
+timestamps periodically; failure logs do not provide notifications. The local
+snapshot completes even if Drive is unavailable, and the job then reports failure.
 
-On WSL, first run `bash scripts/pull-backup.sh`. Use `crontab -e` to add this hourly
-check, retaining existing entries:
-
-```cron
-17 * * * * timeout 10m bash /home/matt/prod/devops-control-center/scripts/pull-backup.sh
-```
-
-The download uses the existing SSH identity without reading or copying its contents.
-Only a new completed archive is downloaded, verified and then published locally.
-The job does not wake Windows/WSL. Override local defaults with
-`DCC_LOCAL_BACKUP_DIR`, `DCC_BACKUP_SSH_KEY` and `DCC_BACKUP_SSH_HOST`. VM overrides
-are `DCC_PROJECT_DIR`, `DCC_BACKUP_DIR` and `DCC_COMPOSE_PROJECT`.
+Defaults can be overridden with `DCC_PROJECT_DIR`, `DCC_BACKUP_DIR`,
+`DCC_COMPOSE_PROJECT`, `DCC_BACKUP_REMOTE` and `DCC_RCLONE_CONFIG`.
 
 ## Restore
+
+Recover the crypt configuration from your independently stored passwords and
+authorize Drive on a recovery machine. Download/decrypt the chosen archive using
+`rclone copyto dcc-crypt:ARCHIVE /private/path/ARCHIVE`, then verify it:
 
 ```bash
 python3 scripts/backup.py --verify /path/to/backup_TIMESTAMP.tar.gz
