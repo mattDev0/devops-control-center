@@ -1,0 +1,55 @@
+name: Weekly Container Security Scan
+
+on:
+  schedule:
+    # Every Monday at 06:00 UTC
+    - cron: '0 6 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  trivy-scan:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        service:
+          - name: agent
+            context: ./apps/agent
+            image: dcc-scan/devops-agent:scan
+          - name: orchestrator
+            context: ./apps/orchestrator
+            image: dcc-scan/devops-orchestrator:scan
+          - name: frontend
+            context: ./apps/frontend
+            image: dcc-scan/devops-frontend:scan
+          - name: spotify-service
+            context: ./apps/spotify-service
+            image: dcc-scan/devops-spotify:scan
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build ${{ matrix.service.name }} Image
+        uses: docker/build-push-action@v5
+        with:
+          context: ${{ matrix.service.context }}
+          pull: true
+          load: true
+          tags: ${{ matrix.service.image }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Scan ${{ matrix.service.name }} Image with Trivy
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: ${{ matrix.service.image }}
+          format: 'table'
+          exit-code: '1'
+          ignore-unfixed: true
+          severity: 'CRITICAL,HIGH'
