@@ -21,4 +21,4 @@ bollard = { version = "0.21", features = ["chrono"] }
 subtle = "2.6"
 
 [dev-dependencies]
-tower = { version = "0.4", features = ["util"] }
+tower = { version = "0.5", features = ["util"] }
