@@ -181,6 +181,22 @@ async fn backfill_genres(state: &AppState, plays: &[models::Play]) {
     }
 }
 
+fn router(state: AppState) -> Router {
+    Router::new()
+        .route("/overview", get(overview))
+        .route("/top/{kind}", get(top))
+        .route("/genres", get(genres))
+        .route("/recent", get(recent))
+        .route("/history/hourly", get(hourly))
+        .route("/history/weekday", get(weekday))
+        .route("/history/monthly", get(monthly))
+        .route("/discovery", get(discovery))
+        .route_layer(middleware::from_fn_with_state(state.clone(), auth))
+        .route("/health", get(health))
+        .route("/livez", get(livez))
+        .with_state(state)
+}
+
 #[tokio::main]
 async fn main() {
     tracing_subscriber::fmt()
@@ -211,22 +227,38 @@ async fn main() {
         }
     });
 
-    let app = Router::new()
-        .route("/overview", get(overview))
-        .route("/top/:kind", get(top))
-        .route("/genres", get(genres))
-        .route("/recent", get(recent))
-        .route("/history/hourly", get(hourly))
-        .route("/history/weekday", get(weekday))
-        .route("/history/monthly", get(monthly))
-        .route("/discovery", get(discovery))
-        .route_layer(middleware::from_fn_with_state(state.clone(), auth))
-        .route("/health", get(health))
-        .route("/livez", get(livez))
-        .with_state(state);
+    let app = router(state);
 
     let addr = SocketAddr::from(([0, 0, 0, 0], 3002));
     tracing::info!(%addr, db = %db_path, "spotify service listening");
     let listener = tokio::net::TcpListener::bind(addr).await.expect("bind 3002");
     axum::serve(listener, app).await.expect("server error");
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use axum::http::Request;
+    use tower::ServiceExt;
+
+    /// Builds the real router, so a route that axum rejects (such as the
+    /// pre-0.8 `/:param` syntax, which panics) fails here rather than at startup.
+    #[tokio::test]
+    async fn test_router_matches_path_parameters() {
+        let app = router(AppState {
+            db: db::open(":memory:").unwrap(),
+            spotify: Arc::new(Spotify::new(String::new(), String::new(), String::new())),
+            service_key: "key".to_string(),
+        });
+
+        let req = Request::builder()
+            // An invalid range is rejected before any Spotify API call.
+            .uri("/top/artists?range=bogus")
+            .header("X-Service-Key", "key")
+            .body(axum::body::Body::empty())
+            .unwrap();
+        let res = app.oneshot(req).await.unwrap();
+        // 400 comes from the handler, so the path matched (unmatched is 404).
+        assert_eq!(res.status(), StatusCode::BAD_REQUEST);
+    }
 }

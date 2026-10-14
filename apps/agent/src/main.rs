@@ -40,6 +40,23 @@ async fn auth_middleware(
     Err(StatusCode::UNAUTHORIZED)
 }
 
+fn router(state: AppState) -> Router {
+    Router::new()
+        .route("/ping", get(system::ping))
+        .route("/logs", get(k8s::stream_logs))
+        .route("/deployments", get(k8s::list_deployments))
+        .route("/deployments/{id}/{action}", post(k8s::deployment_action))
+        .route("/pods/health", get(k8s::pod_health))
+        .route("/docker/containers", get(docker::list_containers))
+        .route("/docker/containers/{id}/stats", get(docker::container_stats))
+        .route("/docker/containers/{id}/logs", get(docker::container_logs))
+        .route("/docker/containers/{id}/{action}", post(docker::container_action))
+        .route_layer(middleware::from_fn_with_state(state.clone(), auth_middleware))
+        .route("/health", get(system::health))
+        .route("/livez", get(system::liveness))
+        .with_state(state)
+}
+
 #[tokio::main]
 async fn main() {
     // Initialize tracing subscriber
@@ -63,20 +80,7 @@ async fn main() {
         kube_client,
     };
 
-    let app = Router::new()
-        .route("/ping", get(system::ping))
-        .route("/logs", get(k8s::stream_logs))
-        .route("/deployments", get(k8s::list_deployments))
-        .route("/deployments/:id/:action", post(k8s::deployment_action))
-        .route("/pods/health", get(k8s::pod_health))
-        .route("/docker/containers", get(docker::list_containers))
-        .route("/docker/containers/:id/stats", get(docker::container_stats))
-        .route("/docker/containers/:id/logs", get(docker::container_logs))
-        .route("/docker/containers/:id/:action", post(docker::container_action))
-        .route_layer(middleware::from_fn_with_state(state.clone(), auth_middleware))
-        .route("/health", get(system::health))
-        .route("/livez", get(system::liveness))
-        .with_state(state);
+    let app = router(state);
 
     let addr = SocketAddr::from(([0, 0, 0, 0], 3001));
     tracing::info!("🛡️ Secure K8s-Native Rust Agent running on http://{}", addr);
@@ -95,6 +99,28 @@ mod tests {
         Router,
     };
     use tower::ServiceExt;
+
+    /// Builds the real router, so a route that axum rejects (such as the
+    /// pre-0.8 `/:param` syntax, which panics) fails here rather than at startup.
+    #[tokio::test]
+    async fn test_router_matches_path_parameters() {
+        let app = router(AppState {
+            secret_key: "secret-123".to_string(),
+            kube_client: None,
+        });
+
+        for (method, uri) in [
+            ("POST", "/deployments/web/restart"),
+            ("GET", "/docker/containers/abc/stats"),
+            ("GET", "/docker/containers/abc/logs"),
+            ("POST", "/docker/containers/abc/restart"),
+        ] {
+            let req = Request::builder().method(method).uri(uri).body(Body::empty()).unwrap();
+            let res = app.clone().oneshot(req).await.unwrap();
+            // Auth runs only on matched routes, so 401 proves the path matched.
+            assert_eq!(res.status(), StatusCode::UNAUTHORIZED, "{method} {uri}");
+        }
+    }
 
     fn dummy_client() -> kube::Client {
         let config = kube::Config::new("https://127.0.0.1:8080".parse().unwrap());
