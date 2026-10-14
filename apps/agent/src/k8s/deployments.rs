@@ -43,12 +43,12 @@ pub async fn get_all_deployments_internal(client: Client) -> Result<Vec<Deployme
                 if let Some(conditions) = &status_obj.conditions {
                     for cond in conditions {
                         if let Some(time) = &cond.last_update_time {
-                            let time_str = time.0.to_rfc3339();
+                            let time_str = to_rfc3339(&time.0);
                             if updated_at.is_none() || updated_at.as_ref() < Some(&time_str) {
                                 updated_at = Some(time_str);
                             }
                         } else if let Some(time) = &cond.last_transition_time {
-                            let time_str = time.0.to_rfc3339();
+                            let time_str = to_rfc3339(&time.0);
                             if updated_at.is_none() || updated_at.as_ref() < Some(&time_str) {
                                 updated_at = Some(time_str);
                             }
@@ -71,7 +71,7 @@ pub async fn get_all_deployments_internal(client: Client) -> Result<Vec<Deployme
 
             if updated_at.is_none() {
                 if let Some(time) = &d.metadata.creation_timestamp {
-                    updated_at = Some(time.0.to_rfc3339());
+                    updated_at = Some(to_rfc3339(&time.0));
                 }
             }
 
@@ -193,4 +193,26 @@ pub async fn deployment_action(
     };
 
     Ok(StatusCode::OK)
+}
+
+/// Formats a Kubernetes timestamp exactly as chrono's `to_rfc3339` did before
+/// k8s-openapi switched to jiff, so string comparisons stay consistent.
+fn to_rfc3339(ts: &k8s_openapi::jiff::Timestamp) -> String {
+    chrono::DateTime::<chrono::Utc>::from_timestamp(ts.as_second(), ts.subsec_nanosecond() as u32)
+        .map(|dt| dt.to_rfc3339())
+        .unwrap_or_default()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_to_rfc3339_matches_chrono_format() {
+        let ts: k8s_openapi::jiff::Timestamp = "2026-10-14T09:25:12Z".parse().unwrap();
+        assert_eq!(to_rfc3339(&ts), "2026-10-14T09:25:12+00:00");
+
+        let ts: k8s_openapi::jiff::Timestamp = "2026-10-14T09:25:12.5Z".parse().unwrap();
+        assert_eq!(to_rfc3339(&ts), "2026-10-14T09:25:12.500+00:00");
+    }
 }
