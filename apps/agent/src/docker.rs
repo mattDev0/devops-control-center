@@ -7,7 +7,11 @@ use axum::{
     http::StatusCode,
     Json,
 };
-use bollard::container::{ListContainersOptions, LogOutput, LogsOptions, StartContainerOptions, StopContainerOptions, RestartContainerOptions, StatsOptions};
+use bollard::container::LogOutput;
+use bollard::query_parameters::{
+    ListContainersOptionsBuilder, LogsOptionsBuilder, RestartContainerOptionsBuilder, StartContainerOptions,
+    StatsOptionsBuilder, StopContainerOptionsBuilder,
+};
 use bollard::Docker;
 use futures::StreamExt;
 use std::convert::Infallible;
@@ -21,10 +25,7 @@ pub async fn list_containers() -> Result<Json<Vec<DockerContainerDto>>, StatusCo
         StatusCode::INTERNAL_SERVER_ERROR
     })?;
 
-    let options = Some(ListContainersOptions::<String> {
-        all: true,
-        ..Default::default()
-    });
+    let options = Some(ListContainersOptionsBuilder::new().all(true).build());
 
     let containers = docker.list_containers(options).await.map_err(|e| {
         error!("Failed to list Docker containers: {}", e);
@@ -57,7 +58,7 @@ pub async fn list_containers() -> Result<Json<Vec<DockerContainerDto>>, StatusCo
                 id: short_id.to_string(),
                 name,
                 image: c.image.unwrap_or_default(),
-                state: c.state.unwrap_or_default(),
+                state: c.state.map(|s| s.to_string()).unwrap_or_default(),
                 status: c.status.unwrap_or_default(),
                 ports,
                 created_at: c.created.map(|t| {
@@ -101,7 +102,7 @@ pub async fn container_action(
 
     match action.as_str() {
         "start" => {
-            docker.start_container(&id, None::<StartContainerOptions<String>>).await.map_err(|e| {
+            docker.start_container(&id, None::<StartContainerOptions>).await.map_err(|e| {
                 error!("Failed to start container {}: {}", id, e);
                 StatusCode::INTERNAL_SERVER_ERROR
             })?;
@@ -109,7 +110,7 @@ pub async fn container_action(
             Ok(StatusCode::OK)
         }
         "stop" => {
-            let options = Some(StopContainerOptions { t: 10 });
+            let options = Some(StopContainerOptionsBuilder::new().t(10).build());
             docker.stop_container(&id, options).await.map_err(|e| {
                 error!("Failed to stop container {}: {}", id, e);
                 StatusCode::INTERNAL_SERVER_ERROR
@@ -118,7 +119,7 @@ pub async fn container_action(
             Ok(StatusCode::OK)
         }
         "restart" => {
-            let options = Some(RestartContainerOptions { t: 10 });
+            let options = Some(RestartContainerOptionsBuilder::new().t(10).build());
             docker.restart_container(&id, options).await.map_err(|e| {
                 error!("Failed to restart container {}: {}", id, e);
                 StatusCode::INTERNAL_SERVER_ERROR
@@ -141,23 +142,30 @@ pub async fn container_stats(
         StatusCode::INTERNAL_SERVER_ERROR
     })?;
 
-    let mut stream = docker.stats(&id, Some(StatsOptions { stream: false, one_shot: true }));
+    let mut stream = docker.stats(&id, Some(StatsOptionsBuilder::new().stream(false).one_shot(true).build()));
 
     if let Some(stats_res) = stream.next().await {
         match stats_res {
             Ok(stats) => {
-                let memory_usage = stats.memory_stats.usage.unwrap_or(0);
-                let memory_limit = stats.memory_stats.limit.unwrap_or(0);
+                let memory_stats = stats.memory_stats.unwrap_or_default();
+                let memory_usage = memory_stats.usage.unwrap_or(0);
+                let memory_limit = memory_stats.limit.unwrap_or(0);
                 let memory_percent = if memory_limit > 0 {
                     (memory_usage as f64 / memory_limit as f64) * 100.0
                 } else {
                     0.0
                 };
 
-                let cpu_stats = stats.cpu_stats;
-                let precpu_stats = stats.precpu_stats;
-                let cpu_delta = cpu_stats.cpu_usage.total_usage - precpu_stats.cpu_usage.total_usage;
-                let system_delta = cpu_stats.system_cpu_usage.unwrap_or(0) - precpu_stats.system_cpu_usage.unwrap_or(0);
+                let cpu_stats = stats.cpu_stats.unwrap_or_default();
+                let precpu_stats = stats.precpu_stats.unwrap_or_default();
+                let total_usage = |s: &bollard::models::ContainerCpuStats| {
+                    s.cpu_usage.as_ref().and_then(|u| u.total_usage).unwrap_or(0)
+                };
+                let cpu_delta = total_usage(&cpu_stats).saturating_sub(total_usage(&precpu_stats));
+                let system_delta = cpu_stats
+                    .system_cpu_usage
+                    .unwrap_or(0)
+                    .saturating_sub(precpu_stats.system_cpu_usage.unwrap_or(0));
                 let number_cpus = cpu_stats.online_cpus.unwrap_or(precpu_stats.online_cpus.unwrap_or(1));
 
                 let cpu_percent = if system_delta > 0 && cpu_delta > 0 {
@@ -197,13 +205,14 @@ pub async fn container_logs(
             }
         };
 
-        let options = Some(LogsOptions::<String> {
-            follow: true,
-            stdout: true,
-            stderr: true,
-            tail: "100".to_string(),
-            ..Default::default()
-        });
+        let options = Some(
+            LogsOptionsBuilder::new()
+                .follow(true)
+                .stdout(true)
+                .stderr(true)
+                .tail("100")
+                .build(),
+        );
 
         let mut stream = docker.logs(&id, options);
 
