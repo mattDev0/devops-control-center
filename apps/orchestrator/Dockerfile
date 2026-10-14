@@ -13,7 +13,7 @@ RUN --mount=type=cache,target=/root/.m2 \
     cp target/orchestrator-0.0.1-SNAPSHOT.jar /app/app.jar
 
 # --- Final Stage ---
-FROM eclipse-temurin:21-jre-jammy
+FROM eclipse-temurin:25-jre-jammy
 
 WORKDIR /app
 
