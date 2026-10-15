@@ -18,6 +18,7 @@ export COMMIT_SHA
 : "${JWT_SECRET:?JWT_SECRET is not set - refusing to deploy}"
 : "${ADMIN_PASSWORD:?ADMIN_PASSWORD is not set - refusing to deploy}"
 : "${AGENT_SECRET_KEY:?AGENT_SECRET_KEY is not set - refusing to deploy}"
+: "${GRAFANA_ADMIN_PASSWORD:?GRAFANA_ADMIN_PASSWORD is not set - refusing to deploy}"
 : "${COMMIT_SHA:?COMMIT_SHA is not set - refusing to deploy}"
 
 echo "Starting deployment of ${COMMIT_SHA:-<unset>}"
@@ -70,6 +71,12 @@ COMMIT_SHA="${COMMIT_SHA}" docker compose -f docker-compose.yml -f docker-compos
 
 echo "Running post-deploy health check..."
 bash scripts/health-check.sh
+
+# GF_SECURITY_ADMIN_PASSWORD only sets the admin password when grafana.db is
+# first created. Re-apply it via the CLI so existing volumes and password
+# rotations take effect without exposing the secret in process arguments.
+echo "Syncing Grafana admin password..."
+printf '%s\n' "${GRAFANA_ADMIN_PASSWORD}" | docker exec -i devops-grafana grafana cli admin reset-admin-password --password-from-stdin >/dev/null
 
 echo "Cleaning up dangling images..."
 docker image prune -f
