@@ -40,7 +40,8 @@ def serve_stub():
                 labels = {"instance": "test:9100", "job": "node"}
             elif "node_filesystem_avail_bytes" in query:
                 value = 50 if healthy else 10
-                labels = {"instance": "test:9100", "mountpoint": "/"}
+                labels = {"instance": "test:9100", "job": "node",
+                          "device": "/dev/root", "mountpoint": "/etc/hostname"}
             elif "http_server_requests_seconds_count" in query:
                 value = 0 if healthy else 10
                 labels = {}

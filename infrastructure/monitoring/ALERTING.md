@@ -10,12 +10,18 @@ production override enables alert provisioning and requires a webhook.
 | --- | --- | --- |
 | InstanceDown | A Prometheus scrape target has `up < 1` | 2 minutes |
 | HighErrorRate | HTTP 5xx requests exceed 5% over a five-minute window | 5 minutes |
-| DiskSpaceRunningLow | Free space on `/` is below 15% | 5 minutes |
+| DiskSpaceRunningLow | Free space on the host disk backing Docker is below 15% | 5 minutes |
 
 Availability covers the configured Prometheus, node-exporter and orchestrator
 scrape targets. It is not a check of every container or the public website.
 No data fires availability/disk alerts; no request data is normal for the HTTP
 error-rate rule. Query errors fire alerts for all three rules.
+
+The existing containerized node-exporter exposes the host root disk through
+Docker's `/etc/hostname` bind mount, not a `/` filesystem metric. The disk rule
+uses that mount's available/total bytes; it covers the host disk holding Docker
+data on this VM. Revisit the selector if Docker data moves to another filesystem
+or the exporter gains a host-root mount.
 
 Notifications group by folder and alert name, wait 30 seconds for the first
 message, group changes over five minutes, and remind every four hours. Recovery
