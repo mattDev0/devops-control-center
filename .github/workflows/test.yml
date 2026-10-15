@@ -94,9 +94,10 @@ jobs:
           cache: 'npm'
           cache-dependency-path: apps/frontend/package-lock.json
 
-      - name: Run Frontend Lint & Build Test
+      - name: Run Frontend Lint, Test & Build
         run: |
           cd apps/frontend
           npm ci
           npm run lint
+          npm run test
           npm run build
