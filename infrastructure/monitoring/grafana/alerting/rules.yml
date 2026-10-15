@@ -128,7 +128,7 @@ groups:
         datasource:
           type: prometheus
           uid: cfmh94yfqwjcwd
-        expr: (node_filesystem_avail_bytes{mountpoint="/"} / node_filesystem_size_bytes{mountpoint="/"})
+        expr: (node_filesystem_avail_bytes{job="node",mountpoint="/etc/hostname"} / node_filesystem_size_bytes{job="node",mountpoint="/etc/hostname"})
           * 100
         instant: true
         range: false
@@ -165,7 +165,7 @@ groups:
     for: 5m
     annotations:
       summary: Disk space running low on {{ $labels.instance }}
-      description: Available disk space on {{ $labels.mountpoint }} is below 15%.
+      description: Available host disk space on {{ $labels.device }} is below 15%.
     labels:
       severity: warning
       service: dcc
