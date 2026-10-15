@@ -182,7 +182,7 @@ cp .env.example .env   # fill in the required secrets first
 docker compose up --build
 ```
 
-`JWT_SECRET`, `ADMIN_PASSWORD` and `AGENT_SECRET_KEY` are mandatory; the stack fails closed without them rather than starting with defaults. The Spotify service additionally needs `SPOTIFY_CLIENT_ID`, `SPOTIFY_CLIENT_SECRET`, `SPOTIFY_REFRESH_TOKEN` and `SPOTIFY_SERVICE_KEY` - `apps/spotify-service/scripts/authorize.py` obtains a refresh token with the required scopes.
+`JWT_SECRET`, `ADMIN_PASSWORD`, `AGENT_SECRET_KEY` and `GRAFANA_ADMIN_PASSWORD` are mandatory; the stack fails closed without them rather than starting with defaults. The Spotify service additionally needs `SPOTIFY_CLIENT_ID`, `SPOTIFY_CLIENT_SECRET`, `SPOTIFY_REFRESH_TOKEN` and `SPOTIFY_SERVICE_KEY` - `apps/spotify-service/scripts/authorize.py` obtains a refresh token with the required scopes.
 
 `DOCKER_GID` must match the host's `docker` group so the agent can read the socket; find it with `getent group docker | cut -d: -f3`.
 
@@ -195,7 +195,7 @@ To deploy to a live server, create a `.env` file on the VM from the provided exa
 cp .env.example .env
 nano .env
 ```
-Provide your GitHub token and public domain. `JWT_SECRET`, `ADMIN_PASSWORD` and `AGENT_SECRET_KEY` are mandatory - `scripts/deploy.sh` refuses to deploy without them rather than falling back to defaults. `SPOTIFY_SERVICE_KEY` is shared between the orchestrator and the Spotify service, and `DOCKER_GID` must match the host's `docker` group. When deploying the Kubernetes manifests instead, the same values are supplied as the `devops-secrets` Secret.
+Provide your GitHub token and public domain. `JWT_SECRET`, `ADMIN_PASSWORD`, `AGENT_SECRET_KEY`, `GRAFANA_ADMIN_PASSWORD` and `DISCORD_WEBHOOK_URL` are mandatory - `scripts/deploy.sh` and `docker-compose.prod.yml` refuse to deploy without them rather than falling back to defaults. `SPOTIFY_SERVICE_KEY` is shared between the orchestrator and the Spotify service, and `DOCKER_GID` must match the host's `docker` group. When deploying the Kubernetes manifests instead, the same values are supplied as the `devops-secrets` Secret.
 
 ```mermaid
 sequenceDiagram
