@@ -166,6 +166,8 @@ def run():
                 "--env", "GF_ANALYTICS_REPORTING_ENABLED=false",
                 "--env", "GF_ANALYTICS_CHECK_FOR_UPDATES=false",
                 "--env", "GF_ANALYTICS_CHECK_FOR_PLUGIN_UPDATES=false",
+                # A new policy otherwise takes up to 60s to reach the notifier.
+                "--env", "GF_UNIFIED_ALERTING_ALERTMANAGER_CONFIG_POLL_INTERVAL=1s",
                 "--env", "DISCORD_WEBHOOK_URL=http://mock:8080/discord",
                 "grafana/grafana:11.0.0"], check=True, stdout=subprocess.DEVNULL)
             grafana_port = port(container, 3000)

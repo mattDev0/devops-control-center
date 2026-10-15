@@ -38,7 +38,8 @@ tree; review/export any manually created policies before first activation.
    docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --force-recreate prometheus
    ```
 
-3. In Grafana Alerting, verify the three rules in **DCC Monitoring**, the **DCC
+3. Allow up to one minute for Grafana's notifier to refresh the provisioned
+   policy. In Grafana Alerting, verify the three rules in **DCC Monitoring**, the **DCC
    Discord** contact point and notification policy. Use the contact point's Test
    button with permission to send a test message to the selected channel.
 4. Check the public dashboard, Prometheus targets and Grafana health. Confirm a
@@ -55,7 +56,8 @@ manifests. The portfolio repository is unaffected.
 `python3 scripts/test-alerting.py` boots the production Grafana version locally
 with a mock Prometheus API and mock Discord webhook. It validates provisioning,
 all three firing transitions and all three recovery deliveries. Timing is
-shortened only in temporary copies; no Discord or production credentials are used.
+shortened only in temporary copies, and the test notifier refreshes its policy
+every second; no Discord or production credentials are used.
 The test also runs in PR/main CI.
 
 Rollback: revert the alerting commit and redeploy, then recreate Prometheus to
