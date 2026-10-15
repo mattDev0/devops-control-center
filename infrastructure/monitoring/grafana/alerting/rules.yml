@@ -1,0 +1,172 @@
+apiVersion: 1
+groups:
+- orgId: 1
+  name: platform-alerts
+  folder: DCC Monitoring
+  interval: 30s
+  rules:
+  - uid: dcc-instance-down
+    title: InstanceDown
+    condition: B
+    data:
+    - refId: A
+      relativeTimeRange:
+        from: 600
+        to: 0
+      datasourceUid: cfmh94yfqwjcwd
+      model:
+        datasource:
+          type: prometheus
+          uid: cfmh94yfqwjcwd
+        expr: up
+        instant: true
+        range: false
+        intervalMs: 1000
+        maxDataPoints: 43200
+        refId: A
+    - refId: B
+      relativeTimeRange:
+        from: 0
+        to: 0
+      datasourceUid: __expr__
+      model:
+        datasource:
+          type: __expr__
+          uid: __expr__
+        expression: A
+        type: threshold
+        refId: B
+        conditions:
+        - evaluator:
+            params:
+            - 1
+            type: lt
+          operator:
+            type: and
+          query:
+            params:
+            - B
+          reducer:
+            type: last
+          type: query
+    noDataState: Alerting
+    execErrState: Alerting
+    for: 2m
+    annotations:
+      summary: Instance {{ $labels.instance }} down
+      description: Prometheus cannot scrape {{ $labels.job }} at {{ $labels.instance
+        }}. If no series are available, check Prometheus and its scrape configuration.
+    labels:
+      severity: critical
+      service: dcc
+    isPaused: false
+  - uid: dcc-high-error-rate
+    title: HighErrorRate
+    condition: B
+    data:
+    - refId: A
+      relativeTimeRange:
+        from: 600
+        to: 0
+      datasourceUid: cfmh94yfqwjcwd
+      model:
+        datasource:
+          type: prometheus
+          uid: cfmh94yfqwjcwd
+        expr: sum(rate(http_server_requests_seconds_count{status=~"5.."}[5m])) / sum(rate(http_server_requests_seconds_count[5m]))
+          * 100
+        instant: true
+        range: false
+        intervalMs: 1000
+        maxDataPoints: 43200
+        refId: A
+    - refId: B
+      relativeTimeRange:
+        from: 0
+        to: 0
+      datasourceUid: __expr__
+      model:
+        datasource:
+          type: __expr__
+          uid: __expr__
+        expression: A
+        type: threshold
+        refId: B
+        conditions:
+        - evaluator:
+            params:
+            - 5
+            type: gt
+          operator:
+            type: and
+          query:
+            params:
+            - B
+          reducer:
+            type: last
+          type: query
+    noDataState: OK
+    execErrState: Alerting
+    for: 5m
+    annotations:
+      summary: High HTTP error rate
+      description: HTTP 5xx responses exceed 5% of requests over the last 5 minutes.
+    labels:
+      severity: warning
+      service: dcc
+    isPaused: false
+  - uid: dcc-disk-space-low
+    title: DiskSpaceRunningLow
+    condition: B
+    data:
+    - refId: A
+      relativeTimeRange:
+        from: 600
+        to: 0
+      datasourceUid: cfmh94yfqwjcwd
+      model:
+        datasource:
+          type: prometheus
+          uid: cfmh94yfqwjcwd
+        expr: (node_filesystem_avail_bytes{mountpoint="/"} / node_filesystem_size_bytes{mountpoint="/"})
+          * 100
+        instant: true
+        range: false
+        intervalMs: 1000
+        maxDataPoints: 43200
+        refId: A
+    - refId: B
+      relativeTimeRange:
+        from: 0
+        to: 0
+      datasourceUid: __expr__
+      model:
+        datasource:
+          type: __expr__
+          uid: __expr__
+        expression: A
+        type: threshold
+        refId: B
+        conditions:
+        - evaluator:
+            params:
+            - 15
+            type: lt
+          operator:
+            type: and
+          query:
+            params:
+            - B
+          reducer:
+            type: last
+          type: query
+    noDataState: Alerting
+    execErrState: Alerting
+    for: 5m
+    annotations:
+      summary: Disk space running low on {{ $labels.instance }}
+      description: Available disk space on {{ $labels.mountpoint }} is below 15%.
+    labels:
+      severity: warning
+      service: dcc
+    isPaused: false

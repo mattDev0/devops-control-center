@@ -2,8 +2,8 @@ global:
   scrape_interval: 15s
   evaluation_interval: 15s
 
-rule_files:
-  - 'alert.rules.yml'
+# Production alert evaluation and Discord delivery are provisioned in Grafana.
+# Keep one evaluator so pending/firing states have a single source of truth.
 
 scrape_configs:
   - job_name: 'prometheus'

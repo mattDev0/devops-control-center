@@ -20,6 +20,9 @@ jobs:
           bash -n scripts/backup.sh
           python3 -m unittest discover -s scripts -p 'test*backup.py'
 
+      - name: Verify Grafana alert firing and recovery delivery
+        run: python3 scripts/test-alerting.py
+
       - name: Lint Agent Dockerfile
         uses: hadolint/hadolint-action@v3.5.0
         with:

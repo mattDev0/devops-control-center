@@ -9,6 +9,12 @@ A custom, end-to-end DevOps orchestration and observability platform built from 
 Backup scripts, retention, installation and recovery instructions are documented in
 [Backup and recovery](scripts/BACKUPS.md). Scheduling requires installing the host cron entry.
 
+## Monitoring alerts
+
+Production Grafana evaluates service availability, HTTP error rate and free disk
+space, and sends firing and recovery notifications to Discord. Setup, thresholds
+and verification are documented in [Monitoring alerts](infrastructure/monitoring/ALERTING.md).
+
 ## 🌐 Live Preview
 **Check out the live dashboard here:**  
 👉 **[https://devops.mattdev0.tech](https://devops.mattdev0.tech)**
