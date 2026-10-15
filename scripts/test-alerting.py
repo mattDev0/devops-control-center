@@ -132,7 +132,7 @@ def run():
             base = Path(temp)
             # Grafana runs as uid 472 and must be able to read provisioning files.
             base.chmod(0o755)
-            for subdir in ("alerting", "datasources", "plugins", "dashboards"):
+            for subdir in ("alerting", "datasources"):
                 (base / subdir).mkdir()
             source = ROOT / "infrastructure/monitoring/grafana"
             for name in ("rules.yml", "notifications.yml"):
@@ -161,7 +161,10 @@ def run():
                 "docker", "run", "--detach", "--name", container,
                 "--network", network, "--memory", "256m",
                 "--publish", "127.0.0.1::3000",
-                "--volume", str(base) + ":/etc/grafana/provisioning:ro",
+                "--volume", str(source / "provisioning") + ":/etc/grafana/provisioning:ro",
+                "--volume", str(base / "alerting") + ":/etc/grafana/provisioning/alerting:ro",
+                "--volume", str(base / "datasources") + ":/etc/grafana/provisioning/datasources:ro",
+                "--volume", str(source / "dashboards") + ":/etc/grafana/dashboards:ro",
                 "--env", "GF_SECURITY_ADMIN_PASSWORD=" + password,
                 "--env", "GF_ANALYTICS_REPORTING_ENABLED=false",
                 "--env", "GF_ANALYTICS_CHECK_FOR_UPDATES=false",
