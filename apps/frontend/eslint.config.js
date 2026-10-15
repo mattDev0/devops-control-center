@@ -28,4 +28,10 @@ export default defineConfig([
       globals: globals.node,
     },
   },
+  {
+    files: ['**/__tests__/**/*.{js,jsx}', '**/*.{test,spec}.{js,jsx}'],
+    languageOptions: {
+      globals: { ...globals.browser, ...globals.vitest, ...globals.node },
+    },
+  },
 ])
