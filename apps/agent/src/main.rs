@@ -214,4 +214,45 @@ mod tests {
         assert_eq!(json["k8s"], serde_json::Value::Bool(false));
         assert_eq!(json["status"], "degraded");
     }
+
+    #[tokio::test]
+    async fn test_livez_returns_system_info() {
+        let state = AppState {
+            secret_key: "secret-123".to_string(),
+            kube_client: None,
+        };
+        let app = router(state);
+
+        let req = Request::builder().uri("/livez").body(Body::empty()).unwrap();
+        let response = app.oneshot(req).await.unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
+        let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        assert_eq!(json["status"], "alive");
+        assert!(!json["os_name"].as_str().unwrap().is_empty());
+        assert!(json["uptime_seconds"].is_number());
+    }
+
+    #[tokio::test]
+    async fn test_ping_with_valid_auth_returns_system_info() {
+        let state = AppState {
+            secret_key: "secret-123".to_string(),
+            kube_client: None,
+        };
+        let app = router(state);
+
+        let req = Request::builder()
+            .uri("/ping")
+            .header("X-Agent-Key", "secret-123")
+            .body(Body::empty())
+            .unwrap();
+        let response = app.oneshot(req).await.unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
+        let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        assert!(!json["os_name"].as_str().unwrap().is_empty());
+        assert!(json["uptime_seconds"].is_number());
+    }
 }
