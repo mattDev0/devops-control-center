@@ -12,6 +12,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.client.ClientHttpResponse;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
@@ -19,6 +20,7 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import java.io.BufferedReader;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.time.Duration;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -30,15 +32,32 @@ public class AgentService {
     private static final Logger logger = LoggerFactory.getLogger(AgentService.class);
 
     private final RestClient restClient;
+    private final RestClient streamClient;
     private final ExecutorService executorService = Executors.newVirtualThreadPerTaskExecutor();
 
     public AgentService(
             RestClient.Builder restClientBuilder,
             @Value("${agent.url:http://localhost:3001}") String agentUrl,
-            @Value("${agent.secret-key}") String agentSecretKey) {
+            @Value("${agent.secret-key}") String agentSecretKey,
+            @Value("${agent.connect-timeout-ms:3000}") long connectTimeoutMs,
+            @Value("${agent.read-timeout-ms:15000}") long readTimeoutMs) {
+        SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
+        requestFactory.setConnectTimeout(Duration.ofMillis(connectTimeoutMs));
+        requestFactory.setReadTimeout(Duration.ofMillis(readTimeoutMs));
+
         this.restClient = restClientBuilder
                 .baseUrl(agentUrl)
                 .defaultHeader("X-Agent-Key", agentSecretKey)
+                .requestFactory(requestFactory)
+                .build();
+
+        SimpleClientHttpRequestFactory streamRequestFactory = new SimpleClientHttpRequestFactory();
+        streamRequestFactory.setConnectTimeout(Duration.ofMillis(connectTimeoutMs));
+
+        this.streamClient = restClientBuilder.clone()
+                .baseUrl(agentUrl)
+                .defaultHeader("X-Agent-Key", agentSecretKey)
+                .requestFactory(streamRequestFactory)
                 .build();
     }
 
@@ -94,7 +113,7 @@ public class AgentService {
         executorService.execute(() -> {
             try {
                 String uri = "/logs" + (deploymentId != null ? "?id=" + deploymentId : "");
-                this.restClient.get().uri(uri).exchange((request, response) -> {
+                this.streamClient.get().uri(uri).exchange((request, response) -> {
                     responseRef[0] = response;
                     upstreamRef[0] = response.getBody();
                     BufferedReader reader = new BufferedReader(new InputStreamReader(upstreamRef[0]));
@@ -221,7 +240,7 @@ public class AgentService {
         executorService.execute(() -> {
             try {
                 String uri = "/docker/containers/" + containerId + "/logs";
-                this.restClient.get().uri(uri).exchange((request, response) -> {
+                this.streamClient.get().uri(uri).exchange((request, response) -> {
                     responseRef[0] = response;
                     upstreamRef[0] = response.getBody();
                     BufferedReader reader = new BufferedReader(new InputStreamReader(upstreamRef[0]));
