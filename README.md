@@ -186,6 +186,8 @@ docker compose up --build
 
 `DOCKER_GID` must match the host's `docker` group so the agent can read the socket; find it with `getent group docker | cut -d: -f3`.
 
+Container healthchecks are defined across core services (`agent`, `spotify-service`, `orchestrator`, and `frontend`) so Compose coordinates startup ordering via `condition: service_healthy`.
+
 Local runs default to `localhost` configuration, relaxing the secure-cookie requirement.
 * Dashboard: `http://localhost:8085`
 
