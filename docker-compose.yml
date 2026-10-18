@@ -16,6 +16,12 @@ services:
       # agent reports Kubernetes as unavailable rather than pretending.
       # Under infrastructure/k8s the service account supplies credentials.
       - /var/run/docker.sock:/var/run/docker.sock
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:3001/livez"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
     restart: unless-stopped
 
   # Spotify Service: listening analytics, polls Spotify and stores play history
@@ -34,6 +40,12 @@ services:
       - SPOTIFY_DB_PATH=/data/spotify.db
     volumes:
       - spotify-data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:3002/livez"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
     restart: unless-stopped
 
   # Java Orchestrator: Central coordination layer
@@ -53,10 +65,19 @@ services:
       - PROMETHEUS_URL=http://devops-prometheus:9090
       - SPOTIFY_URL=http://devops-spotify:3002
       - SPOTIFY_SERVICE_KEY=${SPOTIFY_SERVICE_KEY}
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
     depends_on:
-      - agent
-      - spotify-service
-      - prometheus
+      agent:
+        condition: service_healthy
+      spotify-service:
+        condition: service_healthy
+      prometheus:
+        condition: service_started
     restart: unless-stopped
 
   # React Frontend: Sleek dashboard (served via Nginx)
@@ -66,6 +87,12 @@ services:
     container_name: devops-frontend
     ports:
       - "127.0.0.1:8085:8080"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:8080/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
     depends_on:
       - orchestrator
       - grafana

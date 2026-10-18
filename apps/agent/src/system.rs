@@ -1,11 +1,9 @@
-use axum::{extract::State, http::StatusCode, Json, response::IntoResponse};
-use sysinfo::System;
 use crate::models::SystemInfo;
+use axum::{extract::State, http::StatusCode, response::IntoResponse, Json};
 use serde_json::json;
+use sysinfo::System;
 
 pub async fn ping() -> impl IntoResponse {
-    let mut sys = System::new_all();
-    sys.refresh_all();
     Json(SystemInfo {
         os_name: System::name().unwrap_or_else(|| "Unknown".to_string()),
         os_version: System::os_version().unwrap_or_else(|| "Unknown".to_string()),
@@ -14,8 +12,6 @@ pub async fn ping() -> impl IntoResponse {
 }
 
 pub async fn liveness() -> impl IntoResponse {
-    let mut sys = System::new_all();
-    sys.refresh_all();
     let os_name = System::name().unwrap_or_else(|| "Unknown".to_string());
     let os_version = System::os_version().unwrap_or_else(|| "Unknown".to_string());
     let uptime_seconds = System::uptime();
@@ -32,8 +28,6 @@ pub async fn liveness() -> impl IntoResponse {
 }
 
 pub async fn health(State(state): State<crate::AppState>) -> impl IntoResponse {
-    let mut sys = System::new_all();
-    sys.refresh_all();
     let os_name = System::name().unwrap_or_else(|| "Unknown".to_string());
     let os_version = System::os_version().unwrap_or_else(|| "Unknown".to_string());
     let uptime_seconds = System::uptime();
