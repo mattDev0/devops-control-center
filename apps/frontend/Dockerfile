@@ -14,6 +14,10 @@ RUN npm run build
 # --- Final Stage ---
 FROM nginxinc/nginx-unprivileged:alpine
 
+USER 0
+RUN apk upgrade --no-cache
+USER 101
+
 # Copy the build output to nginx static folder
 COPY --from=builder /app/dist /usr/share/nginx/html
 
