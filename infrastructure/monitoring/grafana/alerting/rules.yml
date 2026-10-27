@@ -170,3 +170,57 @@ groups:
       severity: warning
       service: dcc
     isPaused: false
+  - uid: portfolio-endpoint-down
+    title: PortfolioEndpointDown
+    condition: B
+    data:
+    - refId: A
+      relativeTimeRange:
+        from: 600
+        to: 0
+      datasourceUid: cfmh94yfqwjcwd
+      model:
+        datasource:
+          type: prometheus
+          uid: cfmh94yfqwjcwd
+        expr: portfolio_probe_up
+        instant: true
+        range: false
+        intervalMs: 1000
+        maxDataPoints: 43200
+        refId: A
+    - refId: B
+      relativeTimeRange:
+        from: 0
+        to: 0
+      datasourceUid: __expr__
+      model:
+        datasource:
+          type: __expr__
+          uid: __expr__
+        expression: A
+        type: threshold
+        refId: B
+        conditions:
+        - evaluator:
+            params:
+            - 1
+            type: lt
+          operator:
+            type: and
+          query:
+            params:
+            - B
+          reducer:
+            type: last
+          type: query
+    noDataState: OK
+    execErrState: Alerting
+    for: 5m
+    annotations:
+      summary: Portfolio {{ $labels.target }} is down
+      description: Portfolio endpoint {{ $labels.target }} is failing uptime probes. DCC probes the public URL every 60s. Check Cloud Run and https://devops.mattdev0.tech.
+    labels:
+      severity: critical
+      service: portfolio
+    isPaused: false

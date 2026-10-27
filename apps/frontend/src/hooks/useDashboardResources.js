@@ -3,6 +3,7 @@ import { usePolledResource } from './usePolledResource';
 
 const EMPTY_LIST = [];
 const HEALTH_ERROR = { os_name: 'Error', os_version: 'N/A', uptime_seconds: 0 };
+const PORTFOLIO_ERROR = { error: 'Portfolio status is unavailable.', targets: [] };
 
 export function useServerHealth(token, onUnauthorized) {
   return usePolledResource({ token, onUnauthorized, fetcher: api.fetchHealth,
@@ -28,4 +29,16 @@ export function useWorkflows(token, onUnauthorized) {
 export function useDockerContainers(token, onUnauthorized) {
   return usePolledResource({ token, onUnauthorized, fetcher: api.fetchDockerContainers,
     initialData: EMPTY_LIST, accept: Array.isArray, label: 'Docker containers' });
+}
+
+export function usePortfolioStatus(token, onUnauthorized) {
+  return usePolledResource({
+    token,
+    onUnauthorized,
+    fetcher: api.fetchPortfolioStatus,
+    interval: 60000,
+    initialData: null,
+    errorData: PORTFOLIO_ERROR,
+    label: 'portfolio status'
+  });
 }

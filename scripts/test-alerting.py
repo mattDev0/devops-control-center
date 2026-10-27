@@ -20,7 +20,7 @@ import uuid
 
 
 ROOT = Path(__file__).resolve().parent.parent
-NAMES = {"InstanceDown", "HighErrorRate", "DiskSpaceRunningLow"}
+NAMES = {"InstanceDown", "HighErrorRate", "DiskSpaceRunningLow", "PortfolioEndpointDown"}
 
 
 def serve_stub():
@@ -45,6 +45,9 @@ def serve_stub():
             elif "http_server_requests_seconds_count" in query:
                 value = 0 if healthy else 10
                 labels = {}
+            elif "portfolio_probe_up" in query:
+                value = 1 if healthy else 0
+                labels = {"target": "rust-api"}
             else:
                 self.send_error(400, "Unexpected Prometheus query")
                 return
@@ -183,13 +186,13 @@ def run():
             assert discord["type"] == "discord"
             assert not discord["disableResolveMessage"]
             print("Grafana rules and Discord receiver provisioned; checking delivery", flush=True)
-            wait_for(lambda: received("FIRING") == NAMES, "three firing notifications")
+            wait_for(lambda: received("FIRING") == NAMES, "four firing notifications")
             with urlopen(Request(f"http://127.0.0.1:{mock_port}/healthy", data=b""), timeout=5):
                 pass
-            wait_for(lambda: received("RESOLVED") == NAMES, "three recovery notifications")
+            wait_for(lambda: received("RESOLVED") == NAMES, "four recovery notifications")
             with urlopen(f"http://127.0.0.1:{mock_port}/queries", timeout=5) as response:
-                assert len(json.load(response)) == 3, "Not all metric queries executed"
-            print("PASS: all three rules provisioned, fired and resolved through the Discord receiver")
+                assert len(json.load(response)) == 4, "Not all metric queries executed"
+            print("PASS: all four rules provisioned, fired and resolved through the Discord receiver")
     except Exception:
         # This container only has generated test credentials and a local webhook.
         for name in (container, mock):

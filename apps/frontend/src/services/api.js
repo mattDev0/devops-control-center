@@ -133,4 +133,13 @@ export const api = {
     });
     return handleResponse(response);
   },
+
+  // --- Portfolio monitoring ---
+  fetchPortfolioStatus: async (token, signal) => {
+    const response = await fetch('api/portfolio/status', {
+      signal,
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    return handleResponse(response);
+  },
 };
