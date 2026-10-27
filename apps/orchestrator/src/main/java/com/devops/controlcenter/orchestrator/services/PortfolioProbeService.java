@@ -6,7 +6,6 @@ import com.devops.controlcenter.orchestrator.dto.PortfolioStatusDto;
 import com.devops.controlcenter.orchestrator.dto.PortfolioTargetStatusDto;
 import io.micrometer.core.instrument.Gauge;
 import io.micrometer.core.instrument.MeterRegistry;
-import jakarta.annotation.PostConstruct;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -64,36 +63,21 @@ public class PortfolioProbeService {
         initTargets();
     }
 
-    @PostConstruct
-    public synchronized void initTargets() {
+    private void initTargets() {
         if (properties == null || properties.getTargets() == null) {
             return;
         }
 
-        // Canonical display order: frontend, rust-api, java-api
-        List<String> canonicalOrder = List.of("frontend", "rust-api", "java-api");
+        // Map binding does not promise property-file order, so pin the display
+        // order for the known targets and append anything else after them.
         Map<String, String> configured = properties.getTargets();
-
-        for (String key : canonicalOrder) {
+        for (String key : List.of("frontend", "rust-api", "java-api")) {
             String url = configured.get(key);
-            if (url == null) {
-                // Support relaxed binding camelCase fallback if properties source mapped it
-                if ("rust-api".equals(key)) url = configured.get("rustApi");
-                else if ("java-api".equals(key)) url = configured.get("javaApi");
-            }
             if (url != null) {
                 addTarget(key, resolveLabel(key), url);
             }
         }
-
-        // Include any remaining configured targets while preserving their appearance
-        for (Map.Entry<String, String> entry : configured.entrySet()) {
-            String rawKey = entry.getKey();
-            String normalizedKey = normalizeKey(rawKey);
-            if (!targetsState.containsKey(normalizedKey)) {
-                addTarget(normalizedKey, resolveLabel(normalizedKey), entry.getValue());
-            }
-        }
+        configured.forEach((key, url) -> addTarget(key, resolveLabel(key), url));
     }
 
     public synchronized void addTarget(String key, String label, String url) {
@@ -101,12 +85,6 @@ public class PortfolioProbeService {
             targetsState.put(key, new TargetState(key, label, url));
             orderedTargetKeys.add(key);
         }
-    }
-
-    private String normalizeKey(String key) {
-        if ("rustApi".equals(key)) return "rust-api";
-        if ("javaApi".equals(key)) return "java-api";
-        return key;
     }
 
     private static String resolveLabel(String key) {

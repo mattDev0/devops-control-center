@@ -87,7 +87,8 @@ export default function PortfolioStatusPanel({
   const data = propData !== undefined ? propData : hookResult.data;
   const loading = propLoading !== undefined ? propLoading : hookResult.loading;
   const onRefresh = propOnRefresh !== undefined ? propOnRefresh : hookResult.refresh;
-  const error = propError || '';
+  // A failed fetch arrives as the hook's error sentinel, not as an empty target list.
+  const error = propError || data?.error || '';
 
   if (error) {
     return (

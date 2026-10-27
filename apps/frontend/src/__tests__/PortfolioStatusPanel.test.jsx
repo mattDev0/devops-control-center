@@ -66,6 +66,14 @@ describe('PortfolioStatusPanel', () => {
     expect(screen.getByText('Could not reach orchestrator')).toBeInTheDocument();
   });
 
+  it('renders the fetch failure sentinel as an error, not an empty list', () => {
+    render(
+      <PortfolioStatusPanel data={{ error: 'Portfolio status is unavailable.', targets: [] }} loading={false} />
+    );
+    expect(screen.getByRole('alert')).toBeInTheDocument();
+    expect(screen.queryByText('No portfolio targets configured.')).not.toBeInTheDocument();
+  });
+
   it('renders up, down and pending target states with correct labels', () => {
     render(
       <PortfolioStatusPanel

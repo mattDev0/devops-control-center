@@ -590,7 +590,7 @@ export default function App() {
               <h2 className="text-sm font-semibold text-[var(--fg-default)]">Portfolio</h2>
             </div>
             <ErrorBoundary>
-              <PortfolioStatusPanel token={token} onUnauthorized={acquireGuestSession} />
+              <PortfolioStatusPanel token={token} onUnauthorized={handleLogout} />
             </ErrorBoundary>
           </div>
 
