@@ -23,7 +23,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
     "management.endpoint.health.show-details=always",
     "agent.secret-key=test-agent-secret-key-123",
     "admin.password=test-only-password",
-    "jwt.secret=test-only-jwt-signing-secret-not-used-in-production"
+    "jwt.secret=test-only-jwt-signing-secret-not-used-in-production",
+    "portfolio.probe.enabled=false"
 })
 @AutoConfigureMockMvc
 @org.springframework.boot.micrometer.metrics.test.autoconfigure.AutoConfigureMetrics
@@ -260,5 +261,21 @@ public class OrchestratorSecurityTest {
     public void testSpotifyRequiresAuthentication() throws Exception {
         mockMvc.perform(get("/api/spotify/overview"))
                 .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    public void testPortfolioRequiresAuthentication() throws Exception {
+        mockMvc.perform(get("/api/portfolio/status"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    public void testPortfolioAccessibleToGuest() throws Exception {
+        String guestToken = jwtUtil.generateToken("g", "ROLE_GUEST");
+        mockMvc.perform(get("/api/portfolio/status")
+                        .header("Authorization", "Bearer " + guestToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.intervalSeconds").exists())
+                .andExpect(jsonPath("$.targets").isArray());
     }
 }
