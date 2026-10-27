@@ -29,3 +29,14 @@ export function useDockerContainers(token, onUnauthorized) {
   return usePolledResource({ token, onUnauthorized, fetcher: api.fetchDockerContainers,
     initialData: EMPTY_LIST, accept: Array.isArray, label: 'Docker containers' });
 }
+
+export function usePortfolioStatus(token, onUnauthorized) {
+  return usePolledResource({
+    token,
+    onUnauthorized,
+    fetcher: api.fetchPortfolioStatus,
+    interval: 60000,
+    initialData: null,
+    label: 'portfolio status'
+  });
+}

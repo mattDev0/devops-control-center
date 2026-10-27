@@ -20,6 +20,7 @@ import HealthSLOPanel from './components/dashboard/HealthSLOPanel';
 import ClusterUnavailableCard from './components/dashboard/ClusterUnavailableCard';
 import SpotifyDashboard from './components/spotify/SpotifyDashboard';
 import VpnUsagePanel from './components/vpn/VpnUsagePanel';
+import PortfolioStatusPanel from './components/portfolio/PortfolioStatusPanel';
 import ErrorBoundary from './components/ErrorBoundary';
 import ThemeToggle from './components/ThemeToggle';
 
@@ -334,6 +335,19 @@ export default function App() {
 
           <button
             onClick={() => {
+              document.getElementById('portfolio')?.scrollIntoView({ behavior: 'smooth' });
+              setMobileOpen(false);
+            }}
+            className="flex items-center w-full gap-3 px-3 py-2 text-sm font-medium rounded-md hover:bg-[var(--interactive-hover)] text-[var(--fg-muted)] hover:text-[var(--fg-default)] transition-colors"
+            aria-label="Navigate to Portfolio"
+            title="Portfolio"
+          >
+            <Globe className="w-5 h-5 shrink-0 text-[var(--fg-subtle)]" />
+            {!sidebarCollapsed && <span>Portfolio</span>}
+          </button>
+
+          <button
+            onClick={() => {
               document.getElementById('listening')?.scrollIntoView({ behavior: 'smooth' });
               setMobileOpen(false);
             }}
@@ -566,6 +580,17 @@ export default function App() {
           <div id="metrics" className="scroll-mt-20">
             <ErrorBoundary>
               <SystemMetricsPanel token={token} />
+            </ErrorBoundary>
+          </div>
+
+          {/* Row 1.75: Portfolio uptime monitoring */}
+          <div id="portfolio" className="scroll-mt-20 space-y-3">
+            <div className="flex items-center gap-2">
+              <Globe className="w-4 h-4 text-[var(--accent-primary)] shrink-0" aria-hidden="true" />
+              <h2 className="text-sm font-semibold text-[var(--fg-default)]">Portfolio</h2>
+            </div>
+            <ErrorBoundary>
+              <PortfolioStatusPanel token={token} onUnauthorized={acquireGuestSession} />
             </ErrorBoundary>
           </div>
 
