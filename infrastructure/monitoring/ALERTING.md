@@ -11,11 +11,15 @@ production override enables alert provisioning and requires a webhook.
 | InstanceDown | A Prometheus scrape target has `up < 1` | 2 minutes |
 | HighErrorRate | HTTP 5xx requests exceed 5% over a five-minute window | 5 minutes |
 | DiskSpaceRunningLow | Free space on the host disk backing Docker is below 15% | 5 minutes |
+| PortfolioEndpointDown | A probed portfolio endpoint has `portfolio_probe_up < 1` | 5 minutes |
 
 Availability covers the configured Prometheus, node-exporter and orchestrator
 scrape targets. It is not a check of every container or the public website.
+Portfolio availability covers the public Cloud Run endpoints probed by the
+orchestrator every 60 seconds (`frontend`, `rust-api`, `java-api`).
 No data fires availability/disk alerts; no request data is normal for the HTTP
-error-rate rule. Query errors fire alerts for all three rules.
+error-rate rule, and OK for portfolio probe targets before orchestrator startup.
+Query errors fire alerts for all four rules.
 
 The existing containerized node-exporter exposes the host root disk through
 Docker's `/etc/hostname` bind mount, not a `/` filesystem metric. The disk rule
@@ -45,9 +49,10 @@ tree; review/export any manually created policies before first activation.
    ```
 
 3. Allow up to one minute for Grafana's notifier to refresh the provisioned
-   policy. In Grafana Alerting, verify the three rules in **DCC Monitoring**, the **DCC
-   Discord** contact point and notification policy. Use the contact point's Test
-   button with permission to send a test message to the selected channel.
+   policy. In Grafana Alerting, verify the four rules in **DCC Monitoring**, the **DCC
+   Discord** contact point and notification policy. Note that Grafana only loads
+   new provisioned alert rules after a restart on the host (`docker compose restart grafana`).
+   Use the contact point's Test button with permission to send a test message to the selected channel.
 4. Check the public dashboard, Prometheus targets and Grafana health. Confirm a
    real or controlled alert also sends a recovery message. Avoid stopping a
    production service just to test delivery.
