@@ -4,6 +4,7 @@ import { usePolledResource } from './usePolledResource';
 const EMPTY_LIST = [];
 const HEALTH_ERROR = { os_name: 'Error', os_version: 'N/A', uptime_seconds: 0 };
 const PORTFOLIO_ERROR = { error: 'Portfolio status is unavailable.', targets: [] };
+const WORKSPACE_ERROR = { error: 'Workspace status is unavailable.' };
 
 export function useServerHealth(token, onUnauthorized) {
   return usePolledResource({ token, onUnauthorized, fetcher: api.fetchHealth,
@@ -42,3 +43,16 @@ export function usePortfolioStatus(token, onUnauthorized) {
     label: 'portfolio status'
   });
 }
+
+export function useWorkspaceStatus(token, onUnauthorized) {
+  return usePolledResource({
+    token,
+    onUnauthorized,
+    fetcher: api.fetchWorkspaceStatus,
+    interval: 60000,
+    initialData: null,
+    errorData: WORKSPACE_ERROR,
+    label: 'workspace status'
+  });
+}
+
