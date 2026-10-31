@@ -79,7 +79,8 @@ public class WorkspaceStatusService {
     public WorkspaceStatusService(WorkspaceProperties properties, ObjectMapper objectMapper) {
         this(properties, objectMapper, HttpClient.newBuilder()
                 .connectTimeout(Duration.ofSeconds(5))
-                .followRedirects(HttpClient.Redirect.NORMAL)
+                // Requests carry API tokens, which a followed redirect would forward.
+                .followRedirects(HttpClient.Redirect.NEVER)
                 .build(), Clock.systemUTC());
     }
 

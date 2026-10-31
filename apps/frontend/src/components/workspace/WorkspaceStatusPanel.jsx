@@ -89,6 +89,9 @@ export default function WorkspaceStatusPanel({
   const sync = data?.sync;
 
   const isCreditExpiringSoon = credit?.daysLeft != null && credit.daysLeft <= 14;
+  // A section that has never succeeded has no values to show, only its error.
+  const creditNeverLoaded = credit?.state === 'error' && credit?.checkedAt == null;
+  const syncNeverLoaded = sync?.state === 'error' && sync?.checkedAt == null;
 
   return (
     <Shell onRefresh={onRefresh} refreshing={loading}>
@@ -106,14 +109,16 @@ export default function WorkspaceStatusPanel({
                 <span className="text-xs text-[var(--fg-muted)]">Checking…</span>
               ) : (
                 <>
-                  <span
-                    className={`w-2 h-2 rounded-full shrink-0 ${
-                      vm?.status === 'running'
-                        ? 'bg-[var(--status-success)]'
-                        : 'bg-[var(--status-error)]'
-                    }`}
-                    aria-hidden="true"
-                  />
+                  {vm?.status && (
+                    <span
+                      className={`w-2 h-2 rounded-full shrink-0 ${
+                        vm.status === 'running'
+                          ? 'bg-[var(--status-success)]'
+                          : 'bg-[var(--status-error)]'
+                      }`}
+                      aria-hidden="true"
+                    />
+                  )}
                   {vm?.status && (
                     <span
                       className={`text-xs font-medium ${
@@ -157,7 +162,7 @@ export default function WorkspaceStatusPanel({
                 <span className="text-xs text-[var(--fg-muted)]">Not configured</span>
               ) : credit?.state === 'pending' ? (
                 <span className="text-xs text-[var(--fg-muted)]">Checking…</span>
-              ) : credit?.expiresAt == null ? (
+              ) : creditNeverLoaded ? null : credit?.expiresAt == null ? (
                 <span className="text-xs text-[var(--fg-muted)]">No active credit</span>
               ) : (
                 <div className="flex flex-wrap items-center gap-3 text-xs">
@@ -199,7 +204,7 @@ export default function WorkspaceStatusPanel({
             <div className="text-xs text-[var(--fg-muted)]">Not configured</div>
           ) : sync?.state === 'pending' ? (
             <div className="text-xs text-[var(--fg-muted)]">Checking…</div>
-          ) : (
+          ) : syncNeverLoaded ? null : (
             <div className="space-y-1.5">
               {(sync?.hosts || []).map((h) => (
                 <div key={h.host} className="flex items-center justify-between text-xs">

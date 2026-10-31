@@ -129,6 +129,24 @@ describe('WorkspaceStatusPanel', () => {
     expect(screen.getByText('GitHub API unavailable')).toBeInTheDocument();
   });
 
+  it('shows only the error when a section has never loaded', () => {
+    const neverLoaded = {
+      vm: { state: 'error', error: 'Linode API unavailable' },
+      credit: { state: 'error', error: 'Linode API unavailable' },
+      sync: {
+        state: 'error',
+        error: 'GitHub API unavailable',
+        hosts: [{ host: 'dev-workspace', label: 'Workspace VM', lastChangeAt: null }],
+      },
+    };
+
+    render(<WorkspaceStatusPanel data={neverLoaded} loading={false} />);
+
+    expect(screen.queryByText('No active credit')).not.toBeInTheDocument();
+    expect(screen.queryByText('No recent changes')).not.toBeInTheDocument();
+    expect(screen.getByText('GitHub API unavailable')).toBeInTheDocument();
+  });
+
   it('displays credit expiry in red when daysLeft is 14 or less', () => {
     const expiringSoon = {
       ...populatedData,
