@@ -17,9 +17,7 @@ import DockerContainersTable from './components/dashboard/DockerContainersTable'
 import DockerLogsModal from './components/dashboard/DockerLogsModal';
 import MetricsCards, { SystemMetricsPanel, DockerContainersKpiCard } from './components/dashboard/MetricsCards';
 import HealthSLOPanel from './components/dashboard/HealthSLOPanel';
-import ClusterUnavailableCard from './components/dashboard/ClusterUnavailableCard';
 import SpotifyDashboard from './components/spotify/SpotifyDashboard';
-import VpnUsagePanel from './components/vpn/VpnUsagePanel';
 import PortfolioStatusPanel from './components/portfolio/PortfolioStatusPanel';
 import WorkspaceStatusPanel from './components/workspace/WorkspaceStatusPanel';
 import ErrorBoundary from './components/ErrorBoundary';
@@ -54,7 +52,8 @@ export default function App() {
   const containerLogsRef = useRef(null);
 
   // Custom Hooks
-  const logs = useSystemLogs(token);
+  // The log stream is admin-only, so a guest connection would only keep retrying.
+  const logs = useSystemLogs(role === 'ROLE_ADMIN' ? token : '');
   const activeDeploymentLogs = useDeploymentLogs(token, activeLogDeployment, showLogsModal);
   const activeContainerLogs = useDockerContainerLogs(token, activeLogContainer, showDockerLogsModal);
 
@@ -375,18 +374,20 @@ export default function App() {
             {!sidebarCollapsed && <span>Spotify</span>}
           </button>
 
-          <button
-            onClick={() => {
-              document.getElementById('logs')?.scrollIntoView({ behavior: 'smooth' });
-              setMobileOpen(false);
-            }}
-            className="flex items-center w-full gap-3 px-3 py-2 text-sm font-medium rounded-md hover:bg-[var(--interactive-hover)] text-[var(--fg-muted)] hover:text-[var(--fg-default)] transition-colors"
-            aria-label="Navigate to System Logs"
-            title="System Logs"
-          >
-            <FileText className="w-5 h-5 shrink-0 text-[var(--fg-subtle)]" />
-            {!sidebarCollapsed && <span>System Logs</span>}
-          </button>
+          {role === 'ROLE_ADMIN' && (
+            <button
+              onClick={() => {
+                document.getElementById('logs')?.scrollIntoView({ behavior: 'smooth' });
+                setMobileOpen(false);
+              }}
+              className="flex items-center w-full gap-3 px-3 py-2 text-sm font-medium rounded-md hover:bg-[var(--interactive-hover)] text-[var(--fg-muted)] hover:text-[var(--fg-default)] transition-colors"
+              aria-label="Navigate to System Logs"
+              title="System Logs"
+            >
+              <FileText className="w-5 h-5 shrink-0 text-[var(--fg-subtle)]" />
+              {!sidebarCollapsed && <span>System Logs</span>}
+            </button>
+          )}
 
           <button
             onClick={() => {
@@ -408,7 +409,7 @@ export default function App() {
             <div className="text-[10px] uppercase font-bold text-[var(--fg-subtle)] tracking-wider">Scope Context</div>
             <div className="text-xs font-semibold mt-1 flex items-center gap-1.5 text-[var(--accent-primary)]">
               <Globe className="w-3.5 h-3.5" />
-              Production / K3s
+              Production / {kubernetesAvailable ? 'K3s' : 'Docker Compose'}
             </div>
           </div>
         )}
@@ -466,7 +467,7 @@ export default function App() {
         <main className="flex-grow p-6 overflow-y-auto space-y-6 max-w-7xl w-full mx-auto">
           {/* KPI Summary Row */}
           {health && (
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+            <div className={`grid grid-cols-2 gap-4 ${kubernetesAvailable ? 'md:grid-cols-5' : 'md:grid-cols-3'}`}>
               {/* Agent Status */}
               <div className="bg-[var(--bg-surface)] border border-[var(--border-default)] rounded-[var(--radius-md)] px-3 py-2 flex items-center gap-2.5">
                 <Server className="w-4 h-4 text-[var(--accent-primary)] shrink-0" />
@@ -479,53 +480,53 @@ export default function App() {
                 </div>
               </div>
 
-              {/* Running Pods */}
+              {/* Running Pods, or containers when no cluster is connected */}
               <div className="bg-[var(--bg-surface)] border border-[var(--border-default)] rounded-[var(--radius-md)] px-3 py-2 flex items-center gap-2.5">
                 <Activity className="w-4 h-4 text-[var(--accent-secondary)] shrink-0" />
                 <div>
-                  <div className="text-[10px] text-[var(--fg-subtle)] uppercase font-semibold tracking-wider">Running Pods</div>
+                  <div className="text-[10px] text-[var(--fg-subtle)] uppercase font-semibold tracking-wider">{kubernetesAvailable ? 'Running Pods' : 'Containers'}</div>
                   <div className="text-xs font-bold mt-0.5">
                     {kubernetesAvailable
                       ? `${podHealth ? podHealth.reduce((sum, ns) => sum + (ns.running || 0), 0) : 0} Pods`
-                      : 'No cluster'}
+                      : `${containers.filter((c) => c.state === 'running').length} of ${containers.length} running`}
                   </div>
                 </div>
               </div>
 
-              {/* Availability SLI */}
-              <div className="bg-[var(--bg-surface)] border border-[var(--border-default)] rounded-[var(--radius-md)] px-3 py-2 flex items-center gap-2.5">
-                <div className="w-4 h-4 rounded-full border border-[var(--fg-subtle)]/20 flex items-center justify-center text-[10px] font-bold text-[var(--accent-primary)] shrink-0">%</div>
-                <div>
-                  <div className="text-[10px] text-[var(--fg-subtle)] uppercase font-semibold tracking-wider">Availability SLI</div>
-                  <div className="text-xs font-bold mt-0.5">
-                    {(() => {
-                      // Reporting 100% for a cluster that is not connected would
-                      // be worse than reporting nothing.
-                      if (!kubernetesAvailable) return '—';
-                      const totalPods = podHealth ? podHealth.reduce((sum, ns) => sum + (ns.total || 0), 0) : 0;
-                      const runningPods = podHealth ? podHealth.reduce((sum, ns) => sum + (ns.running || 0), 0) : 0;
-                      return `${totalPods > 0 ? ((runningPods / totalPods) * 100).toFixed(1) : '100.0'}%`;
-                    })()}
+              {kubernetesAvailable && (
+                <>
+                  {/* Availability SLI */}
+                  <div className="bg-[var(--bg-surface)] border border-[var(--border-default)] rounded-[var(--radius-md)] px-3 py-2 flex items-center gap-2.5">
+                    <div className="w-4 h-4 rounded-full border border-[var(--fg-subtle)]/20 flex items-center justify-center text-[10px] font-bold text-[var(--accent-primary)] shrink-0">%</div>
+                    <div>
+                      <div className="text-[10px] text-[var(--fg-subtle)] uppercase font-semibold tracking-wider">Availability SLI</div>
+                      <div className="text-xs font-bold mt-0.5">
+                        {(() => {
+                          const totalPods = podHealth ? podHealth.reduce((sum, ns) => sum + (ns.total || 0), 0) : 0;
+                          const runningPods = podHealth ? podHealth.reduce((sum, ns) => sum + (ns.running || 0), 0) : 0;
+                          return `${totalPods > 0 ? ((runningPods / totalPods) * 100).toFixed(1) : '100.0'}%`;
+                        })()}
+                      </div>
+                    </div>
                   </div>
-                </div>
-              </div>
 
-              {/* Remaining Budget */}
-              <div className="bg-[var(--bg-surface)] border border-[var(--border-default)] rounded-[var(--radius-md)] px-3 py-2 flex items-center gap-2.5">
-                <div className="w-4 h-4 rounded-full border border-[var(--fg-subtle)]/20 flex items-center justify-center text-[10px] font-bold text-[var(--status-error)] shrink-0">E</div>
-                <div>
-                  <div className="text-[10px] text-[var(--fg-subtle)] uppercase font-semibold tracking-wider">Error Budget</div>
-                  <div className="text-xs font-bold mt-0.5">
-                    {(() => {
-                      if (!kubernetesAvailable) return '—';
-                      const totalFailed = podHealth ? podHealth.reduce((sum, ns) => sum + (ns.failed || 0) + (ns.crash_loop || 0) + ((ns.pending || 0) * 0.5), 0) : 0;
-                      const totalPods = podHealth ? podHealth.reduce((sum, ns) => sum + (ns.total || 0), 0) : 0;
-                      const budgetConsumedPercent = totalPods > 0 ? Math.min(100, Math.max(0, (totalFailed / totalPods) * 100 * 10)) : 0;
-                      return `${(100 - budgetConsumedPercent).toFixed(1)}%`;
-                    })()}
+                  {/* Remaining Budget */}
+                  <div className="bg-[var(--bg-surface)] border border-[var(--border-default)] rounded-[var(--radius-md)] px-3 py-2 flex items-center gap-2.5">
+                    <div className="w-4 h-4 rounded-full border border-[var(--fg-subtle)]/20 flex items-center justify-center text-[10px] font-bold text-[var(--status-error)] shrink-0">E</div>
+                    <div>
+                      <div className="text-[10px] text-[var(--fg-subtle)] uppercase font-semibold tracking-wider">Error Budget</div>
+                      <div className="text-xs font-bold mt-0.5">
+                        {(() => {
+                          const totalFailed = podHealth ? podHealth.reduce((sum, ns) => sum + (ns.failed || 0) + (ns.crash_loop || 0) + ((ns.pending || 0) * 0.5), 0) : 0;
+                          const totalPods = podHealth ? podHealth.reduce((sum, ns) => sum + (ns.total || 0), 0) : 0;
+                          const budgetConsumedPercent = totalPods > 0 ? Math.min(100, Math.max(0, (totalFailed / totalPods) * 100 * 10)) : 0;
+                          return `${(100 - budgetConsumedPercent).toFixed(1)}%`;
+                        })()}
+                      </div>
+                    </div>
                   </div>
-                </div>
-              </div>
+                </>
+              )}
 
               {/* Last Pipeline Status */}
               <div className="bg-[var(--bg-surface)] border border-[var(--border-default)] rounded-[var(--radius-md)] px-3 py-2 flex items-center gap-2.5 col-span-2 md:col-span-1">
@@ -554,7 +555,7 @@ export default function App() {
           )}
 
           {/* Row 1: Health & Overview */}
-          <div id="overview" className="scroll-mt-20 grid grid-cols-1 lg:grid-cols-4 gap-6">
+          <div id="overview" className={`scroll-mt-20 grid grid-cols-1 gap-6 ${kubernetesAvailable ? 'lg:grid-cols-3' : 'lg:grid-cols-2'}`}>
             <ErrorBoundary>
               <MetricsCards
                 health={health}
@@ -569,27 +570,17 @@ export default function App() {
                 fetchContainers={() => fetchContainers()}
               />
             </ErrorBoundary>
-            <div>
-              <ErrorBoundary>
-                <VpnUsagePanel token={token} />
-              </ErrorBoundary>
-            </div>
-            <div>
-              <ErrorBoundary>
-                {kubernetesAvailable ? (
+            {kubernetesAvailable && (
+              <div>
+                <ErrorBoundary>
                   <HealthSLOPanel
                     podHealth={podHealth}
                     loading={loadingPodHealth}
                     fetchPodHealth={() => fetchPodHealth()}
                   />
-                ) : (
-                  <ClusterUnavailableCard
-                    title="K8s Cluster Health & SLO"
-                    description="This environment runs on Docker Compose. Pod health and SLO tracking become available when the agent is connected to a cluster."
-                  />
-                )}
-              </ErrorBoundary>
-            </div>
+                </ErrorBoundary>
+              </div>
+            )}
           </div>
 
           {/* Row 1.5: System Metrics */}
@@ -636,8 +627,8 @@ export default function App() {
           {/* Row 2: Deployments & CI/CD */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <div id="deployments" className="scroll-mt-20 flex flex-col gap-6">
-              <ErrorBoundary>
-                {kubernetesAvailable ? (
+              {kubernetesAvailable && (
+                <ErrorBoundary>
                   <DeploymentsTable
                     deployments={deployments}
                     loading={loadingDeployments}
@@ -649,13 +640,8 @@ export default function App() {
                       setShowLogsModal(true);
                     }}
                   />
-                ) : (
-                  <ClusterUnavailableCard
-                    title="Kubernetes Deployments"
-                    description="Deployment controls apply to a Kubernetes cluster. Container management for this environment is available in the Docker panel below."
-                  />
-                )}
-              </ErrorBoundary>
+                </ErrorBoundary>
+              )}
 
               <ErrorBoundary>
                 <DockerContainersTable
@@ -687,11 +673,13 @@ export default function App() {
           </div>
 
           {/* Row 3: Logs */}
-          <div id="logs" className="scroll-mt-20 grid grid-cols-1">
-            <ErrorBoundary>
-              <LogViewer logs={logs} logsContainerRef={logsContainerRef} />
-            </ErrorBoundary>
-          </div>
+          {role === 'ROLE_ADMIN' && (
+            <div id="logs" className="scroll-mt-20 grid grid-cols-1">
+              <ErrorBoundary>
+                <LogViewer logs={logs} logsContainerRef={logsContainerRef} />
+              </ErrorBoundary>
+            </div>
+          )}
         </main>
       </div>
 
