@@ -49,6 +49,7 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.POST, "/api/servers/docker/**").hasAuthority("ROLE_ADMIN")
                 .requestMatchers("/api/servers/logs").hasAuthority("ROLE_ADMIN")
                 .requestMatchers("/api/servers/docker/containers/*/logs").hasAuthority("ROLE_ADMIN")
+                .requestMatchers("/api/workspace/**").hasAuthority("ROLE_ADMIN")
                 .requestMatchers("/api/**").hasAnyAuthority("ROLE_GUEST", "ROLE_ADMIN")
                 .anyRequest().denyAll()
             )

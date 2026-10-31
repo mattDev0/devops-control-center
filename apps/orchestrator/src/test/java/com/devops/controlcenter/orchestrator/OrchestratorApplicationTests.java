@@ -7,7 +7,8 @@ import org.springframework.boot.test.context.SpringBootTest;
     "agent.secret-key=test-agent-secret-key-123",
     "admin.password=admin-password-change-me",
     "jwt.secret=jwt-signing-secret-key-change-me-should-be-long-and-random-32-bytes",
-    "portfolio.probe.enabled=false"
+    "portfolio.probe.enabled=false",
+    "workspace.status.enabled=false"
 })
 class OrchestratorApplicationTests {
 

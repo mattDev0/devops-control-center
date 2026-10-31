@@ -24,7 +24,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
     "agent.secret-key=test-agent-secret-key-123",
     "admin.password=test-only-password",
     "jwt.secret=test-only-jwt-signing-secret-not-used-in-production",
-    "portfolio.probe.enabled=false"
+    "portfolio.probe.enabled=false",
+    "workspace.status.enabled=false"
 })
 @AutoConfigureMockMvc
 @org.springframework.boot.micrometer.metrics.test.autoconfigure.AutoConfigureMetrics
@@ -277,5 +278,27 @@ public class OrchestratorSecurityTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.intervalSeconds").exists())
                 .andExpect(jsonPath("$.targets").isArray());
+    }
+
+    @Test
+    public void testWorkspaceRequiresAuthentication() throws Exception {
+        mockMvc.perform(get("/api/workspace/status"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    public void testWorkspaceForbiddenToGuest() throws Exception {
+        String guestToken = jwtUtil.generateToken("g", "ROLE_GUEST");
+        mockMvc.perform(get("/api/workspace/status")
+                        .header("Authorization", "Bearer " + guestToken))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    public void testWorkspaceAccessibleToAdmin() throws Exception {
+        String adminToken = jwtUtil.generateToken("admin", "ROLE_ADMIN");
+        mockMvc.perform(get("/api/workspace/status")
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk());
     }
 }
