@@ -142,4 +142,13 @@ export const api = {
     });
     return handleResponse(response);
   },
+
+  // --- Workspace status ---
+  fetchWorkspaceStatus: async (token, signal) => {
+    const response = await fetch('api/workspace/status', {
+      signal,
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    return handleResponse(response);
+  },
 };

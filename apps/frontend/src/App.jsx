@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { LogOut, Lock, Loader2, AlertTriangle, RefreshCw, Music, LayoutDashboard, ChevronLeft, ChevronRight, Menu, Layers, GitPullRequest, FileText, Globe, LineChart, Server, Activity } from 'lucide-react';
+import { LogOut, Lock, Loader2, AlertTriangle, RefreshCw, Music, LayoutDashboard, ChevronLeft, ChevronRight, Menu, Layers, GitPullRequest, FileText, Globe, LineChart, Server, Activity, Terminal } from 'lucide-react';
 // Import Services
 import { api } from './services/api';
 
@@ -21,6 +21,7 @@ import ClusterUnavailableCard from './components/dashboard/ClusterUnavailableCar
 import SpotifyDashboard from './components/spotify/SpotifyDashboard';
 import VpnUsagePanel from './components/vpn/VpnUsagePanel';
 import PortfolioStatusPanel from './components/portfolio/PortfolioStatusPanel';
+import WorkspaceStatusPanel from './components/workspace/WorkspaceStatusPanel';
 import ErrorBoundary from './components/ErrorBoundary';
 import ThemeToggle from './components/ThemeToggle';
 
@@ -346,6 +347,21 @@ export default function App() {
             {!sidebarCollapsed && <span>Portfolio</span>}
           </button>
 
+          {role === 'ROLE_ADMIN' && (
+            <button
+              onClick={() => {
+                document.getElementById('workspace')?.scrollIntoView({ behavior: 'smooth' });
+                setMobileOpen(false);
+              }}
+              className="flex items-center w-full gap-3 px-3 py-2 text-sm font-medium rounded-md hover:bg-[var(--interactive-hover)] text-[var(--fg-muted)] hover:text-[var(--fg-default)] transition-colors"
+              aria-label="Navigate to Dev workspace"
+              title="Dev workspace"
+            >
+              <Terminal className="w-5 h-5 shrink-0 text-[var(--fg-subtle)]" />
+              {!sidebarCollapsed && <span>Dev workspace</span>}
+            </button>
+          )}
+
           <button
             onClick={() => {
               document.getElementById('listening')?.scrollIntoView({ behavior: 'smooth' });
@@ -593,6 +609,18 @@ export default function App() {
               <PortfolioStatusPanel token={token} onUnauthorized={handleLogout} />
             </ErrorBoundary>
           </div>
+
+          {role === 'ROLE_ADMIN' && (
+            <div id="workspace" className="scroll-mt-20 space-y-3">
+              <div className="flex items-center gap-2">
+                <Terminal className="w-4 h-4 text-[var(--accent-primary)] shrink-0" aria-hidden="true" />
+                <h2 className="text-sm font-semibold text-[var(--fg-default)]">Dev workspace</h2>
+              </div>
+              <ErrorBoundary>
+                <WorkspaceStatusPanel token={token} onUnauthorized={handleLogout} />
+              </ErrorBoundary>
+            </div>
+          )}
 
           {/* Row 2.5: Spotify listening analytics */}
           <div id="listening" className="scroll-mt-20 space-y-3">
