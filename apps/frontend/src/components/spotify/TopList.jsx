@@ -25,24 +25,33 @@ export default function TopList({ items, loading, emptyMessage, renderMeta }) {
 
   return (
     <ol className="space-y-1">
-      {items.map((item, i) => (
-        <li key={item.id}
-            className="flex items-center gap-3 px-2 py-1.5 rounded-[var(--radius-md)] hover:bg-[var(--interactive-hover)] transition-colors">
-          <span className="w-4 text-[11px] tabular-nums text-[var(--fg-subtle)] text-right shrink-0">
-            {i + 1}
-          </span>
-          {item.image || item.album_art ? (
-            <img src={item.image || item.album_art} alt=""
-                 className="w-9 h-9 rounded object-cover shrink-0" loading="lazy" />
-          ) : (
-            <div className="w-9 h-9 rounded bg-[var(--bg-elevated)] shrink-0" />
-          )}
-          <div className="min-w-0 flex-1">
-            <div className="text-xs font-medium text-[var(--fg-default)] truncate">{item.name}</div>
-            <div className="text-[11px] text-[var(--fg-muted)] truncate">{renderMeta(item)}</div>
-          </div>
-        </li>
-      ))}
+      {items.map((item, i) => {
+        const meta = renderMeta(item);
+        return (
+          <li
+            key={item.id}
+            className="flex items-center gap-3 px-2 py-1.5 rounded-[var(--radius-md)] hover:bg-[var(--interactive-hover)] transition-colors"
+          >
+            <span className="w-4 text-[11px] tabular-nums text-[var(--fg-subtle)] text-right shrink-0">
+              {i + 1}
+            </span>
+            {item.image || item.album_art ? (
+              <img
+                src={item.image || item.album_art}
+                alt=""
+                className="w-9 h-9 rounded object-cover shrink-0"
+                loading="lazy"
+              />
+            ) : (
+              <div className="w-9 h-9 rounded bg-[var(--bg-elevated)] shrink-0" />
+            )}
+            <div className="min-w-0 flex-1">
+              <div className="text-xs font-medium text-[var(--fg-default)] truncate">{item.name}</div>
+              {meta && <div className="text-[11px] text-[var(--fg-muted)] truncate">{meta}</div>}
+            </div>
+          </li>
+        );
+      })}
     </ol>
   );
 }
