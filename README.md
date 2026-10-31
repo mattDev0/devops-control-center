@@ -69,8 +69,8 @@ graph TD
 ```
 
 > The agent also speaks to a Kubernetes API when one is present. This deployment
-> has no cluster, so those features report themselves unavailable rather than
-> failing; see the note above.
+> has no cluster, so those features stay hidden rather than failing; see the
+> note above.
 
 ## 1. Frontend — React + Vite + Tailwind CSS + Nginx
 A responsive single-page dashboard featuring:
