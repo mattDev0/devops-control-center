@@ -4,25 +4,38 @@ A custom, end-to-end DevOps orchestration and observability platform built from 
 
 ---
 
-## Backups
-
-Backup scripts, retention, installation and recovery instructions are documented in
-[Backup and recovery](scripts/BACKUPS.md). Scheduling requires installing the host cron entry.
-
-## Monitoring alerts
-
-Production Grafana evaluates service availability, HTTP error rate and free disk
-space, and sends firing and recovery notifications to Discord. Setup, thresholds
-and verification are documented in [Monitoring alerts](infrastructure/monitoring/ALERTING.md).
-
 ## 🌐 Live Preview
 **Check out the live dashboard here:**  
 👉 **[https://devops.mattdev0.tech](https://devops.mattdev0.tech)**
+
+![DevOps Control Center overview](docs/screenshots/dcc-overview.png)
 
 > ⚠️ **IMPORTANT WARNING FOR VISITORS** ⚠️
 > 
 > This is a live demonstration connected to real infrastructure. 
 > **Please DO NOT stop, restart, or modify any running deployments or pods** via the dashboard unless you know what you are doing. Disrupting the deployments will bring down the services on the host server.
+
+
+## 📸 Screenshots
+
+**System metrics:** live CPU and memory from Prometheus, rendered through Grafana.
+
+![System metrics panels](docs/screenshots/dcc-metrics.png)
+
+**Portfolio monitoring:** availability, latency and one-hour uptime for each service.
+
+![Portfolio uptime monitoring](docs/screenshots/dcc-portfolio-monitoring.png)
+
+**Spotify analytics:** top listening and listening patterns from the Rust service.
+
+![Spotify listening analytics](docs/screenshots/dcc-spotify.png)
+
+**Containers and pipelines:** per-container telemetry beside recent GitHub Actions runs.
+
+<p>
+  <img src="docs/screenshots/dcc-containers.png" alt="Host Docker containers" width="49%">
+  <img src="docs/screenshots/dcc-cicd.png" alt="CI/CD pipelines" width="49%">
+</p>
 
 ---
 
@@ -170,6 +183,17 @@ Integrated monitoring stack powered by Prometheus and Grafana.
 * **Application Metrics:** Orchestrator `/actuator/prometheus` metrics are actively scraped for advanced APM.
 
 ---
+
+## Backups
+
+Backup scripts, retention, installation and recovery instructions are documented in
+[Backup and recovery](scripts/BACKUPS.md). Scheduling requires installing the host cron entry.
+
+## Monitoring alerts
+
+Production Grafana evaluates service availability, HTTP error rate and free disk
+space, and sends firing and recovery notifications to Discord. Setup, thresholds
+and verification are documented in [Monitoring alerts](infrastructure/monitoring/ALERTING.md).
 
 # 🛠️ Configuration & Deployment
 
