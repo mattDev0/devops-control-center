@@ -103,7 +103,7 @@ export default function SpotifyDashboard({ token }) {
       >
         {tab === 'artists' && (
           <TopList items={data.artists} loading={loading} emptyMessage="No ranking yet"
-                   renderMeta={(a) => a.genres?.slice(0, 2).join(' · ') || 'genre not tagged'} />
+                   renderMeta={(a) => a.genres?.slice(0, 2).join(' · ')} />
         )}
         {tab === 'tracks' && (
           <TopList items={data.tracks} loading={loading} emptyMessage="No ranking yet"
