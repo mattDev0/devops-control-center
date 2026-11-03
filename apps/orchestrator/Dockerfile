@@ -3,13 +3,14 @@ FROM maven:3.10.0-eclipse-temurin-25 AS builder
 
 WORKDIR /app
 
-# Copy dependency definition and source files
+# Download dependencies alone first, so this layer stays cached until pom.xml
+# changes.
 COPY pom.xml .
-COPY src ./src
+RUN mvn -B dependency:go-offline
 
-# Build the application using BuildKit cache mount
-RUN --mount=type=cache,target=/root/.m2 \
-    mvn package -DskipTests && \
+# Build the application
+COPY src ./src
+RUN mvn -B package -DskipTests && \
     cp target/orchestrator-0.0.1-SNAPSHOT.jar /app/app.jar
 
 # --- Final Stage ---
