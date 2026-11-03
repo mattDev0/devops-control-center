@@ -105,17 +105,27 @@ jobs:
           npm run build
 
   build:
-    needs: test
+    # Runs alongside the test job. Images are only tagged with the commit SHA, and
+    # nothing deploys until both the tests and every image scan pass.
     runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - image: devops-agent
+            context: ./apps/agent
+          - image: devops-orchestrator
+            context: ./apps/orchestrator
+          - image: devops-frontend
+            context: ./apps/frontend
+          - image: devops-spotify
+            context: ./apps/spotify-service
     steps:
       - name: Checkout Code
         uses: actions/checkout@v7
-
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v4
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
@@ -127,83 +137,29 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build and Push Devops Agent
+      # Each image gets its own cache scope. Without one, every build overwrites the
+      # shared cache entry and only the last image built ever gets a cache hit.
+      - name: Build and Push ${{ matrix.image }}
         uses: docker/build-push-action@v7
         with:
-          context: ./apps/agent
+          context: ${{ matrix.context }}
           push: true
           tags: |
-            ghcr.io/mattdev0/devops-control-center/devops-agent:${{ github.sha }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+            ghcr.io/mattdev0/devops-control-center/${{ matrix.image }}:${{ github.sha }}
+          cache-from: type=gha,scope=${{ matrix.image }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.image }}
 
-      - name: Scan Devops Agent Image
+      - name: Scan ${{ matrix.image }} Image
         uses: aquasecurity/trivy-action@v0.36.0
         with:
-          image-ref: 'ghcr.io/mattdev0/devops-control-center/devops-agent:${{ github.sha }}'
-          format: 'table'
-          exit-code: '1'
-          ignore-unfixed: true
-          severity: 'CRITICAL'
-
-      - name: Build and Push Devops Orchestrator
-        uses: docker/build-push-action@v7
-        with:
-          context: ./apps/orchestrator
-          push: true
-          tags: |
-            ghcr.io/mattdev0/devops-control-center/devops-orchestrator:${{ github.sha }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
-      - name: Scan Devops Orchestrator Image
-        uses: aquasecurity/trivy-action@v0.36.0
-        with:
-          image-ref: 'ghcr.io/mattdev0/devops-control-center/devops-orchestrator:${{ github.sha }}'
-          format: 'table'
-          exit-code: '1'
-          ignore-unfixed: true
-          severity: 'CRITICAL'
-
-      - name: Build and Push Devops Frontend
-        uses: docker/build-push-action@v7
-        with:
-          context: ./apps/frontend
-          push: true
-          tags: |
-            ghcr.io/mattdev0/devops-control-center/devops-frontend:${{ github.sha }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
-      - name: Scan Devops Frontend Image
-        uses: aquasecurity/trivy-action@v0.36.0
-        with:
-          image-ref: 'ghcr.io/mattdev0/devops-control-center/devops-frontend:${{ github.sha }}'
-          format: 'table'
-          exit-code: '1'
-          ignore-unfixed: true
-          severity: 'CRITICAL'
-      - name: Build and Push Devops Spotify Service
-        uses: docker/build-push-action@v7
-        with:
-          context: ./apps/spotify-service
-          push: true
-          tags: |
-            ghcr.io/mattdev0/devops-control-center/devops-spotify:${{ github.sha }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
-      - name: Scan Devops Spotify Service Image
-        uses: aquasecurity/trivy-action@v0.36.0
-        with:
-          image-ref: 'ghcr.io/mattdev0/devops-control-center/devops-spotify:${{ github.sha }}'
+          image-ref: 'ghcr.io/mattdev0/devops-control-center/${{ matrix.image }}:${{ github.sha }}'
           format: 'table'
           exit-code: '1'
           ignore-unfixed: true
           severity: 'CRITICAL'
 
   deploy:
-    needs: build
+    needs: [test, build]
     runs-on: ubuntu-latest
     environment: production
     permissions:
