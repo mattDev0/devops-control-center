@@ -9,11 +9,17 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 WORKDIR /app
 
+# Build the dependencies alone first, against a placeholder main.rs, so this
+# layer stays cached until Cargo.toml or Cargo.lock changes.
 COPY Cargo.toml Cargo.lock* ./
-COPY src ./src
+RUN mkdir src && echo 'fn main() {}' > src/main.rs && \
+    cargo build --release && \
+    rm -rf src
 
-RUN --mount=type=cache,target=/usr/local/cargo/registry \
-    --mount=type=cache,target=/app/target \
+# Build the real binary. The touch makes cargo rebuild this crate instead of
+# reusing the placeholder build.
+COPY src ./src
+RUN touch src/main.rs && \
     cargo build --release && \
     cp target/release/spotify-service /usr/local/bin/spotify-service
 
