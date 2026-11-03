@@ -419,7 +419,7 @@ export default function App() {
       <div className="flex-1 flex flex-col min-w-0 min-h-screen">
         {/* Sticky Top Nav Bar */}
         <header role="banner" className="sticky top-0 z-30 flex h-14 items-center justify-between bg-[var(--bg-surface)] border-b border-[var(--border-default)] px-6 shadow-sm">
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 min-w-0">
             <button
               onClick={() => setMobileOpen(!mobileOpen)}
               className="p-1.5 rounded hover:bg-[var(--interactive-hover)] text-[var(--fg-muted)] hover:text-[var(--fg-default)] md:hidden transition-colors"
@@ -430,26 +430,29 @@ export default function App() {
               <Menu className="w-5 h-5" />
             </button>
             
-            <h1 className="text-base font-bold tracking-tight text-[var(--fg-default)] flex items-center gap-2">
-              DevOps Control Center
+            <h1 className="text-base font-bold tracking-tight text-[var(--fg-default)] flex items-center gap-2 whitespace-nowrap" aria-label="DevOps Control Center">
+              <span className="sm:hidden" aria-hidden="true">DCC</span>
+              <span className="hidden sm:inline" aria-hidden="true">DevOps Control Center</span>
             </h1>
             
             {role === 'ROLE_GUEST' && (
-              <span className="text-[10px] font-mono font-medium bg-[var(--bg-elevated)] border border-[var(--border-muted)] text-[var(--fg-muted)] px-2 py-0.5 rounded" aria-label="Read-only mode enabled">
+              <span className="hidden sm:inline-block text-[10px] font-mono font-medium bg-[var(--bg-elevated)] border border-[var(--border-muted)] text-[var(--fg-muted)] px-2 py-0.5 rounded" aria-label="Read-only mode enabled">
                 🔒 Guest Mode
               </span>
             )}
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 shrink-0">
             <ThemeToggle />
             {role === 'ROLE_GUEST' ? (
               <button
                 onClick={() => setShowAdminLogin(true)}
-                className="flex items-center gap-2 bg-[var(--accent-primary)] hover:bg-[var(--accent-primary-hover)] text-[var(--fg-on-emphasis)] px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer shadow-sm"
+                aria-label="Login as Admin"
+                className="flex items-center gap-2 bg-[var(--accent-primary)] hover:bg-[var(--accent-primary-hover)] text-[var(--fg-on-emphasis)] px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer shadow-sm whitespace-nowrap"
               >
                 <Lock className="w-3.5 h-3.5" />
-                Login as Admin
+                <span className="sm:hidden">Login</span>
+                <span className="hidden sm:inline">Login as Admin</span>
               </button>
             ) : (
               <button

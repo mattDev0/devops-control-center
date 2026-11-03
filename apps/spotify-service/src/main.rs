@@ -8,7 +8,12 @@ use axum::{
 };
 use serde::Deserialize;
 use serde_json::json;
-use std::{collections::HashSet, net::SocketAddr, sync::Arc, time::Duration};
+use std::{
+    collections::{HashMap, HashSet},
+    net::SocketAddr,
+    sync::Arc,
+    time::Duration,
+};
 
 mod db;
 mod models;
@@ -81,6 +86,15 @@ fn valid_range(range: &str) -> Option<&'static str> {
     }
 }
 
+/// Spotify can omit genres from top artists, so fall back to the cached lookup.
+fn fill_missing_genres(artists: &mut [models::TopArtist], cached: &HashMap<String, Vec<String>>) {
+    for artist in artists.iter_mut().filter(|a| a.genres.is_empty()) {
+        if let Some(genres) = cached.get(&artist.id) {
+            artist.genres = genres.clone();
+        }
+    }
+}
+
 async fn top(
     State(state): State<AppState>,
     Path(kind): Path<String>,
@@ -93,11 +107,13 @@ async fn top(
 
     match kind.as_str() {
         "artists" => {
-            let artists = state.spotify.top_artists(range, limit).await.map_err(map_err)?;
+            let mut artists = state.spotify.top_artists(range, limit).await.map_err(map_err)?;
             // Opportunistically warm the genre cache from data we already have.
             for a in &artists {
                 let _ = db::cache_genres(&state.db, &a.id, &a.genres);
             }
+            let cached = db::artist_genre_map(&state.db).unwrap_or_default();
+            fill_missing_genres(&mut artists, &cached);
             Ok(Json(json!(artists)))
         }
         "tracks" => Ok(Json(json!(
@@ -260,5 +276,34 @@ mod tests {
         let res = app.oneshot(req).await.unwrap();
         // 400 comes from the handler, so the path matched (unmatched is 404).
         assert_eq!(res.status(), StatusCode::BAD_REQUEST);
+    }
+
+    #[test]
+    fn fill_missing_genres_fills_empty_and_preserves_existing() {
+        let mut artists = vec![
+            models::TopArtist {
+                id: "a1".to_string(),
+                name: "Artist One".to_string(),
+                image: None,
+                genres: vec![],
+                popularity: 50,
+            },
+            models::TopArtist {
+                id: "a2".to_string(),
+                name: "Artist Two".to_string(),
+                image: None,
+                genres: vec!["existing".to_string()],
+                popularity: 60,
+            },
+        ];
+
+        let mut cached = HashMap::new();
+        cached.insert("a1".to_string(), vec!["cached_genre".to_string()]);
+        cached.insert("a2".to_string(), vec!["different_genre".to_string()]);
+
+        fill_missing_genres(&mut artists, &cached);
+
+        assert_eq!(artists[0].genres, vec!["cached_genre".to_string()]);
+        assert_eq!(artists[1].genres, vec!["existing".to_string()]);
     }
 }

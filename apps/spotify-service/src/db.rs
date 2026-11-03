@@ -1,4 +1,5 @@
 use rusqlite::{params, Connection};
+use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
 use crate::models::{Bucket, DiscoveryStats, GenreSlice, Overview, Play};
@@ -186,6 +187,9 @@ pub fn recent(db: &Db, limit: i64) -> rusqlite::Result<Vec<Play>> {
 }
 
 pub fn cache_genres(db: &Db, artist_id: &str, genres: &[String]) -> rusqlite::Result<()> {
+    if genres.is_empty() {
+        return Ok(());
+    }
     let conn = db.lock().expect("db mutex");
     conn.execute(
         "INSERT INTO artist_genres (artist_id, genres, fetched_at)
@@ -198,9 +202,28 @@ pub fn cache_genres(db: &Db, artist_id: &str, genres: &[String]) -> rusqlite::Re
 
 pub fn known_genre_artists(db: &Db) -> rusqlite::Result<Vec<String>> {
     let conn = db.lock().expect("db mutex");
-    let mut stmt = conn.prepare("SELECT artist_id FROM artist_genres")?;
+    let mut stmt = conn.prepare("SELECT artist_id FROM artist_genres WHERE genres <> ''")?;
     let rows = stmt.query_map([], |r| r.get(0))?;
     rows.collect()
+}
+
+pub fn artist_genre_map(db: &Db) -> rusqlite::Result<HashMap<String, Vec<String>>> {
+    let conn = db.lock().expect("db mutex");
+    let mut stmt = conn.prepare("SELECT artist_id, genres FROM artist_genres WHERE genres <> ''")?;
+    let rows = stmt.query_map([], |r| Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?)))?;
+    let mut map = HashMap::new();
+    for row in rows {
+        let (artist_id, genres) = row?;
+        let list: Vec<String> = genres
+            .split(',')
+            .filter(|g| !g.is_empty())
+            .map(|g| g.to_string())
+            .collect();
+        if !list.is_empty() {
+            map.insert(artist_id, list);
+        }
+    }
+    Ok(map)
 }
 
 /// Genre distribution weighted by play count, joining stored plays to the
@@ -319,5 +342,51 @@ mod tests {
         let genres = genre_breakdown(&db, 10).unwrap();
         assert_eq!(genres.len(), 2);
         assert!(genres.iter().all(|g| g.count == 2), "both genres carry the artist's two plays");
+    }
+
+    #[test]
+    fn empty_genres_dont_overwrite_cached_genres() {
+        let db = memdb();
+        cache_genres(&db, "artist1", &["indie".into(), "folk".into()]).unwrap();
+        cache_genres(&db, "artist1", &[]).unwrap();
+
+        let map = artist_genre_map(&db).unwrap();
+        assert_eq!(map.get("artist1").unwrap(), &vec!["indie".to_string(), "folk".to_string()]);
+    }
+
+    #[test]
+    fn artist_with_empty_row_is_left_out_of_known_genre_artists() {
+        let db = memdb();
+        {
+            let conn = db.lock().unwrap();
+            conn.execute(
+                "INSERT INTO artist_genres (artist_id, genres, fetched_at) VALUES (?1, ?2, datetime('now'))",
+                params!["empty_artist", ""],
+            )
+            .unwrap();
+        }
+        cache_genres(&db, "known_artist", &["rock".into()]).unwrap();
+
+        let known = known_genre_artists(&db).unwrap();
+        assert!(!known.contains(&"empty_artist".to_string()));
+        assert!(known.contains(&"known_artist".to_string()));
+    }
+
+    #[test]
+    fn artist_genre_map_returns_split_genres_and_leaves_out_empty_rows() {
+        let db = memdb();
+        cache_genres(&db, "artist1", &["pop".into(), "electronic".into()]).unwrap();
+        {
+            let conn = db.lock().unwrap();
+            conn.execute(
+                "INSERT INTO artist_genres (artist_id, genres, fetched_at) VALUES (?1, ?2, datetime('now'))",
+                params!["artist2", ""],
+            )
+            .unwrap();
+        }
+
+        let map = artist_genre_map(&db).unwrap();
+        assert_eq!(map.get("artist1").unwrap(), &vec!["pop".to_string(), "electronic".to_string()]);
+        assert!(!map.contains_key("artist2"));
     }
 }
