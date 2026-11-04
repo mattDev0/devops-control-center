@@ -11,7 +11,7 @@
 The Spotify analytics service stopped displaying genres for top artists on the public guest dashboard. When Spotify returned an empty genre list for an artist, the service wrote that empty list to SQLite, overwriting previously cached genres and marking the artist as known so the backfill job never retried them. I updated the cache logic to ignore empty lists, filtered empty rows from backfill eligibility, and added a cache fallback when the live Spotify API omits genres.
 
 ## Impact
-Visitors viewing the public dashboard saw empty genre labels beneath top artists. Listening history, play tracking, deduplication, and other dashboard panels were unaffected. There was no downtime and no data loss outside the local SQLite cache.
+Visitors viewing the public dashboard saw empty genre labels beneath top artists. Only the genre line was affected; the rest of the Spotify panel and the other dashboard panels kept working. There was no downtime and no data loss outside the local SQLite cache.
 
 ## Timeline
 - 2026-09-01: Added the Spotify analytics service in commit 8de2dfc, caching artist genres in SQLite table `artist_genres`.
@@ -19,12 +19,12 @@ Visitors viewing the public dashboard saw empty genre labels beneath top artists
 - 2026-10-31 13:57 UTC: Merged fix in [PR #74](https://github.com/mattDev0/devops-control-center/pull/74) (commit 8387a13).
 - 2026-10-31 14:09 UTC: Production deployment [run 41207881300](https://github.com/mattDev0/devops-control-center/actions/runs/41207881300) succeeded.
 - 2026-10-31 14:37 UTC: Live verification showed partial recovery; 16 of 50 all-time artists showed genres, but the four-week top five remained empty.
-- 2026-10-31 16:30 UTC: Production log review over two hours showed 0 genre lookup failures across 3 polling cycles, confirming Spotify returned no genres for those artists.
+- 2026-10-31, later that day: Production log review over two hours showed 0 genre lookup failures across 3 polling cycles, confirming Spotify returned no genres for those artists.
 
 ## Root cause
 Two distinct issues reinforced each other:
 
-1. When Spotify returned an artist without genres, `cache_genres` wrote that empty slice with `INSERT OR REPLACE`, overwriting valid cached genres:
+1. When Spotify returned an artist without genres, `cache_genres` wrote that empty slice with an upsert (`ON CONFLICT ... DO UPDATE`), overwriting valid cached genres:
 ```rust
 // Before: empty genre slices replaced existing data
 pub fn cache_genres(db: &Db, artist_id: &str, genres: &[String]) -> rusqlite::Result<()> {
@@ -42,7 +42,7 @@ pub fn cache_genres(db: &Db, artist_id: &str, genres: &[String]) -> rusqlite::Re
 2. The backfill job used `known_genre_artists` (`SELECT artist_id FROM artist_genres`) to decide which artists to skip. An artist with an empty genre row counted as known, so the backfill job never requested genres for them again. The bad data could never repair itself.
 
 ## Fix
-In [PR #74](https://github.com/mattDev0/devops-control-center/pull/74) (which also included an unrelated one-line phone header layout fix), I implemented four changes:
+In [PR #74](https://github.com/mattDev0/devops-control-center/pull/74) (which also included an unrelated phone header layout fix), I implemented four changes:
 
 1. Guarded `cache_genres` in [apps/spotify-service/src/db.rs](../../apps/spotify-service/src/db.rs) with an early return if the genre slice is empty:
 ```rust

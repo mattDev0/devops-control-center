@@ -15,10 +15,10 @@ Deployments were slow, taking about 12 minutes for DevOps Control Center (DCC) a
 
 ## Timeline
 - 2026-10-31 14:09 UTC: Baseline DCC deploy [run 41207881300](https://github.com/mattDev0/devops-control-center/actions/runs/41207881300) took 11.8 minutes total (1m53s test, 8m09s image build, 1m38s deploy). Unmodified Rust and Java services recompiled their entire dependency trees.
-- 2026-10-31 14:35 UTC: Baseline portfolio deploy [run 41208255455](https://github.com/mattDev0/portfolio-monorepo/actions/runs/41208255455) took 6.8 minutes.
+- 2026-10-31 14:09 UTC: Baseline portfolio deploy [run 41208255455](https://github.com/mattDev0/portfolio-monorepo/actions/runs/41208255455) took 6.8 minutes.
 - 2026-11-03 04:24 UTC: Merged DCC [PR #75](https://github.com/mattDev0/devops-control-center/pull/75) (commit c5cbe14) and portfolio [PR #40](https://github.com/mattDev0/portfolio-monorepo/pull/40).
-- 2026-11-03 05:25 UTC: First deploy after merge: DCC took 5.2 minutes on a cold cache ([run 41577946427](https://github.com/mattDev0/devops-control-center/actions/runs/41577946427)) down from 11.8 minutes; portfolio took 5.1 minutes ([run 41577953928](https://github.com/mattDev0/portfolio-monorepo/actions/runs/41577953928)) down from 6.8 minutes.
-- 2026-11-03 05:30 UTC: Production health verified; both sites returned 200 and Cloud Run services were Ready.
+- 2026-11-03 04:29 UTC: First deploys after merge finished: DCC took 5.2 minutes on a cold cache ([run 41577946427](https://github.com/mattDev0/devops-control-center/actions/runs/41577946427)) down from 11.8 minutes; portfolio took 5.1 minutes ([run 41577953928](https://github.com/mattDev0/portfolio-monorepo/actions/runs/41577953928)) down from 6.8 minutes.
+- 2026-11-03, after the deploys: Production health verified; both sites returned 200 and Cloud Run services were Ready.
 
 ## Root cause
 In `.github/workflows/deploy-compose.yml`, every `docker/build-push-action` step used GitHub Actions caching without specifying a `scope`:
@@ -44,7 +44,7 @@ In DCC [PR #75](https://github.com/mattDev0/devops-control-center/pull/75) and p
 ## Verification
 - Local build checks: Rebuilt all five images locally from PR heads. Verified binaries were complete applications exceeding 2 MB rather than placeholder stubs.
 - Incremental test: A source change recompiled only one crate while reusing cached dependency layers.
-- Security check: The agent container started with `AGENT_SECRET_KEY` set and failed fast without it.
+- Startup check: The agent container started with `AGENT_SECRET_KEY` set and failed fast without it.
 - Portfolio workflow: Confirmed deploy steps were unchanged.
 - Post-merge results: DCC deploy dropped from 11.8 to 5.2 minutes ([run 41577946427](https://github.com/mattDev0/devops-control-center/actions/runs/41577946427)) and portfolio dropped from 6.8 to 5.1 minutes ([run 41577953928](https://github.com/mattDev0/portfolio-monorepo/actions/runs/41577953928)). Both sites returned 200 and Cloud Run services were Ready.
 
