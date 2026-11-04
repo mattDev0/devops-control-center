@@ -195,6 +195,10 @@ Production Grafana evaluates service availability, HTTP error rate and free disk
 space, and sends firing and recovery notifications to Discord. Setup, thresholds
 and verification are documented in [Monitoring alerts](infrastructure/monitoring/ALERTING.md).
 
+## Incident write-ups
+
+Blameless write-ups of real problems found and fixed in this platform: [docs/incidents](docs/incidents/README.md).
+
 # 🛠️ Configuration & Deployment
 
 This project uses a flexible runtime configuration strategy allowing it to run easily both locally and in production.
