@@ -1,4 +1,4 @@
-name: Weekly Container Security Scan
+name: Security Scan
 
 on:
   schedule:
@@ -11,6 +11,7 @@ permissions:
 
 jobs:
   trivy-scan:
+    name: Scan ${{ matrix.service.name }} Image
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false

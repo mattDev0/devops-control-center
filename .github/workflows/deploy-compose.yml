@@ -1,4 +1,4 @@
-name: Production Deployment (Docker Compose)
+name: Deploy
 
 on:
   push:
@@ -20,6 +20,7 @@ concurrency:
 
 jobs:
   test:
+    name: Test Before Deploy
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
@@ -55,24 +56,24 @@ jobs:
       - name: Install Kubeconform
         run: go install github.com/yannh/kubeconform/cmd/kubeconform@v0.6.3
 
-      - name: Run Kubeconform Manifest Validation
+      - name: Validate Kubernetes Manifests
         run: |
           ~/go/bin/kubeconform -strict -schema-location default -schema-location 'https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json' infrastructure/k8s/
 
       - name: Set up Rust Toolchain
         uses: dtolnay/rust-toolchain@stable
 
-      - name: Rust Cache
+      - name: Set up Rust Cache
         uses: Swatinem/rust-cache@v2
         with:
           workspaces: apps/agent -> target
 
-      - name: Run Agent Tests
+      - name: Test Agent
         run: |
           cd apps/agent
           cargo test
 
-      - name: Run Spotify Service Tests
+      - name: Test Spotify Service
         run: |
           cd apps/spotify-service
           cargo test
@@ -84,7 +85,7 @@ jobs:
           java-version: '25'
           cache: 'maven'
 
-      - name: Run Orchestrator Tests
+      - name: Test Orchestrator
         run: |
           cd apps/orchestrator
           mvn test
@@ -96,7 +97,7 @@ jobs:
           cache: 'npm'
           cache-dependency-path: apps/frontend/package-lock.json
 
-      - name: Run Frontend Lint, Test & Build
+      - name: Lint, Test and Build Frontend
         run: |
           cd apps/frontend
           npm ci
@@ -105,6 +106,7 @@ jobs:
           npm run build
 
   build:
+    name: Build and Scan ${{ matrix.image }}
     # Runs alongside the test job. Images are only tagged with the commit SHA, and
     # nothing deploys until both the tests and every image scan pass.
     runs-on: ubuntu-latest
@@ -149,7 +151,7 @@ jobs:
           cache-from: type=gha,scope=${{ matrix.image }}
           cache-to: type=gha,mode=max,scope=${{ matrix.image }}
 
-      - name: Scan ${{ matrix.image }} Image
+      - name: Scan ${{ matrix.image }} Image with Trivy
         uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: 'ghcr.io/mattdev0/devops-control-center/${{ matrix.image }}:${{ github.sha }}'
@@ -159,6 +161,7 @@ jobs:
           severity: 'CRITICAL'
 
   deploy:
+    name: Deploy to Azure VM
     needs: [test, build]
     runs-on: ubuntu-latest
     environment: production
@@ -192,6 +195,6 @@ jobs:
               -o ConnectTimeout=30 \
               "$DEPLOY_USER@$DEPLOY_HOST" "${{ github.sha }}"
 
-      - name: Remove deploy key
+      - name: Remove Deploy Key
         if: always()
         run: rm -f ~/.ssh/deploy_key
