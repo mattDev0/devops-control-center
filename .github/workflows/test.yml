@@ -21,6 +21,9 @@ jobs:
           bash -n scripts/backup.sh
           python3 -m unittest discover -s scripts -p 'test*backup.py'
 
+      - name: Verify Deploy Checkout Sync
+        run: python3 -m unittest discover -s scripts -p 'test_sync_checkout.py'
+
       - name: Verify Grafana Alert Delivery
         run: python3 scripts/test-alerting.py
 
