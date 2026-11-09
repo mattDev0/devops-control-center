@@ -1,5 +1,6 @@
 import { Server, Activity, Clock, LineChart, RefreshCw } from 'lucide-react';
 import { useTheme } from '../../context/ThemeContext';
+import StaleNotice from './StaleNotice';
 
 export default function MetricsCards({
   health,
@@ -128,7 +129,7 @@ export function SystemMetricsPanel({ token }) {
   );
 }
 
-export function DockerContainersKpiCard({ containers, loading, fetchContainers }) {
+export function DockerContainersKpiCard({ containers, loading, fetchContainers, stale, unavailable, lastUpdated }) {
   const totalCount = containers ? containers.length : 0;
   const runningCount = containers ? containers.filter(c => c.state === 'running').length : 0;
   const stoppedCount = totalCount - runningCount;
@@ -144,8 +145,8 @@ export function DockerContainersKpiCard({ containers, loading, fetchContainers }
           </h2>
           <div className="flex items-center gap-2">
             <span 
-              className={`w-2 h-2 rounded-full ${runningCount > 0 ? 'bg-[var(--status-success)]' : 'bg-[var(--status-neutral)]'}`}
-              title={runningCount > 0 ? 'Active' : 'Idle'}
+              className={`w-2 h-2 rounded-full ${stale || unavailable ? 'bg-[var(--status-warning)]' : runningCount > 0 ? 'bg-[var(--status-success)]' : 'bg-[var(--status-neutral)]'}`}
+              title={stale || unavailable ? 'Stale data' : runningCount > 0 ? 'Active' : 'Idle'}
             ></span>
             <button 
               onClick={fetchContainers}
@@ -157,6 +158,8 @@ export function DockerContainersKpiCard({ containers, loading, fetchContainers }
             </button>
           </div>
         </div>
+
+        <StaleNotice stale={stale} unavailable={unavailable} lastUpdated={lastUpdated} />
 
         {loading && totalCount === 0 ? (
           <div className="animate-pulse space-y-3 py-2">

@@ -111,8 +111,9 @@ export const api = {
     return true;
   },
 
-  fetchDockerContainerStats: async (id, token) => {
+  fetchDockerContainerStats: async (id, token, signal) => {
     const response = await fetch(`api/servers/docker/containers/${id}/stats`, {
+      signal,
       headers: { 'Authorization': `Bearer ${token}` }
     });
     return handleResponse(response);

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { RotateCw, FileText, Play, Square, HardDrive, Activity } from 'lucide-react';
 import { api } from '../../services/api';
+import StaleNotice from './StaleNotice';
 
 export default function DockerContainersTable({
   token,
@@ -9,7 +10,10 @@ export default function DockerContainersTable({
   loading,
   fetchContainers,
   handleContainerAction,
-  onViewLogs
+  onViewLogs,
+  stale,
+  unavailable,
+  lastUpdated,
 }) {
   const [confirmAction, setConfirmAction] = useState(null); // { id, type }
   const [stats, setStats] = useState({}); // { [id]: { cpu_percent, memory_percent, memory_usage_bytes, memory_limit_bytes } }
@@ -18,24 +22,59 @@ export default function DockerContainersTable({
   useEffect(() => {
     if (!containers || containers.length === 0 || !token) return;
 
+    const controller = new AbortController();
+    let inFlight = false;
+
     const fetchStats = async () => {
+      if (controller.signal.aborted || inFlight) return;
       const runningContainers = containers.filter(c => c.state === 'running');
-      for (const container of runningContainers) {
-        try {
-          const containerStats = await api.fetchDockerContainerStats(container.id, token);
+      if (runningContainers.length === 0) return;
+
+      inFlight = true;
+      try {
+        const promises = runningContainers.map(async (container) => {
+          const request = new AbortController();
+          const deadline = setTimeout(() => request.abort(), 5000);
+          const abortRequest = () => request.abort();
+          controller.signal.addEventListener('abort', abortRequest, { once: true });
+          try {
+            const containerStats = await api.fetchDockerContainerStats(container.id, token, request.signal);
+            return { id: container.id, stats: containerStats };
+          } finally {
+            clearTimeout(deadline);
+            controller.signal.removeEventListener('abort', abortRequest);
+          }
+        });
+
+        const results = await Promise.allSettled(promises);
+        if (controller.signal.aborted) return;
+
+        const updates = {};
+        for (let i = 0; i < results.length; i++) {
+          const res = results[i];
+          if (res.status === 'fulfilled') {
+            updates[res.value.id] = res.value.stats;
+          } else {
+            console.error(`Failed to fetch stats for ${runningContainers[i].id}`, res.reason);
+          }
+        }
+        if (Object.keys(updates).length > 0) {
           setStats(prev => ({
             ...prev,
-            [container.id]: containerStats
+            ...updates
           }));
-        } catch (err) {
-          console.error(`Failed to fetch stats for ${container.id}`, err);
         }
+      } finally {
+        inFlight = false;
       }
     };
 
     fetchStats();
     const interval = setInterval(fetchStats, 6000);
-    return () => clearInterval(interval);
+    return () => {
+      controller.abort();
+      clearInterval(interval);
+    };
   }, [containers, token]);
 
   const formatBytes = (bytes) => {
@@ -62,8 +101,10 @@ export default function DockerContainersTable({
         </button>
       </div>
 
+      <StaleNotice stale={stale} unavailable={unavailable} lastUpdated={lastUpdated} />
+
       <div className="overflow-x-auto relative flex-grow max-h-[380px]">
-        <table className="w-full text-left text-xs text-[var(--fg-muted)]">
+        <table className={`w-full text-left text-xs text-[var(--fg-muted)] ${stale ? 'opacity-60' : ''}`}>
           <thead className="text-[10px] uppercase bg-[var(--bg-canvas)] text-[var(--fg-subtle)] border-b border-[var(--border-default)] sticky top-0 z-10 font-semibold tracking-wider">
             <tr>
               <th className="px-3 py-2.5">Container ID</th>
@@ -91,9 +132,13 @@ export default function DockerContainersTable({
                 <td colSpan="6" className="px-3 py-10 text-center">
                   <div className="flex flex-col items-center justify-center">
                     <Activity className="w-8 h-8 text-[var(--fg-subtle)] mb-2 opacity-50" />
-                    <h3 className="text-xs font-semibold text-[var(--fg-muted)]">No Containers Found</h3>
+                    <h3 className="text-xs font-semibold text-[var(--fg-muted)]">
+                      {unavailable ? 'Container list unavailable' : 'No Containers Found'}
+                    </h3>
                     <p className="text-[10px] text-[var(--fg-subtle)] max-w-xs mt-1">
-                      No active containers detected on the host socket.
+                      {unavailable
+                        ? 'The Docker host did not respond.'
+                        : 'No active containers detected on the host socket.'}
                     </p>
                   </div>
                 </td>
