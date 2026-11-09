@@ -146,7 +146,7 @@ export function DockerContainersKpiCard({ containers, loading, fetchContainers, 
           <div className="flex items-center gap-2">
             <span 
               className={`w-2 h-2 rounded-full ${stale || unavailable ? 'bg-[var(--status-warning)]' : runningCount > 0 ? 'bg-[var(--status-success)]' : 'bg-[var(--status-neutral)]'}`}
-              title={stale || unavailable ? 'Stale data' : runningCount > 0 ? 'Active' : 'Idle'}
+              title={unavailable ? 'Data unavailable' : stale ? 'Stale data' : runningCount > 0 ? 'Active' : 'Idle'}
             ></span>
             <button 
               onClick={fetchContainers}
