@@ -3,6 +3,9 @@ import { RotateCw, FileText, Play, Square, HardDrive, Activity } from 'lucide-re
 import { api } from '../../services/api';
 import StaleNotice from './StaleNotice';
 
+// Consecutive failed stats polls before a container's CPU/MEM is flagged.
+export const STATS_STALE_AFTER_FAILURES = 2;
+
 export default function DockerContainersTable({
   token,
   role,
@@ -17,6 +20,7 @@ export default function DockerContainersTable({
 }) {
   const [confirmAction, setConfirmAction] = useState(null); // { id, type }
   const [stats, setStats] = useState({}); // { [id]: { cpu_percent, memory_percent, memory_usage_bytes, memory_limit_bytes } }
+  const [statsFailures, setStatsFailures] = useState({}); // { [id]: consecutive failed polls }
 
   // Periodic stats polling for running containers
   useEffect(() => {
@@ -50,11 +54,13 @@ export default function DockerContainersTable({
         if (controller.signal.aborted) return;
 
         const updates = {};
+        const failed = [];
         for (let i = 0; i < results.length; i++) {
           const res = results[i];
           if (res.status === 'fulfilled') {
             updates[res.value.id] = res.value.stats;
           } else {
+            failed.push(runningContainers[i].id);
             console.error(`Failed to fetch stats for ${runningContainers[i].id}`, res.reason);
           }
         }
@@ -64,6 +70,12 @@ export default function DockerContainersTable({
             ...updates
           }));
         }
+        setStatsFailures(prev => {
+          const next = { ...prev };
+          for (const id of Object.keys(updates)) next[id] = 0;
+          for (const id of failed) next[id] = (prev[id] || 0) + 1;
+          return next;
+        });
       } finally {
         inFlight = false;
       }
@@ -147,6 +159,7 @@ export default function DockerContainersTable({
               containers.map((container) => {
                 const containerStats = stats[container.id];
                 const isRunning = container.state === 'running';
+                const statsFailing = (statsFailures[container.id] || 0) >= STATS_STALE_AFTER_FAILURES;
 
                 return (
                   <tr key={container.id} className="hover:bg-[var(--interactive-hover)] transition-colors">
@@ -167,7 +180,13 @@ export default function DockerContainersTable({
                     </td>
                     <td className="px-3 py-2.5">
                       {isRunning && containerStats ? (
-                        <div className="flex flex-col gap-1 w-32 font-mono text-[9px] text-[var(--fg-subtle)]">
+                        <div
+                          className={`flex flex-col gap-1 w-32 font-mono text-[9px] text-[var(--fg-subtle)] ${statsFailing ? 'opacity-60' : ''}`}
+                          title={statsFailing ? 'Stats stale: recent polls failed' : undefined}
+                        >
+                          {statsFailing && (
+                            <span className="text-[var(--status-warning)] uppercase font-semibold">Stats stale</span>
+                          )}
                           <div className="flex justify-between items-center">
                             <span>CPU</span>
                             <span>{containerStats.cpu_percent.toFixed(1)}%</span>
@@ -189,6 +208,8 @@ export default function DockerContainersTable({
                             ></div>
                           </div>
                         </div>
+                      ) : isRunning && statsFailing ? (
+                        <div className="text-[10px] text-[var(--fg-subtle)] italic">Stats unavailable</div>
                       ) : isRunning ? (
                         <div className="text-[10px] text-[var(--fg-subtle)] italic animate-pulse">Loading stats...</div>
                       ) : (
