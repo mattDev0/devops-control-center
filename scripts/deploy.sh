@@ -40,9 +40,13 @@ if [ "${DCC_DEPLOY_STAGE:-sync}" = "sync" ]; then
     git remote set-url origin "https://github.com/mattDev0/devops-control-center.git"
   fi
 
-  git fetch origin main
-  git checkout main
-  git reset --hard origin/main
+  # Check out the commit whose images are being deployed, not whatever main is
+  # now: main may have moved on while this commit's images were being built.
+  . scripts/sync-checkout.sh
+  if ! sync_checkout "$COMMIT_SHA"; then
+    git remote set-url origin "https://github.com/mattDev0/devops-control-center.git"
+    exit 1
+  fi
 
   # Never leave a token sitting in .git/config
   git remote set-url origin "https://github.com/mattDev0/devops-control-center.git"
@@ -55,6 +59,10 @@ if [ "${DCC_DEPLOY_STAGE:-sync}" = "sync" ]; then
 fi
 
 # --- Stage 2: deploy the synced checkout -----------------------------------
+if [ "$(git rev-parse HEAD)" != "$COMMIT_SHA" ]; then
+  echo "Refusing to deploy: checkout is at $(git rev-parse HEAD), images are for $COMMIT_SHA" >&2
+  exit 1
+fi
 # GHCR images for this repository are public; authenticate only if we can.
 if [ -n "${GITHUB_TOKEN:-}" ] && [ -n "${GITHUB_ACTOR:-}" ]; then
   echo "Logging in to GitHub Container Registry..."

@@ -11,7 +11,7 @@ check_endpoint() {
     
     echo -n "Checking $name ($url)... "
     for ((attempt=1; attempt<=max_attempts; attempt++)); do
-        if curl -sf "$url" > /dev/null; then
+        if curl -sf --connect-timeout 3 --max-time 5 "$url" > /dev/null; then
             echo "OK"
             return 0
         fi
@@ -32,6 +32,8 @@ check_endpoint "Agent" "http://localhost:3011/livez" 15 2 || FAILED=1
 
 # The Orchestrator takes up to 30-40 seconds to boot up. We will give it 15 attempts with 3s delay.
 check_endpoint "Orchestrator" "http://localhost:8090/health" 15 3 || FAILED=1
+
+check_endpoint "Spotify Service" "http://localhost:3012/livez" 15 2 || FAILED=1
 
 check_endpoint "Frontend" "http://localhost:8085" 15 2 || FAILED=1
 check_endpoint "Prometheus" "http://localhost:9091/-/healthy" 10 2 || FAILED=1
