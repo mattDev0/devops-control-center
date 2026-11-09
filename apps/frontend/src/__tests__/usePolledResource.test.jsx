@@ -220,6 +220,246 @@ describe('usePolledResource', () => {
     expect(onUnauthorized).not.toHaveBeenCalled();
     expect(result.current.data).toBe('fresh-data');
   });
+
+  it('hung request times out and polling resumes', async () => {
+    const fetcher = vi.fn(
+      (_token, signal) =>
+        new Promise((_, reject) =>
+          signal.addEventListener('abort', () =>
+            reject(new DOMException('Aborted', 'AbortError'))
+          )
+        )
+    );
+    const onUnauthorized = vi.fn();
+
+    const { result } = renderHook(() =>
+      usePolledResource({
+        token: 'jwt-token',
+        fetcher,
+        initialData: EMPTY_ITEMS,
+        onUnauthorized,
+        interval: 5000,
+        timeoutMs: 1000,
+        label: 'hung-test',
+      })
+    );
+
+    expect(result.current.loading).toBe(true);
+    expect(fetcher).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1000);
+    });
+
+    expect(result.current.loading).toBe(false);
+    expect(result.current.error).toMatch(/timed out/);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(5000);
+    });
+
+    expect(fetcher).toHaveBeenCalledTimes(2);
+  });
+
+  it('marks data stale after two failures and recovers on success', async () => {
+    const fetcher = vi
+      .fn()
+      .mockResolvedValueOnce(['a'])
+      .mockRejectedValueOnce(new Error('Failure 1'))
+      .mockRejectedValueOnce(new Error('Failure 2'))
+      .mockResolvedValueOnce(['b']);
+    const onUnauthorized = vi.fn();
+
+    const { result } = renderHook(() =>
+      usePolledResource({
+        token: 'jwt-token',
+        fetcher,
+        initialData: EMPTY_ITEMS,
+        onUnauthorized,
+        interval: 1000,
+        label: 'stale-test',
+      })
+    );
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(result.current.data).toEqual(['a']);
+    expect(result.current.stale).toBe(false);
+    expect(result.current.error).toBeNull();
+
+    // First failure
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1000);
+    });
+    expect(result.current.data).toEqual(['a']);
+    expect(result.current.stale).toBe(false);
+    expect(result.current.error).toBe('Failure 1');
+
+    // Second failure
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1000);
+    });
+    expect(result.current.data).toEqual(['a']);
+    expect(result.current.stale).toBe(true);
+    expect(result.current.error).toBe('Failure 2');
+
+    // Recovery success
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1000);
+    });
+    expect(result.current.data).toEqual(['b']);
+    expect(result.current.stale).toBe(false);
+    expect(result.current.error).toBeNull();
+  });
+
+  it('one failure is not marked stale', async () => {
+    const fetcher = vi
+      .fn()
+      .mockResolvedValueOnce(['initial'])
+      .mockRejectedValueOnce(new Error('Temporary glitch'));
+    const onUnauthorized = vi.fn();
+
+    const { result } = renderHook(() =>
+      usePolledResource({
+        token: 'jwt-token',
+        fetcher,
+        initialData: EMPTY_ITEMS,
+        onUnauthorized,
+        interval: 1000,
+        label: 'one-fail-test',
+      })
+    );
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(result.current.data).toEqual(['initial']);
+    expect(result.current.stale).toBe(false);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1000);
+    });
+    expect(result.current.stale).toBe(false);
+    expect(result.current.error).toBe('Temporary glitch');
+    expect(result.current.data).toEqual(['initial']);
+  });
+
+  it('never succeeded is not marked stale', async () => {
+    const fetcher = vi
+      .fn()
+      .mockRejectedValueOnce(new Error('Initial error 1'))
+      .mockRejectedValueOnce(new Error('Initial error 2'));
+    const onUnauthorized = vi.fn();
+
+    const { result } = renderHook(() =>
+      usePolledResource({
+        token: 'jwt-token',
+        fetcher,
+        initialData: EMPTY_ITEMS,
+        onUnauthorized,
+        interval: 1000,
+        label: 'never-succeeded-test',
+      })
+    );
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(result.current.stale).toBe(false);
+    expect(result.current.lastUpdated).toBeNull();
+    expect(result.current.error).toBe('Initial error 1');
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1000);
+    });
+    expect(result.current.stale).toBe(false);
+    expect(result.current.lastUpdated).toBeNull();
+    expect(result.current.error).toBe('Initial error 2');
+  });
+
+  it('accept rejection counts as a failure', async () => {
+    const fetcher = vi
+      .fn()
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce({})
+      .mockResolvedValueOnce({});
+    const onUnauthorized = vi.fn();
+
+    const { result } = renderHook(() =>
+      usePolledResource({
+        token: 'jwt-token',
+        fetcher,
+        initialData: EMPTY_ITEMS,
+        accept: Array.isArray,
+        onUnauthorized,
+        interval: 1000,
+        label: 'accept-test',
+      })
+    );
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(result.current.data).toEqual([]);
+    expect(result.current.stale).toBe(false);
+    expect(result.current.error).toBeNull();
+
+    // First rejected response
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1000);
+    });
+    expect(result.current.data).toEqual([]);
+    expect(result.current.stale).toBe(false);
+    expect(result.current.error).toBe('Unexpected response');
+
+    // Second rejected response
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1000);
+    });
+    expect(result.current.data).toEqual([]);
+    expect(result.current.stale).toBe(true);
+    expect(result.current.error).toBe('Unexpected response');
+  });
+
+  it('unmount aborts the in-flight request without an error', async () => {
+    let capturedSignal;
+    const fetcher = vi.fn(
+      (_token, signal) => {
+        capturedSignal = signal;
+        return new Promise((_, reject) =>
+          signal.addEventListener('abort', () =>
+            reject(new DOMException('Aborted', 'AbortError'))
+          )
+        );
+      }
+    );
+    const onUnauthorized = vi.fn();
+
+    const { unmount } = renderHook(() =>
+      usePolledResource({
+        token: 'jwt-token',
+        fetcher,
+        initialData: EMPTY_ITEMS,
+        onUnauthorized,
+        interval: 5000,
+        timeoutMs: 1000,
+        label: 'unmount-test',
+      })
+    );
+
+    expect(capturedSignal.aborted).toBe(false);
+
+    unmount();
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
+    });
+
+    expect(capturedSignal.aborted).toBe(true);
+    expect(vi.getTimerCount()).toBe(0);
+  });
 });
 
 describe('useDashboardResources hooks', () => {

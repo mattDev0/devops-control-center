@@ -156,8 +156,15 @@ export default function App() {
     usePodHealth(token, kubernetesAvailable, handleLogout);
   const { data: workflows, loading: loadingWorkflows, refresh: fetchWorkflows } =
     useWorkflows(token, handleLogout);
-  const { data: containers, loading: loadingContainers, refresh: fetchContainers } =
-    useDockerContainers(token, handleLogout);
+  const {
+    data: containers,
+    loading: loadingContainers,
+    refresh: fetchContainers,
+    error: containersError,
+    lastUpdated: containersUpdated,
+    stale: containersStale,
+  } = useDockerContainers(token, handleLogout);
+  const containersUnavailable = Boolean(containersError) && containersUpdated === null && !loadingContainers;
 
   // Perform Deployment Action
   const handleDeploymentAction = async (id, action) => {
@@ -491,7 +498,9 @@ export default function App() {
                   <div className="text-xs font-bold mt-0.5">
                     {kubernetesAvailable
                       ? `${podHealth ? podHealth.reduce((sum, ns) => sum + (ns.running || 0), 0) : 0} Pods`
-                      : `${containers.filter((c) => c.state === 'running').length} of ${containers.length} running`}
+                      : containersUnavailable
+                        ? 'unavailable'
+                        : `${containers.filter((c) => c.state === 'running').length} of ${containers.length} running${containersStale ? ' (stale)' : ''}`}
                   </div>
                 </div>
               </div>
@@ -571,6 +580,9 @@ export default function App() {
                 containers={containers}
                 loading={loadingContainers}
                 fetchContainers={() => fetchContainers()}
+                stale={containersStale}
+                unavailable={containersUnavailable}
+                lastUpdated={containersUpdated}
               />
             </ErrorBoundary>
             {kubernetesAvailable && (
@@ -654,6 +666,9 @@ export default function App() {
                   loading={loadingContainers}
                   fetchContainers={() => fetchContainers()}
                   handleContainerAction={handleContainerAction}
+                  stale={containersStale}
+                  unavailable={containersUnavailable}
+                  lastUpdated={containersUpdated}
                   onViewLogs={(container) => {
                     setActiveLogContainer(container);
                     setShowDockerLogsModal(true);
