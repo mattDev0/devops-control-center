@@ -18,9 +18,10 @@ FROM eclipse-temurin:25.0.4.1_1-jre-jammy
 
 WORKDIR /app
 
-# Install curl for container health checks
+# Install curl for container health checks; upgrade picks up Ubuntu security fixes
+# that land before a new base image is published
 # hadolint ignore=DL3008
-RUN apt-get update && apt-get install -y --no-install-recommends curl && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get upgrade -y && apt-get install -y --no-install-recommends curl && rm -rf /var/lib/apt/lists/*
 
 # Create a non-root user and group with numeric UID/GID
 RUN groupadd -g 10001 -r appuser && useradd -u 10001 -r -g appuser appuser
