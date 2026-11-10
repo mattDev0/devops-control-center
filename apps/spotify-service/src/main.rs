@@ -32,6 +32,14 @@ struct AppState {
     service_key: String,
 }
 
+/// A blank key would match a request with no key at all, so refuse to start without one.
+fn require_service_key(value: Option<String>) -> String {
+    match value {
+        Some(key) if !key.trim().is_empty() => key,
+        _ => panic!("SPOTIFY_SERVICE_KEY must be set and non-empty"),
+    }
+}
+
 async fn auth(
     State(state): State<AppState>,
     req: Request<axum::body::Body>,
@@ -43,7 +51,8 @@ async fn auth(
         .and_then(|v| v.to_str().ok())
         .unwrap_or_default();
     // Constant-time compare so a wrong key leaks nothing through timing.
-    if presented.len() == state.service_key.len()
+    if !state.service_key.is_empty()
+        && presented.len() == state.service_key.len()
         && presented
             .bytes()
             .zip(state.service_key.bytes())
@@ -232,7 +241,7 @@ async fn main() {
             std::env::var("SPOTIFY_CLIENT_SECRET").expect("SPOTIFY_CLIENT_SECRET must be set"),
             std::env::var("SPOTIFY_REFRESH_TOKEN").expect("SPOTIFY_REFRESH_TOKEN must be set"),
         )),
-        service_key: std::env::var("SPOTIFY_SERVICE_KEY").expect("SPOTIFY_SERVICE_KEY must be set"),
+        service_key: require_service_key(std::env::var("SPOTIFY_SERVICE_KEY").ok()),
     };
 
     let poller = state.clone();
@@ -305,5 +314,44 @@ mod tests {
 
         assert_eq!(artists[0].genres, vec!["cached_genre".to_string()]);
         assert_eq!(artists[1].genres, vec!["existing".to_string()]);
+    }
+
+    #[test]
+    fn require_service_key_accepts_non_empty() {
+        assert_eq!(require_service_key(Some("k".into())), "k");
+    }
+
+    #[test]
+    #[should_panic(expected = "SPOTIFY_SERVICE_KEY must be set and non-empty")]
+    fn require_service_key_panics_on_none() {
+        require_service_key(None);
+    }
+
+    #[test]
+    #[should_panic(expected = "SPOTIFY_SERVICE_KEY must be set and non-empty")]
+    fn require_service_key_panics_on_empty() {
+        require_service_key(Some(String::new()));
+    }
+
+    #[test]
+    #[should_panic(expected = "SPOTIFY_SERVICE_KEY must be set and non-empty")]
+    fn require_service_key_panics_on_whitespace() {
+        require_service_key(Some("  ".into()));
+    }
+
+    #[tokio::test]
+    async fn test_blank_configured_key_rejects_unauthenticated_request() {
+        let app = router(AppState {
+            db: db::open(":memory:").unwrap(),
+            spotify: Arc::new(Spotify::new(String::new(), String::new(), String::new())),
+            service_key: String::new(),
+        });
+
+        let req = Request::builder()
+            .uri("/top/artists?range=bogus")
+            .body(axum::body::Body::empty())
+            .unwrap();
+        let res = app.oneshot(req).await.unwrap();
+        assert_eq!(res.status(), StatusCode::UNAUTHORIZED);
     }
 }

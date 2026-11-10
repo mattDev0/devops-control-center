@@ -3,11 +3,14 @@ package com.devops.controlcenter.orchestrator.services;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 @Service
@@ -15,18 +18,31 @@ public class GithubService {
 
     private static final Logger logger = LoggerFactory.getLogger(GithubService.class);
 
+    public static final java.util.regex.Pattern WORKFLOW_ID_PATTERN =
+            java.util.regex.Pattern.compile("^([A-Za-z0-9_.-]{1,100}:)?[A-Za-z0-9_.-]{1,100}$");
+
     private final RestClient restClient;
     
     @Value("${github.owner:mattDev0}")
-    private String owner;
+    private String owner = "mattDev0";
     
     @Value("${github.repo:portfolio-monorepo}")
-    private String repo;
+    private String repo = "portfolio-monorepo";
 
-    public GithubService(RestClient.Builder restClientBuilder, @Value("${github.token:}") String githubToken) {
+    public GithubService(
+            RestClient.Builder restClientBuilder,
+            @Value("${github.token:}") String githubToken,
+            @Value("${github.api-url:https://api.github.com}") String apiUrl,
+            @Value("${outbound.connect-timeout-ms:3000}") long connectTimeoutMs,
+            @Value("${outbound.read-timeout-ms:10000}") long readTimeoutMs) {
+        SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
+        requestFactory.setConnectTimeout(Duration.ofMillis(connectTimeoutMs));
+        requestFactory.setReadTimeout(Duration.ofMillis(readTimeoutMs));
+
         RestClient.Builder builder = restClientBuilder
-                .baseUrl("https://api.github.com")
-                .defaultHeader("Accept", "application/vnd.github.v3+json");
+                .baseUrl(apiUrl)
+                .defaultHeader("Accept", "application/vnd.github.v3+json")
+                .requestFactory(requestFactory);
         
         if (githubToken != null && !githubToken.trim().isEmpty() && !githubToken.trim().startsWith("ghs_")) {
             builder.defaultHeader("Authorization", "Bearer " + githubToken.trim());
@@ -106,6 +122,7 @@ public class GithubService {
             logger.info("Triggered GitHub Action workflow ID: {} in repo: {}", targetWorkflowId, targetRepo);
         } catch (Exception e) {
             logger.error("Failed to trigger GitHub workflow: {}", e.getMessage());
+            throw new IllegalStateException("GitHub workflow dispatch failed", e);
         }
     }
 }

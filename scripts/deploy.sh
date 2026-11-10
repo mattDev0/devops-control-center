@@ -19,6 +19,7 @@ export COMMIT_SHA
 : "${ADMIN_PASSWORD:?ADMIN_PASSWORD is not set - refusing to deploy}"
 : "${AGENT_SECRET_KEY:?AGENT_SECRET_KEY is not set - refusing to deploy}"
 : "${GRAFANA_ADMIN_PASSWORD:?GRAFANA_ADMIN_PASSWORD is not set - refusing to deploy}"
+: "${SPOTIFY_SERVICE_KEY:?SPOTIFY_SERVICE_KEY is not set - refusing to deploy}"
 : "${COMMIT_SHA:?COMMIT_SHA is not set - refusing to deploy}"
 
 echo "Starting deployment of ${COMMIT_SHA:-<unset>}"

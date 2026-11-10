@@ -301,4 +301,12 @@ public class OrchestratorSecurityTest {
                         .header("Authorization", "Bearer " + adminToken))
                 .andExpect(status().isOk());
     }
+
+    @Test
+    public void testTriggerWorkflowWithInvalidIdReturnsBadRequest() throws Exception {
+        String adminToken = jwtUtil.generateToken("admin", "ROLE_ADMIN");
+        mockMvc.perform(post("/api/ci/workflows/{id}/dispatch", "bad id!")
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isBadRequest());
+    }
 }
