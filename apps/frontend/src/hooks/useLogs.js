@@ -12,6 +12,14 @@ async function readSseStream(url, token, onMessage, onError, signal) {
         signal
       });
 
+      // An expired or non-admin session will not fix itself by retrying.
+      if (response.status === 401 || response.status === 403) {
+        const authError = new Error(`HTTP error! Status: ${response.status}`);
+        authError.fatal = true;
+        onError(authError);
+        return;
+      }
+
       if (!response.ok) {
         throw new Error(`HTTP error! Status: ${response.status}`);
       }
@@ -105,7 +113,10 @@ export function useDeploymentLogs(token, activeLogDeployment, showLogsModal) {
       },
       (err) => {
         console.error("Deployment log stream error:", err);
-        setActiveDeploymentLogs((prevLogs) => [...prevLogs, "⚠️ Log stream disconnected. Retrying..."]);
+        setActiveDeploymentLogs((prevLogs) => [
+          ...prevLogs,
+          err.fatal ? "⚠️ Log access needs an admin session." : "⚠️ Log stream disconnected. Retrying...",
+        ]);
       },
       controller.signal
     );
@@ -141,7 +152,10 @@ export function useDockerContainerLogs(token, activeLogContainer, showLogsModal)
       },
       (err) => {
         console.error("Docker container log stream error:", err);
-        setActiveContainerLogs((prevLogs) => [...prevLogs, "⚠️ Log stream disconnected. Retrying..."]);
+        setActiveContainerLogs((prevLogs) => [
+          ...prevLogs,
+          err.fatal ? "⚠️ Log access needs an admin session." : "⚠️ Log stream disconnected. Retrying...",
+        ]);
       },
       controller.signal
     );
