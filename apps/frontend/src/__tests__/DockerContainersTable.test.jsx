@@ -103,3 +103,50 @@ describe('DockerContainersTable stats freshness', () => {
     expect(screen.getByText('Stats unavailable')).toBeInTheDocument();
   });
 });
+
+describe('DockerContainersTable logs button', () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    api.fetchDockerContainerStats.mockReset();
+    api.fetchDockerContainerStats.mockResolvedValue(STATS);
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+  });
+
+  async function renderWithRole(role) {
+    let result;
+    await act(async () => {
+      result = render(
+        <DockerContainersTable
+          token="t"
+          role={role}
+          containers={CONTAINERS}
+          loading={false}
+          fetchContainers={() => {}}
+          handleContainerAction={() => {}}
+          onViewLogs={() => {}}
+          stale={false}
+          unavailable={false}
+          lastUpdated={Date.now()}
+        />
+      );
+    });
+    return result;
+  }
+
+  it('disables View Container Logs button for viewer', async () => {
+    await renderWithRole('viewer');
+    const button = screen.getByTitle('View Container Logs');
+    expect(button).toBeDisabled();
+  });
+
+  it('enables View Container Logs button for admin', async () => {
+    await renderWithRole('admin');
+    const button = screen.getByTitle('View Container Logs');
+    expect(button).not.toBeDisabled();
+  });
+});
