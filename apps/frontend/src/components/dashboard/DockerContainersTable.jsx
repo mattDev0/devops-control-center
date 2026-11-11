@@ -275,7 +275,8 @@ export default function DockerContainersTable({
                             )}
                             <button
                               onClick={() => onViewLogs(container)}
-                              className="p-1 rounded text-[var(--fg-muted)] hover:text-[var(--fg-default)] hover:bg-[var(--interactive-hover)] transition-colors"
+                              disabled={role === 'viewer'}
+                              className="p-1 rounded text-[var(--fg-muted)] hover:text-[var(--fg-default)] hover:bg-[var(--interactive-hover)] transition-colors disabled:opacity-50"
                               title="View Container Logs"
                             >
                               <FileText className="w-3.5 h-3.5" />
