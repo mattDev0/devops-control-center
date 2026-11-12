@@ -8,6 +8,19 @@ import TopList from './TopList';
 // all-time rankings barely moved week to week, so they earned no space here.
 const RANGE = 'short_term';
 export const SPOTIFY_TIMEOUT_MS = 10000;
+const TIMEOUT_MESSAGE = 'Spotify took too long to respond.';
+
+function isTimeoutOrAbortError(err) {
+  if (!err) return false;
+  if (err.name === 'AbortError' || err.name === 'TimeoutError') return true;
+  const msg = typeof err === 'string' ? err : err.message;
+  return typeof msg === 'string' && /\b(aborted|abort|timed out|timeout)\b/i.test(msg);
+}
+
+function formatSpotifyError(err, fallback) {
+  if (isTimeoutOrAbortError(err)) return TIMEOUT_MESSAGE;
+  return err?.message || fallback;
+}
 
 const KEYS = [
   { key: 'overview', endpoint: 'overview' },
@@ -126,8 +139,8 @@ export default function SpotifyDashboard({ token }) {
     if (unauthorized) {
       setError('Not authorized to read listening data.');
     } else if (allFailed) {
-      const msg = results.find((r) => r.reason?.message)?.reason?.message;
-      setError(msg || 'Failed to load listening data.');
+      const firstErr = results.find((r) => r.reason)?.reason;
+      setError(formatSpotifyError(firstErr, 'Failed to load listening data.'));
     } else {
       setError('');
     }
@@ -177,7 +190,7 @@ export default function SpotifyDashboard({ token }) {
       >
         {tab === 'artists' && (
           errors.artists && !data.artists ? (
-            <InlineError onRetry={load} message={errors.artists.message || 'Failed to load artists'} />
+            <InlineError onRetry={load} message={formatSpotifyError(errors.artists, 'Failed to load artists')} />
           ) : (
             <TopList items={data.artists} loading={loading} emptyMessage="No ranking yet"
                      renderMeta={(a) => a.genres?.slice(0, 2).join(' · ')} />
@@ -185,7 +198,7 @@ export default function SpotifyDashboard({ token }) {
         )}
         {tab === 'tracks' && (
           errors.tracks && !data.tracks ? (
-            <InlineError onRetry={load} message={errors.tracks.message || 'Failed to load tracks'} />
+            <InlineError onRetry={load} message={formatSpotifyError(errors.tracks, 'Failed to load tracks')} />
           ) : (
             <TopList items={data.tracks} loading={loading} emptyMessage="No ranking yet"
                      renderMeta={(t) => t.artist} />
@@ -193,7 +206,7 @@ export default function SpotifyDashboard({ token }) {
         )}
         {tab === 'genres' && (
           errors.genres && !data.genres ? (
-            <InlineError onRetry={load} message={errors.genres.message || 'Failed to load genres'} />
+            <InlineError onRetry={load} message={formatSpotifyError(errors.genres, 'Failed to load genres')} />
           ) : data.genres?.length ? (
             <ul className="space-y-2.5 pt-1">
               {data.genres.slice(0, 5).map((g) => (
@@ -229,7 +242,7 @@ export default function SpotifyDashboard({ token }) {
           <span><span className="text-[var(--fg-default)] font-semibold tabular-nums text-sm">{d.total_plays ? `${Math.round(d.discovery_ratio * 100)}%` : '—'}</span> new</span>
         </div>
         {errors[period] && !data[period] ? (
-          <InlineError onRetry={load} message={errors[period].message || `Failed to load ${period} patterns`} />
+          <InlineError onRetry={load} message={formatSpotifyError(errors[period], `Failed to load ${period} patterns`)} />
         ) : (
           <BarChart data={period === 'hourly' ? data.hourly : data.weekday} unit="plays" height={110} />
         )}
