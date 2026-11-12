@@ -120,8 +120,9 @@ export const api = {
   },
 
   // --- Spotify listening analytics ---
-  fetchSpotify: async (resource, token) => {
+  fetchSpotify: async (resource, token, signal) => {
     const response = await fetch(`api/spotify/${resource}`, {
+      signal,
       headers: { Authorization: `Bearer ${token}` },
     });
     return handleResponse(response);
