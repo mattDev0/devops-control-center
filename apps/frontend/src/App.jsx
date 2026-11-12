@@ -666,6 +666,7 @@ export default function App() {
                   loading={loadingContainers}
                   fetchContainers={() => fetchContainers()}
                   handleContainerAction={handleContainerAction}
+                  onUnauthorized={handleLogout}
                   stale={containersStale}
                   unavailable={containersUnavailable}
                   lastUpdated={containersUpdated}
