@@ -24,14 +24,15 @@ pub async fn get_all_deployments_internal(client: Client) -> Result<Vec<Deployme
             // Get image of the first container in the template spec
             let image = d
                 .spec
+                .template
+                .spec
                 .as_ref()
-                .and_then(|spec| spec.template.spec.as_ref())
                 .and_then(|pod_spec| pod_spec.containers.first())
                 .and_then(|c| c.image.clone())
                 .unwrap_or_else(|| "Unknown".to_string());
 
             // Get replica status
-            let replicas = d.spec.as_ref().and_then(|s| s.replicas).unwrap_or(0);
+            let replicas = d.spec.replicas.unwrap_or(0);
             let ready_replicas = d.status.as_ref().and_then(|s| s.ready_replicas).unwrap_or(0);
             let status = format!("Ready: {}/{}", ready_replicas, replicas);
 
@@ -56,12 +57,14 @@ pub async fn get_all_deployments_internal(client: Client) -> Result<Vec<Deployme
 
                         // Check for failure conditions:
                         // 1. ReplicaFailure: status == "True"
-                        if cond.type_ == "ReplicaFailure" && cond.status == "True" {
+                        let cond_type = cond.type_.as_deref();
+                        let cond_status = cond.status.as_deref();
+                        if cond_type == Some("ReplicaFailure") && cond_status == Some("True") {
                             is_failed = true;
                             error_message = cond.message.clone();
                         }
                         // 2. Progressing: status == "False" and reason == "ProgressDeadlineExceeded"
-                        if cond.type_ == "Progressing" && cond.status == "False" && cond.reason.as_deref() == Some("ProgressDeadlineExceeded") {
+                        if cond_type == Some("Progressing") && cond_status == Some("False") && cond.reason.as_deref() == Some("ProgressDeadlineExceeded") {
                             is_failed = true;
                             error_message = cond.message.clone();
                         }
