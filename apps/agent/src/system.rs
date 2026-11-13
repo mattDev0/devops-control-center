@@ -5,16 +5,16 @@ use sysinfo::System;
 
 pub async fn ping() -> impl IntoResponse {
     Json(SystemInfo {
-        os_name: System::name().unwrap_or_else(|| "Unknown".to_string()),
-        os_version: System::os_version().unwrap_or_else(|| "Unknown".to_string()),
-        uptime_seconds: System::uptime(),
+        os_name: System::name().unwrap_or_else(|_| "Unknown".to_string()),
+        os_version: System::os_version().unwrap_or_else(|_| "Unknown".to_string()),
+        uptime_seconds: System::uptime().unwrap_or(0),
     })
 }
 
 pub async fn liveness() -> impl IntoResponse {
-    let os_name = System::name().unwrap_or_else(|| "Unknown".to_string());
-    let os_version = System::os_version().unwrap_or_else(|| "Unknown".to_string());
-    let uptime_seconds = System::uptime();
+    let os_name = System::name().unwrap_or_else(|_| "Unknown".to_string());
+    let os_version = System::os_version().unwrap_or_else(|_| "Unknown".to_string());
+    let uptime_seconds = System::uptime().unwrap_or(0);
 
     (
         StatusCode::OK,
@@ -28,9 +28,9 @@ pub async fn liveness() -> impl IntoResponse {
 }
 
 pub async fn health(State(state): State<crate::AppState>) -> impl IntoResponse {
-    let os_name = System::name().unwrap_or_else(|| "Unknown".to_string());
-    let os_version = System::os_version().unwrap_or_else(|| "Unknown".to_string());
-    let uptime_seconds = System::uptime();
+    let os_name = System::name().unwrap_or_else(|_| "Unknown".to_string());
+    let os_version = System::os_version().unwrap_or_else(|_| "Unknown".to_string());
+    let uptime_seconds = System::uptime().unwrap_or(0);
 
     // Running without a cluster is a supported configuration, not a fault, so
     // this reports 200 with k8s=false rather than 503. Callers use the flag to
