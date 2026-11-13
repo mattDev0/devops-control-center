@@ -112,7 +112,8 @@ export default function DeploymentsTable({
                         <>
                           <button 
                             onClick={() => onViewLogs(deployment)}
-                            className="p-1 rounded hover:bg-[var(--interactive-hover)] text-[var(--fg-muted)] hover:text-[var(--fg-default)] transition-colors border border-[var(--border-default)] bg-[var(--bg-canvas)] cursor-pointer"
+                            disabled={role === 'ROLE_GUEST'}
+                            className="p-1 rounded hover:bg-[var(--interactive-hover)] text-[var(--fg-muted)] hover:text-[var(--fg-default)] transition-colors border border-[var(--border-default)] bg-[var(--bg-canvas)] disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent cursor-pointer"
                             title="View Logs"
                           >
                             <FileText className="w-3.5 h-3.5" />

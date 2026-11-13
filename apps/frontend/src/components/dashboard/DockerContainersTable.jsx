@@ -14,6 +14,7 @@ export default function DockerContainersTable({
   fetchContainers,
   handleContainerAction,
   onViewLogs,
+  onUnauthorized,
   stale,
   unavailable,
   lastUpdated,
@@ -22,28 +23,72 @@ export default function DockerContainersTable({
   const [stats, setStats] = useState({}); // { [id]: { cpu_percent, memory_percent, memory_usage_bytes, memory_limit_bytes } }
   const [statsFailures, setStatsFailures] = useState({}); // { [id]: consecutive failed polls }
 
+  const runningIdsKey = (containers || [])
+    .filter((c) => c.state === 'running')
+    .map((c) => c.id)
+    .sort()
+    .join(',');
+
+  useEffect(() => {
+    setStats({});
+    setStatsFailures({});
+  }, [token]);
+
+  useEffect(() => {
+    const runningIds = new Set(runningIdsKey ? runningIdsKey.split(',') : []);
+    setStats((prev) => {
+      const next = {};
+      for (const [id, val] of Object.entries(prev)) {
+        if (runningIds.has(id)) next[id] = val;
+      }
+      return next;
+    });
+    setStatsFailures((prev) => {
+      const next = {};
+      for (const [id, val] of Object.entries(prev)) {
+        if (runningIds.has(id)) next[id] = val;
+      }
+      return next;
+    });
+  }, [runningIdsKey]);
+
+  const clearContainerStats = (id) => {
+    setStats((prev) => {
+      if (!(id in prev)) return prev;
+      const next = { ...prev };
+      delete next[id];
+      return next;
+    });
+    setStatsFailures((prev) => {
+      if (!(id in prev)) return prev;
+      const next = { ...prev };
+      delete next[id];
+      return next;
+    });
+  };
+
   // Periodic stats polling for running containers
   useEffect(() => {
-    if (!containers || containers.length === 0 || !token) return;
+    if (!runningIdsKey || !token) return;
 
     const controller = new AbortController();
     let inFlight = false;
 
     const fetchStats = async () => {
       if (controller.signal.aborted || inFlight) return;
-      const runningContainers = containers.filter(c => c.state === 'running');
-      if (runningContainers.length === 0) return;
+      const runningIds = runningIdsKey.split(',').filter(Boolean);
+      if (runningIds.length === 0) return;
 
       inFlight = true;
       try {
-        const promises = runningContainers.map(async (container) => {
+        const promises = runningIds.map(async (id) => {
           const request = new AbortController();
           const deadline = setTimeout(() => request.abort(), 5000);
           const abortRequest = () => request.abort();
           controller.signal.addEventListener('abort', abortRequest, { once: true });
           try {
-            const containerStats = await api.fetchDockerContainerStats(container.id, token, request.signal);
-            return { id: container.id, stats: containerStats };
+            const containerStats = await api.fetchDockerContainerStats(id, token, request.signal);
+            return { id, stats: containerStats };
           } finally {
             clearTimeout(deadline);
             controller.signal.removeEventListener('abort', abortRequest);
@@ -53,6 +98,14 @@ export default function DockerContainersTable({
         const results = await Promise.allSettled(promises);
         if (controller.signal.aborted) return;
 
+        const unauthorized = results.some(
+          (res) => res.status === 'rejected' && res.reason?.message === 'UNAUTHORIZED'
+        );
+        if (unauthorized) {
+          onUnauthorized?.();
+          return;
+        }
+
         const updates = {};
         const failed = [];
         for (let i = 0; i < results.length; i++) {
@@ -60,17 +113,17 @@ export default function DockerContainersTable({
           if (res.status === 'fulfilled') {
             updates[res.value.id] = res.value.stats;
           } else {
-            failed.push(runningContainers[i].id);
-            console.error(`Failed to fetch stats for ${runningContainers[i].id}`, res.reason);
+            failed.push(runningIds[i]);
+            console.error(`Failed to fetch stats for ${runningIds[i]}`, res.reason);
           }
         }
         if (Object.keys(updates).length > 0) {
-          setStats(prev => ({
+          setStats((prev) => ({
             ...prev,
-            ...updates
+            ...updates,
           }));
         }
-        setStatsFailures(prev => {
+        setStatsFailures((prev) => {
           const next = { ...prev };
           for (const id of Object.keys(updates)) next[id] = 0;
           for (const id of failed) next[id] = (prev[id] || 0) + 1;
@@ -87,7 +140,7 @@ export default function DockerContainersTable({
       controller.abort();
       clearInterval(interval);
     };
-  }, [containers, token]);
+  }, [runningIdsKey, token, onUnauthorized]);
 
   const formatBytes = (bytes) => {
     if (!bytes) return '0 B';
@@ -228,6 +281,9 @@ export default function DockerContainersTable({
                             </span>
                             <button 
                               onClick={() => {
+                                if (confirmAction.type === 'stop') {
+                                  clearContainerStats(confirmAction.id);
+                                }
                                 handleContainerAction(confirmAction.id, confirmAction.type);
                                 setConfirmAction(null);
                               }}
@@ -265,7 +321,10 @@ export default function DockerContainersTable({
                             )}
                             {isRunning && (
                               <button
-                                onClick={() => handleContainerAction(container.id, 'restart')}
+                                onClick={() => {
+                                  clearContainerStats(container.id);
+                                  handleContainerAction(container.id, 'restart');
+                                }}
                                 disabled={role === 'viewer'}
                                 className="p-1 rounded text-[var(--fg-muted)] hover:text-[var(--accent-primary)] hover:bg-[var(--interactive-hover)] transition-colors disabled:opacity-50"
                                 title="Restart Container"
@@ -275,7 +334,8 @@ export default function DockerContainersTable({
                             )}
                             <button
                               onClick={() => onViewLogs(container)}
-                              className="p-1 rounded text-[var(--fg-muted)] hover:text-[var(--fg-default)] hover:bg-[var(--interactive-hover)] transition-colors"
+                              disabled={role === 'viewer'}
+                              className="p-1 rounded text-[var(--fg-muted)] hover:text-[var(--fg-default)] hover:bg-[var(--interactive-hover)] transition-colors disabled:opacity-50"
                               title="View Container Logs"
                             >
                               <FileText className="w-3.5 h-3.5" />

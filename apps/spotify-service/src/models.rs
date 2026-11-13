@@ -23,7 +23,7 @@ pub struct Play {
     pub played_at: String,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct TopArtist {
     pub id: String,
     pub name: String,
@@ -32,7 +32,7 @@ pub struct TopArtist {
     pub popularity: i64,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct TopTrack {
     pub id: String,
     pub name: String,

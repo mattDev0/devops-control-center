@@ -4,9 +4,12 @@ import com.devops.controlcenter.orchestrator.exceptions.AgentUnreachableExceptio
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestClient;
+
+import java.time.Duration;
 
 /**
  * Thin proxy to the Spotify analytics service. The orchestrator owns the
@@ -23,15 +26,22 @@ public class SpotifyService {
     public SpotifyService(
             RestClient.Builder restClientBuilder,
             @Value("${spotify.url:http://devops-spotify:3002}") String baseUrl,
-            @Value("${spotify.service-key:}") String serviceKey) {
+            @Value("${spotify.service-key:}") String serviceKey,
+            @Value("${outbound.connect-timeout-ms:3000}") long connectTimeoutMs,
+            @Value("${outbound.read-timeout-ms:10000}") long readTimeoutMs) {
         if (serviceKey == null || serviceKey.isBlank()) {
             // Without this the service answers 401 to everything, which is easy
             // to misread as the service being down. Say so once, loudly, at boot.
             logger.warn("spotify.service-key is not set; every Spotify request will be rejected as unauthorized");
         }
+        SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
+        requestFactory.setConnectTimeout(Duration.ofMillis(connectTimeoutMs));
+        requestFactory.setReadTimeout(Duration.ofMillis(readTimeoutMs));
+
         this.restClient = restClientBuilder
                 .baseUrl(baseUrl)
                 .defaultHeader("X-Service-Key", serviceKey)
+                .requestFactory(requestFactory)
                 .build();
     }
 

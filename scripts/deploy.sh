@@ -19,6 +19,7 @@ export COMMIT_SHA
 : "${ADMIN_PASSWORD:?ADMIN_PASSWORD is not set - refusing to deploy}"
 : "${AGENT_SECRET_KEY:?AGENT_SECRET_KEY is not set - refusing to deploy}"
 : "${GRAFANA_ADMIN_PASSWORD:?GRAFANA_ADMIN_PASSWORD is not set - refusing to deploy}"
+: "${SPOTIFY_SERVICE_KEY:?SPOTIFY_SERVICE_KEY is not set - refusing to deploy}"
 : "${COMMIT_SHA:?COMMIT_SHA is not set - refusing to deploy}"
 
 echo "Starting deployment of ${COMMIT_SHA:-<unset>}"
@@ -86,7 +87,15 @@ bash scripts/health-check.sh
 echo "Syncing Grafana admin password..."
 printf '%s\n' "${GRAFANA_ADMIN_PASSWORD}" | docker exec -i devops-grafana grafana cli admin reset-admin-password --password-from-stdin >/dev/null
 
-echo "Cleaning up dangling images..."
+echo "Cleaning up old service images (keeping active and last 2 SHA tags per service)..."
+for service in devops-agent devops-spotify devops-orchestrator devops-frontend; do
+  repo="ghcr.io/mattdev0/devops-control-center/${service}"
+  docker image ls "$repo" --format '{{.Repository}}:{{.Tag}}' \
+    | grep -E ':[0-9a-f]{40}$' \
+    | grep -vF ":${COMMIT_SHA}" \
+    | tail -n +3 \
+    | xargs -r docker image rm -f
+done
 docker image prune -f
 
 echo "Docker Compose deployment successfully executed!"

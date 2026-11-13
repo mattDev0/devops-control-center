@@ -14,11 +14,29 @@ pub struct Spotify {
     client_id: String,
     client_secret: String,
     refresh_token: String,
+    api_url: String,
+    auth_url: String,
     cached: RwLock<Option<(String, Instant)>>,
 }
 
 impl Spotify {
     pub fn new(client_id: String, client_secret: String, refresh_token: String) -> Self {
+        Self::with_endpoints(
+            client_id,
+            client_secret,
+            refresh_token,
+            API.to_string(),
+            AUTH.to_string(),
+        )
+    }
+
+    pub fn with_endpoints(
+        client_id: String,
+        client_secret: String,
+        refresh_token: String,
+        api_url: String,
+        auth_url: String,
+    ) -> Self {
         Self {
             client: Client::builder()
                 .timeout(Duration::from_secs(15))
@@ -27,6 +45,8 @@ impl Spotify {
             client_id,
             client_secret,
             refresh_token,
+            api_url,
+            auth_url,
             cached: RwLock::new(None),
         }
     }
@@ -44,7 +64,7 @@ impl Spotify {
             .encode(format!("{}:{}", self.client_id, self.client_secret));
         let resp = self
             .client
-            .post(AUTH)
+            .post(&self.auth_url)
             .header("Authorization", format!("Basic {basic}"))
             .form(&[
                 ("grant_type", "refresh_token"),
@@ -72,9 +92,10 @@ impl Spotify {
 
     async fn get(&self, path: &str) -> Result<serde_json::Value, String> {
         let token = self.access_token().await?;
+        let base = self.api_url.trim_end_matches('/');
         let resp = self
             .client
-            .get(format!("{API}/{path}"))
+            .get(format!("{base}/{path}"))
             .bearer_auth(token)
             .send()
             .await
