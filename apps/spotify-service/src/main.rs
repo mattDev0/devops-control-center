@@ -27,6 +27,9 @@ const POLL_INTERVAL: Duration = Duration::from_secs(20 * 60);
 const GENRE_BATCH: usize = 50;
 const TOP_CACHE_TTL: Duration = Duration::from_secs(10 * 60);
 const TOP_CACHE_MAX_STALE: Duration = Duration::from_secs(24 * 60 * 60);
+/// Upper bound on one refresh of a top list, token exchange included. Kept under
+/// the orchestrator's 10 s read timeout so a stale fallback still reaches the caller.
+const TOP_UPSTREAM_DEADLINE: Duration = Duration::from_secs(7);
 type TopCacheKey = (String, String, u32);
 type TopCache = Arc<RwLock<HashMap<TopCacheKey, (serde_json::Value, Instant)>>>;
 
@@ -36,6 +39,7 @@ struct AppState {
     spotify: Arc<Spotify>,
     service_key: String,
     top_cache: TopCache,
+    top_deadline: Duration,
 }
 
 /// A blank key would match a request with no key at all, so refuse to start without one.
@@ -131,24 +135,35 @@ async fn top(
         }
     }
 
-    let res = match kind.as_str() {
-        "artists" => match state.spotify.top_artists(range, limit).await {
-            Ok(mut artists) => {
-                // Opportunistically warm the genre cache from data we already have.
-                for a in &artists {
-                    let _ = db::cache_genres(&state.db, &a.id, &a.genres);
+    let res = match tokio::time::timeout(state.top_deadline, async {
+        match kind.as_str() {
+            "artists" => match state.spotify.top_artists(range, limit).await {
+                Ok(mut artists) => {
+                    // Opportunistically warm the genre cache from data we already have.
+                    for a in &artists {
+                        let _ = db::cache_genres(&state.db, &a.id, &a.genres);
+                    }
+                    let cached = db::artist_genre_map(&state.db).unwrap_or_default();
+                    fill_missing_genres(&mut artists, &cached);
+                    Ok(json!(artists))
                 }
-                let cached = db::artist_genre_map(&state.db).unwrap_or_default();
-                fill_missing_genres(&mut artists, &cached);
-                Ok(json!(artists))
-            }
-            Err(e) => Err(map_err(e)),
-        },
-        "tracks" => match state.spotify.top_tracks(range, limit).await {
-            Ok(tracks) => Ok(json!(tracks)),
-            Err(e) => Err(map_err(e)),
-        },
-        _ => unreachable!(),
+                Err(e) => Err(map_err(e)),
+            },
+            "tracks" => match state.spotify.top_tracks(range, limit).await {
+                Ok(tracks) => Ok(json!(tracks)),
+                Err(e) => Err(map_err(e)),
+            },
+            _ => unreachable!(),
+        }
+    })
+    .await
+    {
+        Ok(r) => r,
+        Err(_) => {
+            tracing::warn!(kind = %kind, range = %range, limit = %limit, deadline = ?state.top_deadline,
+                "spotify top request exceeded deadline");
+            Err((StatusCode::GATEWAY_TIMEOUT, Json(json!({ "error": "spotify did not respond in time" }))))
+        }
     };
 
     match res {
@@ -285,6 +300,7 @@ async fn main() {
         )),
         service_key: require_service_key(std::env::var("SPOTIFY_SERVICE_KEY").ok()),
         top_cache: Arc::new(RwLock::new(HashMap::new())),
+        top_deadline: TOP_UPSTREAM_DEADLINE,
     };
 
     let poller = state.clone();
@@ -366,6 +382,57 @@ mod tests {
         (spotify, handle)
     }
 
+    async fn spawn_hanging_spotify(hang_token: bool) -> (Arc<Spotify>, tokio::task::JoinHandle<()>) {
+        let mock_app = Router::new()
+            .route(
+                "/token",
+                axum::routing::post(move || async move {
+                    if hang_token {
+                        tokio::time::sleep(Duration::from_secs(30)).await;
+                    }
+                    Json(json!({
+                        "access_token": "mock_token",
+                        "token_type": "Bearer",
+                        "expires_in": 3600,
+                        "scope": "user-top-read"
+                    }))
+                }),
+            )
+            .route(
+                "/v1/me/top/artists",
+                axum::routing::get(|| async {
+                    tokio::time::sleep(Duration::from_secs(30)).await;
+                    Json(json!({
+                        "items": [
+                            {
+                                "id": "fresh_artist",
+                                "name": "Fresh Artist",
+                                "images": [{"url": "http://img.test"}],
+                                "genres": ["rock"],
+                                "popularity": 90
+                            }
+                        ]
+                    }))
+                }),
+            );
+
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = listener.local_addr().unwrap();
+        let handle = tokio::spawn(async move {
+            let _ = axum::serve(listener, mock_app).await;
+        });
+
+        let spotify = Arc::new(Spotify::with_endpoints(
+            "client_id".to_string(),
+            "client_secret".to_string(),
+            "refresh_token".to_string(),
+            format!("http://{addr}/v1"),
+            format!("http://{addr}/token"),
+        ));
+
+        (spotify, handle)
+    }
+
     /// Builds the real router, so a route that axum rejects (such as the
     /// pre-0.8 `/:param` syntax, which panics) fails here rather than at startup.
     #[tokio::test]
@@ -375,6 +442,7 @@ mod tests {
             spotify: hermetic_failing_spotify(),
             service_key: "key".to_string(),
             top_cache: Arc::new(RwLock::new(HashMap::new())),
+            top_deadline: TOP_UPSTREAM_DEADLINE,
         });
 
         let req = Request::builder()
@@ -447,6 +515,7 @@ mod tests {
             spotify: hermetic_failing_spotify(),
             service_key: String::new(),
             top_cache: Arc::new(RwLock::new(HashMap::new())),
+            top_deadline: TOP_UPSTREAM_DEADLINE,
         });
 
         let req = Request::builder()
@@ -471,6 +540,7 @@ mod tests {
             spotify: hermetic_failing_spotify(),
             service_key: "key".to_string(),
             top_cache,
+            top_deadline: TOP_UPSTREAM_DEADLINE,
         });
 
         let req = Request::builder()
@@ -500,6 +570,7 @@ mod tests {
             spotify,
             service_key: "key".to_string(),
             top_cache,
+            top_deadline: TOP_UPSTREAM_DEADLINE,
         });
 
         let req = Request::builder()
@@ -529,6 +600,7 @@ mod tests {
             spotify: hermetic_failing_spotify(),
             service_key: "key".to_string(),
             top_cache,
+            top_deadline: TOP_UPSTREAM_DEADLINE,
         });
 
         let req = Request::builder()
@@ -558,6 +630,7 @@ mod tests {
             spotify: hermetic_failing_spotify(),
             service_key: "key".to_string(),
             top_cache,
+            top_deadline: TOP_UPSTREAM_DEADLINE,
         });
 
         let req = Request::builder()
@@ -578,6 +651,7 @@ mod tests {
             spotify: hermetic_failing_spotify(),
             service_key: "key".to_string(),
             top_cache,
+            top_deadline: TOP_UPSTREAM_DEADLINE,
         });
 
         let req = Request::builder()
@@ -587,5 +661,65 @@ mod tests {
             .unwrap();
         let res = app.oneshot(req).await.unwrap();
         assert_eq!(res.status(), StatusCode::BAD_GATEWAY);
+    }
+
+    #[tokio::test]
+    async fn top_serves_stale_cache_when_spotify_hangs() {
+        let (spotify, handle) = spawn_hanging_spotify(false).await;
+        let stale = json!([{"id": "stale_hang", "name": "Stale Artist", "genres": ["soul"], "popularity": 70}]);
+        let top_cache = Arc::new(RwLock::new(HashMap::new()));
+        top_cache.write().await.insert(
+            ("artists".to_string(), "short_term".to_string(), 5),
+            (stale.clone(), Instant::now() - TOP_CACHE_TTL - Duration::from_secs(60)),
+        );
+
+        let app = router(AppState {
+            db: db::open(":memory:").unwrap(),
+            spotify,
+            service_key: "key".to_string(),
+            top_cache,
+            top_deadline: Duration::from_millis(300),
+        });
+
+        let req = Request::builder()
+            .uri("/top/artists?range=short_term&limit=5")
+            .header("X-Service-Key", "key")
+            .body(axum::body::Body::empty())
+            .unwrap();
+        let start = Instant::now();
+        let res = app.oneshot(req).await.unwrap();
+        let elapsed = start.elapsed();
+        assert_eq!(res.status(), StatusCode::OK);
+        let body_bytes = axum::body::to_bytes(res.into_body(), usize::MAX).await.unwrap();
+        let body: serde_json::Value = serde_json::from_slice(&body_bytes).unwrap();
+        assert_eq!(body, stale);
+        assert!(elapsed < Duration::from_secs(3), "expected fast stale fallback, took {elapsed:?}");
+        handle.abort();
+    }
+
+    #[tokio::test]
+    async fn top_returns_gateway_timeout_when_spotify_token_hangs_without_cache() {
+        let (spotify, handle) = spawn_hanging_spotify(true).await;
+        let top_cache = Arc::new(RwLock::new(HashMap::new()));
+
+        let app = router(AppState {
+            db: db::open(":memory:").unwrap(),
+            spotify,
+            service_key: "key".to_string(),
+            top_cache,
+            top_deadline: Duration::from_millis(300),
+        });
+
+        let req = Request::builder()
+            .uri("/top/artists?range=short_term&limit=5")
+            .header("X-Service-Key", "key")
+            .body(axum::body::Body::empty())
+            .unwrap();
+        let start = Instant::now();
+        let res = app.oneshot(req).await.unwrap();
+        let elapsed = start.elapsed();
+        assert_eq!(res.status(), StatusCode::GATEWAY_TIMEOUT);
+        assert!(elapsed < Duration::from_secs(3), "expected fast timeout, took {elapsed:?}");
+        handle.abort();
     }
 }
