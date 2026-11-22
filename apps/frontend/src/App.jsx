@@ -125,6 +125,13 @@ export default function App() {
     }
   }, [activeDeploymentLogs]);
 
+  // Auto-scroll container logs
+  useEffect(() => {
+    if (containerLogsRef.current) {
+      containerLogsRef.current.scrollTop = containerLogsRef.current.scrollHeight;
+    }
+  }, [activeContainerLogs]);
+
   // Handle Admin Login Success
   const handleAdminLoginSuccess = ({ token: newToken, role: newRole }) => {
     localStorage.setItem('token', newToken);
@@ -313,31 +320,18 @@ export default function App() {
             <LayoutDashboard className="w-5 h-5 shrink-0 text-[var(--fg-subtle)]" />
             {!sidebarCollapsed && <span>Overview</span>}
           </button>
-          
-          <button
-            onClick={() => {
-              document.getElementById('deployments')?.scrollIntoView({ behavior: 'smooth' });
-              setMobileOpen(false);
-            }}
-            className="flex items-center w-full gap-3 px-3 py-2 text-sm font-medium rounded-md hover:bg-[var(--interactive-hover)] text-[var(--fg-muted)] hover:text-[var(--fg-default)] transition-colors"
-            aria-label="Navigate to Deployments"
-            title="Deployments"
-          >
-            <Layers className="w-5 h-5 shrink-0 text-[var(--fg-subtle)]" />
-            {!sidebarCollapsed && <span>Deployments</span>}
-          </button>
 
           <button
             onClick={() => {
-              document.getElementById('pipelines')?.scrollIntoView({ behavior: 'smooth' });
+              document.getElementById('metrics')?.scrollIntoView({ behavior: 'smooth' });
               setMobileOpen(false);
             }}
             className="flex items-center w-full gap-3 px-3 py-2 text-sm font-medium rounded-md hover:bg-[var(--interactive-hover)] text-[var(--fg-muted)] hover:text-[var(--fg-default)] transition-colors"
-            aria-label="Navigate to Pipelines"
-            title="Pipelines"
+            aria-label="Navigate to System Metrics"
+            title="System Metrics"
           >
-            <GitPullRequest className="w-5 h-5 shrink-0 text-[var(--fg-subtle)]" />
-            {!sidebarCollapsed && <span>Pipelines</span>}
+            <LineChart className="w-5 h-5 shrink-0 text-[var(--fg-subtle)]" />
+            {!sidebarCollapsed && <span>System Metrics</span>}
           </button>
 
           <button
@@ -381,6 +375,32 @@ export default function App() {
             {!sidebarCollapsed && <span>Spotify</span>}
           </button>
 
+          <button
+            onClick={() => {
+              document.getElementById('deployments')?.scrollIntoView({ behavior: 'smooth' });
+              setMobileOpen(false);
+            }}
+            className="flex items-center w-full gap-3 px-3 py-2 text-sm font-medium rounded-md hover:bg-[var(--interactive-hover)] text-[var(--fg-muted)] hover:text-[var(--fg-default)] transition-colors"
+            aria-label="Navigate to Deployments"
+            title="Deployments"
+          >
+            <Layers className="w-5 h-5 shrink-0 text-[var(--fg-subtle)]" />
+            {!sidebarCollapsed && <span>Deployments</span>}
+          </button>
+
+          <button
+            onClick={() => {
+              document.getElementById('pipelines')?.scrollIntoView({ behavior: 'smooth' });
+              setMobileOpen(false);
+            }}
+            className="flex items-center w-full gap-3 px-3 py-2 text-sm font-medium rounded-md hover:bg-[var(--interactive-hover)] text-[var(--fg-muted)] hover:text-[var(--fg-default)] transition-colors"
+            aria-label="Navigate to Pipelines"
+            title="Pipelines"
+          >
+            <GitPullRequest className="w-5 h-5 shrink-0 text-[var(--fg-subtle)]" />
+            {!sidebarCollapsed && <span>Pipelines</span>}
+          </button>
+
           {role === 'ROLE_ADMIN' && (
             <button
               onClick={() => {
@@ -395,19 +415,6 @@ export default function App() {
               {!sidebarCollapsed && <span>System Logs</span>}
             </button>
           )}
-
-          <button
-            onClick={() => {
-              document.getElementById('metrics')?.scrollIntoView({ behavior: 'smooth' });
-              setMobileOpen(false);
-            }}
-            className="flex items-center w-full gap-3 px-3 py-2 text-sm font-medium rounded-md hover:bg-[var(--interactive-hover)] text-[var(--fg-muted)] hover:text-[var(--fg-default)] transition-colors"
-            aria-label="Navigate to System Metrics"
-            title="System Metrics"
-          >
-            <LineChart className="w-5 h-5 shrink-0 text-[var(--fg-subtle)]" />
-            {!sidebarCollapsed && <span>System Metrics</span>}
-          </button>
         </nav>
 
         {/* Scope Context Box */}
@@ -498,9 +505,11 @@ export default function App() {
                   <div className="text-xs font-bold mt-0.5">
                     {kubernetesAvailable
                       ? `${podHealth ? podHealth.reduce((sum, ns) => sum + (ns.running || 0), 0) : 0} Pods`
-                      : containersUnavailable
-                        ? 'unavailable'
-                        : `${containers.filter((c) => c.state === 'running').length} of ${containers.length} running${containersStale ? ' (stale)' : ''}`}
+                      : loadingContainers && containers.length === 0
+                        ? 'Loading...'
+                        : containersUnavailable
+                          ? 'unavailable'
+                          : `${containers.filter((c) => c.state === 'running').length} of ${containers.length} running${containersStale ? ' (stale)' : ''}`}
                   </div>
                 </div>
               </div>
@@ -606,22 +615,14 @@ export default function App() {
           </div>
 
           {/* Row 1.75: Portfolio uptime monitoring */}
-          <div id="portfolio" className="scroll-mt-20 space-y-3">
-            <div className="flex items-center gap-2">
-              <Globe className="w-4 h-4 text-[var(--accent-primary)] shrink-0" aria-hidden="true" />
-              <h2 className="text-sm font-semibold text-[var(--fg-default)]">Portfolio</h2>
-            </div>
+          <div id="portfolio" className="scroll-mt-20">
             <ErrorBoundary>
               <PortfolioStatusPanel token={token} onUnauthorized={handleLogout} />
             </ErrorBoundary>
           </div>
 
           {role === 'ROLE_ADMIN' && (
-            <div id="workspace" className="scroll-mt-20 space-y-3">
-              <div className="flex items-center gap-2">
-                <Terminal className="w-4 h-4 text-[var(--accent-primary)] shrink-0" aria-hidden="true" />
-                <h2 className="text-sm font-semibold text-[var(--fg-default)]">Dev workspace</h2>
-              </div>
+            <div id="workspace" className="scroll-mt-20">
               <ErrorBoundary>
                 <WorkspaceStatusPanel token={token} onUnauthorized={handleLogout} />
               </ErrorBoundary>
