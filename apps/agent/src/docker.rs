@@ -191,6 +191,43 @@ pub async fn container_stats(
     }
 }
 
+async fn forward_log_stream<S>(
+    mut stream: S,
+    tx: tokio::sync::mpsc::Sender<Result<Event, Infallible>>,
+) where
+    S: futures::Stream<Item = Result<LogOutput, bollard::errors::Error>> + Unpin,
+{
+    loop {
+        tokio::select! {
+            _ = tx.closed() => {
+                break;
+            }
+            log_res = stream.next() => {
+                match log_res {
+                    Some(Ok(log_output)) => {
+                        let log_str = match log_output {
+                            LogOutput::StdOut { message } => String::from_utf8_lossy(&message).to_string(),
+                            LogOutput::StdErr { message } => String::from_utf8_lossy(&message).to_string(),
+                            LogOutput::Console { message } => String::from_utf8_lossy(&message).to_string(),
+                            _ => continue,
+                        };
+
+                        let clean_log = log_str.trim_end().to_string();
+                        if tx.send(Ok(Event::default().data(clean_log))).await.is_err() {
+                            break;
+                        }
+                    }
+                    Some(Err(e)) => {
+                        let _ = tx.send(Ok(Event::default().data(format!("Error: Log stream read failed: {}", e)))).await;
+                        break;
+                    }
+                    None => break,
+                }
+            }
+        }
+    }
+}
+
 pub async fn container_logs(
     Path(id): Path<String>,
 ) -> impl IntoResponse {
@@ -214,29 +251,8 @@ pub async fn container_logs(
                 .build(),
         );
 
-        let mut stream = docker.logs(&id, options);
-
-        while let Some(log_res) = stream.next().await {
-            match log_res {
-                Ok(log_output) => {
-                    let log_str = match log_output {
-                        LogOutput::StdOut { message } => String::from_utf8_lossy(&message).to_string(),
-                        LogOutput::StdErr { message } => String::from_utf8_lossy(&message).to_string(),
-                        LogOutput::Console { message } => String::from_utf8_lossy(&message).to_string(),
-                        _ => continue,
-                    };
-
-                    let clean_log = log_str.trim_end().to_string();
-                    if tx.send(Ok(Event::default().data(clean_log))).await.is_err() {
-                        break;
-                    }
-                }
-                Err(e) => {
-                    let _ = tx.send(Ok(Event::default().data(format!("Error: Log stream read failed: {}", e)))).await;
-                    break;
-                }
-            }
-        }
+        let stream = docker.logs(&id, options);
+        forward_log_stream(stream, tx).await;
     });
 
     Sse::new(tokio_stream::wrappers::ReceiverStream::new(rx))
@@ -262,5 +278,19 @@ mod tests {
         assert!(!is_protected_container("/my-custom-service"));
         assert!(!is_protected_container("prometheus"));
         assert!(!is_protected_container("grafana"));
+    }
+
+    #[tokio::test]
+    async fn test_forward_log_stream_exits_when_receiver_drops() {
+        let (tx, rx) = tokio::sync::mpsc::channel::<Result<Event, Infallible>>(4);
+        let quiet_stream = futures::stream::pending::<Result<LogOutput, bollard::errors::Error>>();
+
+        let handle = tokio::spawn(forward_log_stream(quiet_stream, tx));
+        drop(rx);
+
+        tokio::time::timeout(std::time::Duration::from_secs(1), handle)
+            .await
+            .expect("log forwarding task should exit promptly when receiver closes")
+            .expect("log forwarding task should not panic");
     }
 }
