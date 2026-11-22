@@ -3,7 +3,11 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import App from '../App';
 import { useSystemLogs } from '../hooks/useLogs';
 
-const resources = vi.hoisted(() => ({ health: null }));
+const resources = vi.hoisted(() => ({
+  health: null,
+  containers: [{ state: 'running' }, { state: 'running' }, { state: 'exited' }],
+  loadingContainers: false,
+}));
 
 vi.mock('../hooks/useLogs', () => ({
   useSystemLogs: vi.fn(() => []),
@@ -18,7 +22,11 @@ vi.mock('../hooks/useDashboardResources', () => {
     useDeployments: list([]),
     usePodHealth: list([]),
     useWorkflows: list([]),
-    useDockerContainers: list([{ state: 'running' }, { state: 'running' }, { state: 'exited' }]),
+    useDockerContainers: () => ({
+      data: resources.containers,
+      loading: resources.loadingContainers,
+      refresh: () => {},
+    }),
   };
 });
 
@@ -47,6 +55,8 @@ describe('App dashboard visibility', () => {
   beforeEach(() => {
     localStorage.clear();
     vi.mocked(useSystemLogs).mockClear();
+    resources.containers = [{ state: 'running' }, { state: 'running' }, { state: 'exited' }];
+    resources.loadingContainers = false;
   });
 
   it('keeps admin sections and the log stream away from guests', () => {
@@ -86,5 +96,14 @@ describe('App dashboard visibility', () => {
     expect(screen.getByText('Error Budget')).toBeInTheDocument();
     expect(screen.getByText('Pod health')).toBeInTheDocument();
     expect(screen.getByText('Deployments table')).toBeInTheDocument();
+  });
+
+  it('shows Loading in the Containers KPI instead of 0 of 0 while initial fetch is in flight', () => {
+    resources.containers = [];
+    resources.loadingContainers = true;
+    renderAs('ROLE_GUEST');
+
+    expect(screen.getByText('Loading...')).toBeInTheDocument();
+    expect(screen.queryByText('0 of 0 running')).not.toBeInTheDocument();
   });
 });

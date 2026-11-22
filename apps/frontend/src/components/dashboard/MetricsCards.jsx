@@ -85,7 +85,7 @@ export function SystemMetricsPanel({ token }) {
       </div>
       
       <p className="text-xs text-[var(--fg-muted)] mb-4 leading-normal">
-        Visualizing real-time telemetry from the Rust Agent node_exporter nodes.
+        Real-time host CPU and memory telemetry scraped from node_exporter.
       </p>
       
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -97,7 +97,7 @@ export function SystemMetricsPanel({ token }) {
           </div>
           {token && (
             <iframe 
-              src={`grafana/d-solo/rYdddlPWk/node-exporter-full?orgId=1&timezone=browser&var-ds_prometheus=cfmh94yfqwjcwd&var-job=node&var-nodename=ac1f709ef5f4&var-node=node-exporter:9100&refresh=1m&panelId=77&theme=${resolvedTheme}`} 
+              src={`/grafana/d-solo/rYdddlPWk/node-exporter-full?orgId=1&timezone=browser&var-ds_prometheus=cfmh94yfqwjcwd&var-job=node&var-nodename=ac1f709ef5f4&var-node=node-exporter:9100&refresh=1m&panelId=77&theme=${resolvedTheme}`} 
               width="100%" 
               height="100%" 
               frameBorder="0" 
@@ -115,7 +115,7 @@ export function SystemMetricsPanel({ token }) {
           </div>
           {token && (
             <iframe 
-              src={`grafana/d-solo/rYdddlPWk/node-exporter-full?orgId=1&timezone=browser&var-ds_prometheus=cfmh94yfqwjcwd&var-job=node&var-nodename=ac1f709ef5f4&var-node=node-exporter:9100&refresh=1m&panelId=78&theme=${resolvedTheme}`} 
+              src={`/grafana/d-solo/rYdddlPWk/node-exporter-full?orgId=1&timezone=browser&var-ds_prometheus=cfmh94yfqwjcwd&var-job=node&var-nodename=ac1f709ef5f4&var-node=node-exporter:9100&refresh=1m&panelId=78&theme=${resolvedTheme}`} 
               width="100%" 
               height="100%" 
               frameBorder="0" 
