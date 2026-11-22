@@ -128,14 +128,6 @@ export const api = {
     return handleResponse(response);
   },
 
-  // --- VPN egress usage ---
-  fetchVpnUsage: async (token) => {
-    const response = await fetch('api/vpn/usage', {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    return handleResponse(response);
-  },
-
   // --- Portfolio monitoring ---
   fetchPortfolioStatus: async (token, signal) => {
     const response = await fetch('api/portfolio/status', {
