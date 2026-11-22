@@ -219,6 +219,50 @@ public class OrchestratorSecurityTest {
     }
 
     @Test
+    public void testDistinctClientsBehindInternalProxyHaveSeparateBuckets() throws Exception {
+        Map<String, String> payload = Map.of("username", "admin", "password", "wrongpassword");
+
+        for (int i = 0; i < 5; i++) {
+            mockMvc.perform(post("/api/auth/login")
+                            .header("X-Forwarded-For", "203.0.113.10, 172.18.0.2")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(payload)))
+                    .andExpect(status().isUnauthorized());
+        }
+
+        mockMvc.perform(post("/api/auth/login")
+                        .header("X-Forwarded-For", "203.0.113.10, 172.18.0.2")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(payload)))
+                .andExpect(status().isTooManyRequests());
+
+        mockMvc.perform(post("/api/auth/login")
+                        .header("X-Forwarded-For", "198.51.100.20, 172.18.0.2")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(payload)))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    public void testSpoofedLeadingXffBehindInternalProxySharesRateLimitBucket() throws Exception {
+        Map<String, String> payload = Map.of("username", "admin", "password", "wrongpassword");
+
+        for (int i = 0; i < 5; i++) {
+            mockMvc.perform(post("/api/auth/login")
+                            .header("X-Forwarded-For", "1.2.3." + i + ", 203.0.113.195, 172.18.0.2")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(payload)))
+                    .andExpect(status().isUnauthorized());
+        }
+
+        mockMvc.perform(post("/api/auth/login")
+                        .header("X-Forwarded-For", "1.2.3.99, 203.0.113.195, 172.18.0.2")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(payload)))
+                .andExpect(status().isTooManyRequests());
+    }
+
+    @Test
     public void testAdminRejectedForInvalidDockerAction() throws Exception {
         String adminToken = jwtUtil.generateToken("admin", "ROLE_ADMIN");
         mockMvc.perform(post("/api/servers/docker/containers/abc123/destroy")
