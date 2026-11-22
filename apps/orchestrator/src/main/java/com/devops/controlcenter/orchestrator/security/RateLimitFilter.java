@@ -9,6 +9,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
+import java.net.InetAddress;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
@@ -84,13 +85,36 @@ public class RateLimitFilter extends OncePerRequestFilter {
             return request.getRemoteAddr();
         }
         String[] parts = xfHeader.split(",");
+        String fallbackIp = null;
         for (int i = parts.length - 1; i >= 0; i--) {
             String ip = parts[i].trim();
-            if (!ip.isEmpty()) {
+            if (ip.isEmpty()) {
+                continue;
+            }
+            if (fallbackIp == null) {
+                fallbackIp = ip;
+            }
+            if (!isInternalProxyIp(ip)) {
                 return ip;
             }
         }
-        return request.getRemoteAddr();
+        return fallbackIp != null ? fallbackIp : request.getRemoteAddr();
+    }
+
+    private static boolean isInternalProxyIp(String ip) {
+        try {
+            InetAddress addr = InetAddress.ofLiteral(ip);
+            if (addr.isAnyLocalAddress()
+                    || addr.isLoopbackAddress()
+                    || addr.isLinkLocalAddress()
+                    || addr.isSiteLocalAddress()) {
+                return true;
+            }
+            byte[] bytes = addr.getAddress();
+            return bytes.length == 16 && (bytes[0] & 0xfe) == 0xfc;
+        } catch (IllegalArgumentException e) {
+            return false;
+        }
     }
 
     public void reset() {
