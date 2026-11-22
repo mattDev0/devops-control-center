@@ -65,7 +65,6 @@ services:
       - WORKSPACE_LINODE_TOKEN=${WORKSPACE_LINODE_TOKEN:-}
       - WORKSPACE_GITHUB_TOKEN=${WORKSPACE_GITHUB_TOKEN:-}
       - WORKSPACE_LINODE_ID=${WORKSPACE_LINODE_ID:-109711421}
-      - PROMETHEUS_URL=http://devops-prometheus:9090
       - SPOTIFY_URL=http://devops-spotify:3002
       - SPOTIFY_SERVICE_KEY=${SPOTIFY_SERVICE_KEY}
     healthcheck:
@@ -79,8 +78,6 @@ services:
         condition: service_healthy
       spotify-service:
         condition: service_healthy
-      prometheus:
-        condition: service_started
     restart: unless-stopped
 
   # React Frontend: Sleek dashboard (served via Nginx)
