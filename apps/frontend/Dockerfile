@@ -14,8 +14,9 @@ RUN npm run build
 # --- Final Stage ---
 FROM nginxinc/nginx-unprivileged:alpine
 
+ARG OS_PATCH_DATE=default
 USER 0
-RUN apk upgrade --no-cache
+RUN : "${OS_PATCH_DATE}" && apk upgrade --no-cache
 USER 101
 
 # Copy the build output to nginx static folder

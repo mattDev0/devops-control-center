@@ -139,6 +139,10 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Set OS Patch Date
+        id: os-patch
+        run: echo "date=$(date -u +%Y-%m-%d)" >> "$GITHUB_OUTPUT"
+
       # Each image gets its own cache scope. Without one, every build overwrites the
       # shared cache entry and only the last image built ever gets a cache hit.
       - name: Build and Push ${{ matrix.image }}
@@ -148,6 +152,8 @@ jobs:
           push: true
           tags: |
             ghcr.io/mattdev0/devops-control-center/${{ matrix.image }}:${{ github.sha }}
+          build-args: |
+            OS_PATCH_DATE=${{ steps.os-patch.outputs.date }}
           cache-from: type=gha,scope=${{ matrix.image }}
           cache-to: type=gha,mode=max,scope=${{ matrix.image }}
 
