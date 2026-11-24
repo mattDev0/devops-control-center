@@ -26,7 +26,8 @@ RUN touch src/main.rs && \
 # --- Final Stage ---
 FROM debian:bookworm-slim
 
-RUN apt-get update && apt-get upgrade -y && apt-get install -y --no-install-recommends \
+ARG OS_PATCH_DATE=default
+RUN : "${OS_PATCH_DATE}" && apt-get update && apt-get upgrade -y && apt-get install -y --no-install-recommends \
     ca-certificates \
     curl \
     && rm -rf /var/lib/apt/lists/*

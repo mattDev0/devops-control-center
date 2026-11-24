@@ -43,6 +43,8 @@ jobs:
           pull: true
           load: true
           tags: ${{ matrix.service.image }}
+          build-args: |
+            OS_PATCH_DATE=${{ github.run_id }}-${{ github.run_attempt }}
           cache-from: type=gha,scope=${{ matrix.service.name }}
           cache-to: type=gha,mode=max,scope=${{ matrix.service.name }}
 
