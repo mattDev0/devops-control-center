@@ -139,10 +139,10 @@ describe('DockerContainersTable logs button', () => {
     return result;
   }
 
-  it('disables View Container Logs button for viewer', async () => {
+  it('hides container actions and logs button for viewer', async () => {
     await renderWithRole('viewer');
-    const button = screen.getByTitle('View Container Logs');
-    expect(button).toBeDisabled();
+    expect(screen.queryByTitle('View Container Logs')).not.toBeInTheDocument();
+    expect(screen.queryByText('Actions')).not.toBeInTheDocument();
   });
 
   it('enables View Container Logs button for admin', async () => {

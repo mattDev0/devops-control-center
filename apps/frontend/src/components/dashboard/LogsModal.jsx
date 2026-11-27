@@ -27,7 +27,10 @@ export default function LogsModal({
       role="dialog" 
       aria-modal="true" 
       aria-labelledby="modal-title"
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[var(--bg-overlay)] backdrop-blur-xs transition-opacity duration-300"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[var(--bg-overlay)] backdrop-blur-sm transition-opacity duration-300"
     >
       <div className="bg-[var(--bg-surface)] border border-[var(--border-default)] rounded-[var(--radius-xl)] w-full max-w-4xl max-h-[85vh] flex flex-col shadow-[var(--shadow-modal)] overflow-hidden">
         {/* Modal Header */}
@@ -46,8 +49,9 @@ export default function LogsModal({
           <button
             ref={closeButtonRef}
             onClick={onClose}
-            className="text-[var(--fg-muted)] hover:text-[var(--fg-default)] p-1.5 rounded hover:bg-[var(--interactive-hover)] transition-colors"
+            className="text-[var(--fg-muted)] hover:text-[var(--fg-default)] p-1.5 rounded hover:bg-[var(--interactive-hover)] transition-colors cursor-pointer"
             title="Close modal"
+            aria-label="Close modal"
           >
             <X className="w-4 h-4" />
           </button>
@@ -77,7 +81,7 @@ export default function LogsModal({
         {/* Modal Footer */}
         <div className="px-6 py-4 border-t border-[var(--border-default)] bg-[var(--bg-surface)] flex justify-between items-center">
           <span className="text-[10px] text-[var(--fg-subtle)] flex items-center gap-1.5 font-medium">
-            <span className="w-1.5 h-1.5 rounded-full bg-[var(--status-success)] animate-pulse"></span> Streaming logs in real-time
+            <span className="w-1.5 h-1.5 rounded-full bg-[var(--status-success)]"></span> Streaming logs in real-time
           </span>
           <button
             onClick={onClose}

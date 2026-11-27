@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { LogOut, Lock, Loader2, AlertTriangle, RefreshCw, Music, LayoutDashboard, ChevronLeft, ChevronRight, Menu, Layers, GitPullRequest, FileText, Globe, LineChart, Server, Activity, Terminal } from 'lucide-react';
+import { LogOut, Lock, Loader2, AlertTriangle, RefreshCw, Music, LayoutDashboard, ChevronLeft, ChevronRight, Menu, Layers, GitPullRequest, FileText, Globe, LineChart, Server, Terminal, Box, Gauge, ShieldAlert } from 'lucide-react';
 // Import Services
 import { api } from './services/api';
 
@@ -33,6 +33,7 @@ export default function App() {
   // Sidebar Layout State
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [activeSection, setActiveSection] = useState('overview');
 
   // Deployment Logs Modal State
   const [activeLogDeployment, setActiveLogDeployment] = useState(null);
@@ -173,6 +174,40 @@ export default function App() {
   } = useDockerContainers(token, handleLogout);
   const containersUnavailable = Boolean(containersError) && containersUpdated === null && !loadingContainers;
 
+  // Track active dashboard section in the sidebar
+  useEffect(() => {
+    if (!token || typeof IntersectionObserver === 'undefined') return;
+    const sectionIds = [
+      'overview',
+      'metrics',
+      'portfolio',
+      'workspace',
+      'listening',
+      'deployments',
+      'pipelines',
+      'logs',
+    ];
+    const elements = sectionIds
+      .map((id) => document.getElementById(id))
+      .filter(Boolean);
+    if (elements.length === 0) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const visible = entries
+          .filter((entry) => entry.isIntersecting)
+          .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
+        if (visible.length > 0) {
+          setActiveSection(visible[0].target.id);
+        }
+      },
+      { rootMargin: '-20% 0px -65% 0px' }
+    );
+
+    elements.forEach((el) => observer.observe(el));
+    return () => observer.disconnect();
+  }, [token, role, kubernetesAvailable]);
+
   // Perform Deployment Action
   const handleDeploymentAction = async (id, action) => {
     if (!token || role === 'ROLE_GUEST') return;
@@ -286,18 +321,18 @@ export default function App() {
         {/* Sidebar Header */}
         <div className="flex h-14 items-center justify-between px-4 border-b border-[var(--border-muted)]">
           {!sidebarCollapsed ? (
-            <span className="font-bold text-sm tracking-wider uppercase text-[var(--accent-primary)] flex items-center gap-2">
-              <LayoutDashboard className="w-5 h-5" />
-              Control Center
+            <span className="font-semibold text-sm tracking-tight text-[var(--fg-default)] flex items-center gap-2">
+              <Terminal className="w-4 h-4 text-[var(--accent-primary)] shrink-0" aria-hidden="true" />
+              DCC
             </span>
           ) : (
             <div className="mx-auto text-[var(--accent-primary)]">
-              <LayoutDashboard className="w-5 h-5" />
+              <Terminal className="w-4 h-4" aria-hidden="true" />
             </div>
           )}
           <button
             onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-            className="hidden md:flex p-1 rounded hover:bg-[var(--interactive-hover)] text-[var(--fg-muted)] hover:text-[var(--fg-default)] transition-colors"
+            className="hidden md:flex p-1 rounded hover:bg-[var(--interactive-hover)] text-[var(--fg-muted)] hover:text-[var(--fg-default)] transition-colors cursor-pointer"
             aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
             aria-expanded={!sidebarCollapsed}
             title={sidebarCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
@@ -308,123 +343,53 @@ export default function App() {
 
         {/* Sidebar Navigation Links */}
         <nav role="navigation" aria-label="Main Navigation" className="flex-1 space-y-1 p-2 overflow-y-auto">
-          <button
-            onClick={() => {
-              document.getElementById('overview')?.scrollIntoView({ behavior: 'smooth' });
-              setMobileOpen(false);
-            }}
-            className="flex items-center w-full gap-3 px-3 py-2 text-sm font-medium rounded-md hover:bg-[var(--interactive-hover)] text-[var(--fg-muted)] hover:text-[var(--fg-default)] transition-colors"
-            aria-label="Navigate to Overview"
-            title="Overview"
-          >
-            <LayoutDashboard className="w-5 h-5 shrink-0 text-[var(--fg-subtle)]" />
-            {!sidebarCollapsed && <span>Overview</span>}
-          </button>
-
-          <button
-            onClick={() => {
-              document.getElementById('metrics')?.scrollIntoView({ behavior: 'smooth' });
-              setMobileOpen(false);
-            }}
-            className="flex items-center w-full gap-3 px-3 py-2 text-sm font-medium rounded-md hover:bg-[var(--interactive-hover)] text-[var(--fg-muted)] hover:text-[var(--fg-default)] transition-colors"
-            aria-label="Navigate to System Metrics"
-            title="System Metrics"
-          >
-            <LineChart className="w-5 h-5 shrink-0 text-[var(--fg-subtle)]" />
-            {!sidebarCollapsed && <span>System Metrics</span>}
-          </button>
-
-          <button
-            onClick={() => {
-              document.getElementById('portfolio')?.scrollIntoView({ behavior: 'smooth' });
-              setMobileOpen(false);
-            }}
-            className="flex items-center w-full gap-3 px-3 py-2 text-sm font-medium rounded-md hover:bg-[var(--interactive-hover)] text-[var(--fg-muted)] hover:text-[var(--fg-default)] transition-colors"
-            aria-label="Navigate to Portfolio"
-            title="Portfolio"
-          >
-            <Globe className="w-5 h-5 shrink-0 text-[var(--fg-subtle)]" />
-            {!sidebarCollapsed && <span>Portfolio</span>}
-          </button>
-
-          {role === 'ROLE_ADMIN' && (
-            <button
-              onClick={() => {
-                document.getElementById('workspace')?.scrollIntoView({ behavior: 'smooth' });
-                setMobileOpen(false);
-              }}
-              className="flex items-center w-full gap-3 px-3 py-2 text-sm font-medium rounded-md hover:bg-[var(--interactive-hover)] text-[var(--fg-muted)] hover:text-[var(--fg-default)] transition-colors"
-              aria-label="Navigate to Dev workspace"
-              title="Dev workspace"
-            >
-              <Terminal className="w-5 h-5 shrink-0 text-[var(--fg-subtle)]" />
-              {!sidebarCollapsed && <span>Dev workspace</span>}
-            </button>
-          )}
-
-          <button
-            onClick={() => {
-              document.getElementById('listening')?.scrollIntoView({ behavior: 'smooth' });
-              setMobileOpen(false);
-            }}
-            className="flex items-center w-full gap-3 px-3 py-2 text-sm font-medium rounded-md hover:bg-[var(--interactive-hover)] text-[var(--fg-muted)] hover:text-[var(--fg-default)] transition-colors"
-            aria-label="Navigate to Spotify"
-            title="Spotify"
-          >
-            <Music className="w-5 h-5 shrink-0 text-[var(--fg-subtle)]" />
-            {!sidebarCollapsed && <span>Spotify</span>}
-          </button>
-
-          <button
-            onClick={() => {
-              document.getElementById('deployments')?.scrollIntoView({ behavior: 'smooth' });
-              setMobileOpen(false);
-            }}
-            className="flex items-center w-full gap-3 px-3 py-2 text-sm font-medium rounded-md hover:bg-[var(--interactive-hover)] text-[var(--fg-muted)] hover:text-[var(--fg-default)] transition-colors"
-            aria-label="Navigate to Deployments"
-            title="Deployments"
-          >
-            <Layers className="w-5 h-5 shrink-0 text-[var(--fg-subtle)]" />
-            {!sidebarCollapsed && <span>Deployments</span>}
-          </button>
-
-          <button
-            onClick={() => {
-              document.getElementById('pipelines')?.scrollIntoView({ behavior: 'smooth' });
-              setMobileOpen(false);
-            }}
-            className="flex items-center w-full gap-3 px-3 py-2 text-sm font-medium rounded-md hover:bg-[var(--interactive-hover)] text-[var(--fg-muted)] hover:text-[var(--fg-default)] transition-colors"
-            aria-label="Navigate to Pipelines"
-            title="Pipelines"
-          >
-            <GitPullRequest className="w-5 h-5 shrink-0 text-[var(--fg-subtle)]" />
-            {!sidebarCollapsed && <span>Pipelines</span>}
-          </button>
-
-          {role === 'ROLE_ADMIN' && (
-            <button
-              onClick={() => {
-                document.getElementById('logs')?.scrollIntoView({ behavior: 'smooth' });
-                setMobileOpen(false);
-              }}
-              className="flex items-center w-full gap-3 px-3 py-2 text-sm font-medium rounded-md hover:bg-[var(--interactive-hover)] text-[var(--fg-muted)] hover:text-[var(--fg-default)] transition-colors"
-              aria-label="Navigate to System Logs"
-              title="System Logs"
-            >
-              <FileText className="w-5 h-5 shrink-0 text-[var(--fg-subtle)]" />
-              {!sidebarCollapsed && <span>System Logs</span>}
-            </button>
-          )}
+          {[
+            { id: 'overview', label: 'Overview', ariaLabel: 'Navigate to Overview', Icon: LayoutDashboard },
+            { id: 'metrics', label: 'System Metrics', ariaLabel: 'Navigate to System Metrics', Icon: LineChart },
+            { id: 'portfolio', label: 'Portfolio', ariaLabel: 'Navigate to Portfolio', Icon: Globe },
+            ...(role === 'ROLE_ADMIN'
+              ? [{ id: 'workspace', label: 'Dev workspace', ariaLabel: 'Navigate to Dev workspace', Icon: Terminal }]
+              : []),
+            { id: 'listening', label: 'Spotify', ariaLabel: 'Navigate to Spotify', Icon: Music },
+            { id: 'deployments', label: 'Deployments', ariaLabel: 'Navigate to Deployments', Icon: Layers },
+            { id: 'pipelines', label: 'Pipelines', ariaLabel: 'Navigate to Pipelines', Icon: GitPullRequest },
+            ...(role === 'ROLE_ADMIN'
+              ? [{ id: 'logs', label: 'System Logs', ariaLabel: 'Navigate to System Logs', Icon: FileText }]
+              : []),
+          ].map((item) => {
+            const isActive = activeSection === item.id;
+            const NavIcon = item.Icon;
+            return (
+              <button
+                key={item.id}
+                onClick={() => {
+                  setActiveSection(item.id);
+                  document.getElementById(item.id)?.scrollIntoView({ behavior: 'smooth' });
+                  setMobileOpen(false);
+                }}
+                className={`flex items-center w-full gap-3 px-3 py-2 text-sm font-medium rounded-md transition-colors cursor-pointer ${
+                  isActive
+                    ? 'bg-[var(--accent-primary-muted)] text-[var(--accent-primary-hover)]'
+                    : 'text-[var(--fg-muted)] hover:bg-[var(--interactive-hover)] hover:text-[var(--fg-default)]'
+                }`}
+                aria-label={item.ariaLabel}
+                aria-current={isActive ? 'location' : undefined}
+                title={item.label}
+              >
+                <NavIcon
+                  className={`w-5 h-5 shrink-0 ${isActive ? 'text-[var(--accent-primary)]' : 'text-[var(--fg-subtle)]'}`}
+                  aria-hidden="true"
+                />
+                {!sidebarCollapsed && <span>{item.label}</span>}
+              </button>
+            );
+          })}
         </nav>
 
-        {/* Scope Context Box */}
+        {/* Scope Context Footer */}
         {!sidebarCollapsed && (
-          <div className="p-4 border-t border-[var(--border-muted)] bg-[var(--bg-canvas)]/30 m-2 rounded-lg" aria-label="Scope Details">
-            <div className="text-[10px] uppercase font-bold text-[var(--fg-subtle)] tracking-wider">Scope Context</div>
-            <div className="text-xs font-semibold mt-1 flex items-center gap-1.5 text-[var(--accent-primary)]">
-              <Globe className="w-3.5 h-3.5" />
-              Production / {kubernetesAvailable ? 'K3s' : 'Docker Compose'}
-            </div>
+          <div className="px-4 py-3 border-t border-[var(--border-muted)] text-[11px] text-[var(--fg-subtle)]" aria-label="Scope Details">
+            Production / {kubernetesAvailable ? 'K3s' : 'Docker Compose'}
           </div>
         )}
       </aside>
@@ -450,8 +415,9 @@ export default function App() {
             </h1>
             
             {role === 'ROLE_GUEST' && (
-              <span className="hidden sm:inline-block text-[10px] font-mono font-medium bg-[var(--bg-elevated)] border border-[var(--border-muted)] text-[var(--fg-muted)] px-2 py-0.5 rounded" aria-label="Read-only mode enabled">
-                🔒 Guest Mode
+              <span className="hidden sm:inline-flex items-center gap-1 text-[10px] font-mono font-medium bg-[var(--bg-elevated)] border border-[var(--border-muted)] text-[var(--fg-muted)] px-2 py-0.5 rounded" aria-label="Read-only mode enabled">
+                <Lock className="w-3 h-3" aria-hidden="true" />
+                Read-only
               </span>
             )}
           </div>
@@ -499,7 +465,7 @@ export default function App() {
 
               {/* Running Pods, or containers when no cluster is connected */}
               <div className="bg-[var(--bg-surface)] border border-[var(--border-default)] rounded-[var(--radius-md)] px-3 py-2 flex items-center gap-2.5">
-                <Activity className="w-4 h-4 text-[var(--accent-secondary)] shrink-0" />
+                <Box className="w-4 h-4 text-[var(--accent-primary)] shrink-0" />
                 <div>
                   <div className="text-[10px] text-[var(--fg-subtle)] uppercase font-semibold tracking-wider">{kubernetesAvailable ? 'Running Pods' : 'Containers'}</div>
                   <div className="text-xs font-bold mt-0.5">
@@ -518,7 +484,7 @@ export default function App() {
                 <>
                   {/* Availability SLI */}
                   <div className="bg-[var(--bg-surface)] border border-[var(--border-default)] rounded-[var(--radius-md)] px-3 py-2 flex items-center gap-2.5">
-                    <div className="w-4 h-4 rounded-full border border-[var(--fg-subtle)]/20 flex items-center justify-center text-[10px] font-bold text-[var(--accent-primary)] shrink-0">%</div>
+                    <Gauge className="w-4 h-4 text-[var(--accent-primary)] shrink-0" />
                     <div>
                       <div className="text-[10px] text-[var(--fg-subtle)] uppercase font-semibold tracking-wider">Availability SLI</div>
                       <div className="text-xs font-bold mt-0.5">
@@ -533,7 +499,7 @@ export default function App() {
 
                   {/* Remaining Budget */}
                   <div className="bg-[var(--bg-surface)] border border-[var(--border-default)] rounded-[var(--radius-md)] px-3 py-2 flex items-center gap-2.5">
-                    <div className="w-4 h-4 rounded-full border border-[var(--fg-subtle)]/20 flex items-center justify-center text-[10px] font-bold text-[var(--status-error)] shrink-0">E</div>
+                    <ShieldAlert className="w-4 h-4 text-[var(--status-warning)] shrink-0" />
                     <div>
                       <div className="text-[10px] text-[var(--fg-subtle)] uppercase font-semibold tracking-wider">Error Budget</div>
                       <div className="text-xs font-bold mt-0.5">
@@ -559,7 +525,7 @@ export default function App() {
                       <>
                         <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${
                           workflows[0].status === 'in_progress' 
-                            ? 'bg-[var(--status-info)] animate-pulse' 
+                            ? 'bg-[var(--status-info)]' 
                             : workflows[0].conclusion === 'success'
                             ? 'bg-[var(--status-success)]'
                             : workflows[0].conclusion === 'failure'
