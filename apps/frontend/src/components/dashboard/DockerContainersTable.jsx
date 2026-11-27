@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { RotateCw, FileText, Play, Square, HardDrive, Activity } from 'lucide-react';
+import { RefreshCw, RotateCw, FileText, Play, Square, HardDrive, Activity } from 'lucide-react';
 import { api } from '../../services/api';
 import StaleNotice from './StaleNotice';
 
@@ -142,6 +142,8 @@ export default function DockerContainersTable({
     };
   }, [runningIdsKey, token, onUnauthorized]);
 
+  const isAdmin = role !== 'viewer';
+
   const formatBytes = (bytes) => {
     if (!bytes) return '0 B';
     const k = 1024;
@@ -159,10 +161,11 @@ export default function DockerContainersTable({
         <button 
           onClick={fetchContainers}
           disabled={loading}
-          className="p-1 rounded hover:bg-[var(--interactive-hover)] text-[var(--fg-muted)] hover:text-[var(--fg-default)] transition-colors disabled:opacity-50"
+          className="p-1 rounded hover:bg-[var(--interactive-hover)] text-[var(--fg-muted)] hover:text-[var(--fg-default)] transition-colors disabled:opacity-50 cursor-pointer"
           title="Refresh Containers"
+          aria-label="Refresh containers"
         >
-          <RotateCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
+          <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
         </button>
       </div>
 
@@ -172,29 +175,27 @@ export default function DockerContainersTable({
         <table className={`w-full text-left text-xs text-[var(--fg-muted)] ${stale ? 'opacity-60' : ''}`}>
           <thead className="text-[10px] uppercase bg-[var(--bg-canvas)] text-[var(--fg-subtle)] border-b border-[var(--border-default)] sticky top-0 z-10 font-semibold tracking-wider">
             <tr>
-              <th className="px-3 py-2.5">Container ID</th>
               <th className="px-3 py-2.5">Name</th>
               <th className="px-3 py-2.5">Status</th>
               <th className="px-3 py-2.5">Telemetry (CPU / MEM)</th>
               <th className="px-3 py-2.5">Ports</th>
-              <th className="px-3 py-2.5 text-right">Actions</th>
+              {isAdmin && <th className="px-3 py-2.5 text-right">Actions</th>}
             </tr>
           </thead>
           <tbody className="divide-y divide-[var(--border-muted)]/50">
             {loading && containers.length === 0 ? (
               Array.from({ length: 3 }).map((_, idx) => (
                 <tr key={idx}>
-                  <td className="px-3 py-3"><div className="h-4 skeleton w-16"></div></td>
                   <td className="px-3 py-3"><div className="h-4 skeleton w-24"></div></td>
                   <td className="px-3 py-3"><div className="h-5 skeleton w-16"></div></td>
                   <td className="px-3 py-3"><div className="h-4 skeleton w-32"></div></td>
                   <td className="px-3 py-3"><div className="h-4 skeleton w-16"></div></td>
-                  <td className="px-3 py-3 text-right"><div className="h-6 skeleton w-14 ml-auto"></div></td>
+                  {isAdmin && <td className="px-3 py-3 text-right"><div className="h-6 skeleton w-14 ml-auto"></div></td>}
                 </tr>
               ))
             ) : containers.length === 0 ? (
               <tr>
-                <td colSpan="6" className="px-3 py-10 text-center">
+                <td colSpan={isAdmin ? 5 : 4} className="px-3 py-10 text-center">
                   <div className="flex flex-col items-center justify-center">
                     <Activity className="w-8 h-8 text-[var(--fg-subtle)] mb-2 opacity-50" />
                     <h3 className="text-xs font-semibold text-[var(--fg-muted)]">
@@ -216,8 +217,10 @@ export default function DockerContainersTable({
 
                 return (
                   <tr key={container.id} className="hover:bg-[var(--interactive-hover)] transition-colors">
-                    <td className="px-3 py-2.5 font-mono text-[10px] text-[var(--fg-subtle)]">{container.id}</td>
-                    <td className="px-3 py-2.5 font-medium text-[var(--fg-default)]">{container.name}</td>
+                    <td className="px-3 py-2.5">
+                      <div className="font-medium text-[var(--fg-default)]">{container.name}</div>
+                      <div className="font-mono text-[10px] text-[var(--fg-subtle)]">{container.id}</div>
+                    </td>
                     <td className="px-3 py-2.5">
                       <span 
                         className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase border ${
@@ -234,7 +237,7 @@ export default function DockerContainersTable({
                     <td className="px-3 py-2.5">
                       {isRunning && containerStats ? (
                         <div
-                          className={`flex flex-col gap-1 w-32 font-mono text-[9px] text-[var(--fg-subtle)] ${statsFailing ? 'opacity-60' : ''}`}
+                          className={`flex flex-col gap-1 w-32 font-mono text-[10px] text-[var(--fg-subtle)] ${statsFailing ? 'opacity-60' : ''}`}
                           title={statsFailing ? 'Stats stale: recent polls failed' : undefined}
                         >
                           {statsFailing && (
@@ -264,86 +267,87 @@ export default function DockerContainersTable({
                       ) : isRunning && statsFailing ? (
                         <div className="text-[10px] text-[var(--fg-subtle)] italic">Stats unavailable</div>
                       ) : isRunning ? (
-                        <div className="text-[10px] text-[var(--fg-subtle)] italic animate-pulse">Loading stats...</div>
+                        <div className="text-[10px] text-[var(--fg-subtle)] italic">Loading stats...</div>
                       ) : (
                         <span className="text-[10px] text-[var(--fg-subtle)] font-mono">--</span>
                       )}
                     </td>
-                    <td className="px-3 py-2.5 text-[10px] text-[var(--fg-subtle)] font-mono truncate max-w-[120px]">
+                    <td
+                      className="px-3 py-2.5 text-[10px] text-[var(--fg-subtle)] font-mono truncate max-w-[120px]"
+                      title={container.ports || undefined}
+                    >
                       {container.ports || 'None'}
                     </td>
-                    <td className="px-3 py-2.5 text-right">
-                      <div className="flex items-center justify-end gap-1">
-                        {confirmAction && confirmAction.id === container.id ? (
-                          <div className="flex items-center gap-1.5 justify-end">
-                            <span className="text-[9px] text-[var(--status-warning)] font-semibold uppercase animate-pulse">
-                              Confirm {confirmAction.type}?
-                            </span>
-                            <button 
-                              onClick={() => {
-                                if (confirmAction.type === 'stop') {
-                                  clearContainerStats(confirmAction.id);
-                                }
-                                handleContainerAction(confirmAction.id, confirmAction.type);
-                                setConfirmAction(null);
-                              }}
-                              className="px-1.5 py-0.5 rounded bg-[var(--status-error)] hover:bg-[var(--status-error)]/85 text-[var(--fg-on-emphasis)] text-[9px] font-bold cursor-pointer"
-                            >
-                              Yes
-                            </button>
-                            <button 
-                              onClick={() => setConfirmAction(null)}
-                              className="px-1.5 py-0.5 rounded bg-[var(--interactive-hover)] text-[var(--fg-default)] text-[9px] font-medium cursor-pointer"
-                            >
-                              No
-                            </button>
-                          </div>
-                        ) : (
-                          <>
-                            {isRunning ? (
-                              <button
-                                onClick={() => setConfirmAction({ id: container.id, type: 'stop' })}
-                                disabled={role === 'viewer'}
-                                className="p-1 rounded text-[var(--fg-muted)] hover:text-[var(--status-error)] hover:bg-[var(--status-error-muted)] transition-colors disabled:opacity-50"
-                                title="Stop Container"
-                              >
-                                <Square className="w-3.5 h-3.5 fill-current" />
-                              </button>
-                            ) : (
-                              <button
-                                onClick={() => handleContainerAction(container.id, 'start')}
-                                disabled={role === 'viewer'}
-                                className="p-1 rounded text-[var(--fg-muted)] hover:text-[var(--status-success)] hover:bg-[var(--status-success-muted)] transition-colors disabled:opacity-50"
-                                title="Start Container"
-                              >
-                                <Play className="w-3.5 h-3.5 fill-current" />
-                              </button>
-                            )}
-                            {isRunning && (
-                              <button
+                    {isAdmin && (
+                      <td className="px-3 py-2.5 text-right">
+                        <div className="flex items-center justify-end gap-1">
+                          {confirmAction && confirmAction.id === container.id ? (
+                            <div className="flex items-center gap-1.5 justify-end">
+                              <span className="text-[10px] text-[var(--status-warning)] font-semibold uppercase">
+                                Confirm {confirmAction.type}?
+                              </span>
+                              <button 
                                 onClick={() => {
-                                  clearContainerStats(container.id);
-                                  handleContainerAction(container.id, 'restart');
+                                  if (confirmAction.type === 'stop') {
+                                    clearContainerStats(confirmAction.id);
+                                  }
+                                  handleContainerAction(confirmAction.id, confirmAction.type);
+                                  setConfirmAction(null);
                                 }}
-                                disabled={role === 'viewer'}
-                                className="p-1 rounded text-[var(--fg-muted)] hover:text-[var(--accent-primary)] hover:bg-[var(--interactive-hover)] transition-colors disabled:opacity-50"
-                                title="Restart Container"
+                                className="px-1.5 py-0.5 rounded bg-[var(--status-error)] hover:bg-[var(--status-error)]/85 text-[var(--fg-on-emphasis)] text-[10px] font-bold cursor-pointer"
                               >
-                                <RotateCw className="w-3.5 h-3.5" />
+                                Yes
                               </button>
-                            )}
-                            <button
-                              onClick={() => onViewLogs(container)}
-                              disabled={role === 'viewer'}
-                              className="p-1 rounded text-[var(--fg-muted)] hover:text-[var(--fg-default)] hover:bg-[var(--interactive-hover)] transition-colors disabled:opacity-50"
-                              title="View Container Logs"
-                            >
-                              <FileText className="w-3.5 h-3.5" />
-                            </button>
-                          </>
-                        )}
-                      </div>
-                    </td>
+                              <button 
+                                onClick={() => setConfirmAction(null)}
+                                className="px-1.5 py-0.5 rounded bg-[var(--interactive-hover)] text-[var(--fg-default)] text-[10px] font-medium cursor-pointer"
+                              >
+                                No
+                              </button>
+                            </div>
+                          ) : (
+                            <>
+                              {isRunning ? (
+                                <button
+                                  onClick={() => setConfirmAction({ id: container.id, type: 'stop' })}
+                                  className="p-1 rounded text-[var(--fg-muted)] hover:text-[var(--status-error)] hover:bg-[var(--status-error-muted)] transition-colors cursor-pointer"
+                                  title="Stop Container"
+                                >
+                                  <Square className="w-3.5 h-3.5 fill-current" />
+                                </button>
+                              ) : (
+                                <button
+                                  onClick={() => handleContainerAction(container.id, 'start')}
+                                  className="p-1 rounded text-[var(--fg-muted)] hover:text-[var(--status-success)] hover:bg-[var(--status-success-muted)] transition-colors cursor-pointer"
+                                  title="Start Container"
+                                >
+                                  <Play className="w-3.5 h-3.5 fill-current" />
+                                </button>
+                              )}
+                              {isRunning && (
+                                <button
+                                  onClick={() => {
+                                    clearContainerStats(container.id);
+                                    handleContainerAction(container.id, 'restart');
+                                  }}
+                                  className="p-1 rounded text-[var(--fg-muted)] hover:text-[var(--accent-primary)] hover:bg-[var(--interactive-hover)] transition-colors cursor-pointer"
+                                  title="Restart Container"
+                                >
+                                  <RotateCw className="w-3.5 h-3.5" />
+                                </button>
+                              )}
+                              <button
+                                onClick={() => onViewLogs(container)}
+                                className="p-1 rounded text-[var(--fg-muted)] hover:text-[var(--fg-default)] hover:bg-[var(--interactive-hover)] transition-colors cursor-pointer"
+                                title="View Container Logs"
+                              >
+                                <FileText className="w-3.5 h-3.5" />
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      </td>
+                    )}
                   </tr>
                 );
               })

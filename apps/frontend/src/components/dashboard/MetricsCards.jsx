@@ -1,4 +1,4 @@
-import { Server, Activity, Clock, LineChart, RefreshCw } from 'lucide-react';
+import { Server, Activity, Clock, LineChart, RefreshCw, Box } from 'lucide-react';
 import { useTheme } from '../../context/ThemeContext';
 import StaleNotice from './StaleNotice';
 
@@ -23,20 +23,15 @@ export default function MetricsCards({
             <Server className="w-4 h-4 text-[var(--accent-primary)]" />
             Production Agent
           </h2>
-          <div className="flex items-center gap-2">
-            <span 
-              className={`w-2 h-2 rounded-full ${health?.os_name === 'Error' ? 'bg-[var(--status-error)] animate-pulse' : 'bg-[var(--status-success)]'}`}
-              title={health?.os_name === 'Error' ? 'Offline' : 'Online'}
-            ></span>
-            <button 
-              onClick={fetchHealth}
-              disabled={loading}
-              className="p-1 rounded hover:bg-[var(--interactive-hover)] text-[var(--fg-muted)] hover:text-[var(--fg-default)] transition-colors disabled:opacity-50"
-              title="Refresh Status"
-            >
-              <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
-            </button>
-          </div>
+          <button
+            onClick={fetchHealth}
+            disabled={loading}
+            className="p-1 rounded hover:bg-[var(--interactive-hover)] text-[var(--fg-muted)] hover:text-[var(--fg-default)] transition-colors disabled:opacity-50 cursor-pointer"
+            title="Refresh Status"
+            aria-label="Refresh agent status"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
+          </button>
         </div>
 
         {loading ? (
@@ -50,7 +45,7 @@ export default function MetricsCards({
               <span className="text-[var(--fg-muted)] text-xs flex items-center gap-2">
                 <Activity className="w-3.5 h-3.5" /> OS
               </span>
-              <span className="font-mono text-xs bg-[var(--bg-inset)] px-2 py-0.5 rounded border border-[var(--border-muted)] text-[var(--status-success)] font-medium">
+              <span className="font-mono text-xs text-[var(--fg-default)]">
                 {health?.os_name} {health?.os_version}
               </span>
             </div>
@@ -58,7 +53,7 @@ export default function MetricsCards({
               <span className="text-[var(--fg-muted)] text-xs flex items-center gap-2">
                 <Clock className="w-3.5 h-3.5" /> Uptime
               </span>
-              <span className="font-mono text-xs bg-[var(--bg-inset)] px-2 py-0.5 rounded border border-[var(--border-muted)] text-[var(--status-success)] font-medium">
+              <span className="font-mono text-xs text-[var(--fg-default)]">
                 {formatUptime(health?.uptime_seconds)}
               </span>
             </div>
@@ -76,17 +71,10 @@ export function SystemMetricsPanel({ token }) {
       {/* Unified Card Header */}
       <div className="flex items-center justify-between pb-3 border-b border-[var(--border-muted)] mb-4">
         <h2 className="text-sm font-semibold flex items-center gap-2 text-[var(--fg-default)]">
-          <LineChart className="w-4 h-4 text-[var(--accent-secondary)]" />
-          System Metrics (Grafana)
+          <LineChart className="w-4 h-4 text-[var(--accent-primary)]" />
+          System Metrics
         </h2>
-        <span className="text-[10px] font-semibold text-[var(--accent-secondary)] bg-[var(--accent-primary-muted)] border border-[var(--accent-secondary)]/20 px-2 py-0.5 rounded">
-          Live via Prometheus
-        </span>
       </div>
-      
-      <p className="text-xs text-[var(--fg-muted)] mb-4 leading-normal">
-        Real-time host CPU and memory telemetry scraped from node_exporter.
-      </p>
       
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="bg-[var(--bg-inset)] border border-[var(--border-default)] rounded-[var(--radius-md)] p-1 h-56 relative overflow-hidden flex items-center justify-center">
@@ -140,23 +128,18 @@ export function DockerContainersKpiCard({ containers, loading, fetchContainers, 
         {/* Unified Card Header */}
         <div className="flex items-center justify-between pb-3 border-b border-[var(--border-muted)] mb-4">
           <h2 className="text-sm font-semibold flex items-center gap-2 text-[var(--fg-default)]">
-            <Server className="w-4 h-4 text-[var(--accent-primary)]" />
+            <Box className="w-4 h-4 text-[var(--accent-primary)]" />
             Docker Engine
           </h2>
-          <div className="flex items-center gap-2">
-            <span 
-              className={`w-2 h-2 rounded-full ${stale || unavailable ? 'bg-[var(--status-warning)]' : runningCount > 0 ? 'bg-[var(--status-success)]' : 'bg-[var(--status-neutral)]'}`}
-              title={unavailable ? 'Data unavailable' : stale ? 'Stale data' : runningCount > 0 ? 'Active' : 'Idle'}
-            ></span>
-            <button 
-              onClick={fetchContainers}
-              disabled={loading}
-              className="p-1 rounded hover:bg-[var(--interactive-hover)] text-[var(--fg-muted)] hover:text-[var(--fg-default)] transition-colors disabled:opacity-50"
-              title="Refresh Containers Status"
-            >
-              <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
-            </button>
-          </div>
+          <button
+            onClick={fetchContainers}
+            disabled={loading}
+            className="p-1 rounded hover:bg-[var(--interactive-hover)] text-[var(--fg-muted)] hover:text-[var(--fg-default)] transition-colors disabled:opacity-50 cursor-pointer"
+            title="Refresh Containers Status"
+            aria-label="Refresh containers status"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
+          </button>
         </div>
 
         <StaleNotice stale={stale} unavailable={unavailable} lastUpdated={lastUpdated} />
@@ -170,15 +153,15 @@ export function DockerContainersKpiCard({ containers, loading, fetchContainers, 
           <div className="grid grid-cols-3 gap-3 text-center py-1">
             <div className="bg-[var(--bg-canvas)]/60 p-2.5 rounded-lg border border-[var(--border-default)]/40 flex flex-col justify-center">
               <div className="text-[var(--fg-default)] font-mono text-base font-bold">{totalCount}</div>
-              <div className="text-[9px] text-[var(--fg-subtle)] uppercase font-semibold mt-0.5">Total</div>
+              <div className="text-[10px] text-[var(--fg-subtle)] uppercase font-semibold mt-0.5">Total</div>
             </div>
             <div className="bg-[var(--bg-canvas)]/60 p-2.5 rounded-lg border border-[var(--border-default)]/40 flex flex-col justify-center">
               <div className="text-[var(--status-success)] font-mono text-base font-bold">{runningCount}</div>
-              <div className="text-[9px] text-[var(--fg-subtle)] uppercase font-semibold mt-0.5">Running</div>
+              <div className="text-[10px] text-[var(--fg-subtle)] uppercase font-semibold mt-0.5">Running</div>
             </div>
             <div className="bg-[var(--bg-canvas)]/60 p-2.5 rounded-lg border border-[var(--border-default)]/40 flex flex-col justify-center">
               <div className="text-[var(--fg-muted)] font-mono text-base font-bold">{stoppedCount}</div>
-              <div className="text-[9px] text-[var(--fg-subtle)] uppercase font-semibold mt-0.5">Stopped</div>
+              <div className="text-[10px] text-[var(--fg-subtle)] uppercase font-semibold mt-0.5">Stopped</div>
             </div>
           </div>
         )}

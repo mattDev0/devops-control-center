@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { User, Lock, Loader2, X, LayoutDashboard as TerminalIcon } from 'lucide-react';
+import { User, Lock, Loader2, X } from 'lucide-react';
 import { api } from '../../services/api';
 
 export default function AdminLoginModal({ onClose, onLoginSuccess }) {
@@ -56,15 +56,12 @@ export default function AdminLoginModal({ onClose, onLoginSuccess }) {
         </button>
 
         {/* Modal Header */}
-        <div className="flex flex-col items-center mb-6">
-          <div className="p-3 bg-[var(--accent-primary-muted)] rounded-[var(--radius-xl)] border border-[var(--accent-primary)]/10 mb-3 text-[var(--accent-primary)]">
-            <TerminalIcon className="w-7 h-7" />
-          </div>
-          <h2 id="admin-auth-title" className="text-lg font-bold text-[var(--fg-default)]">
-            Admin Authentication
+        <div className="mb-6 pr-8">
+          <h2 id="admin-auth-title" className="text-base font-semibold text-[var(--fg-default)]">
+            Admin sign in
           </h2>
           <p className="text-[var(--fg-muted)] text-xs mt-1">
-            Enter admin credentials to unlock write access
+            Enter admin credentials to unlock write access.
           </p>
         </div>
 

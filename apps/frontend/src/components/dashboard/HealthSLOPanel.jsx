@@ -1,4 +1,4 @@
-import { ShieldCheck, CheckCircle2, AlertTriangle, RefreshCw, Layers } from 'lucide-react';
+import { CheckCircle2, AlertTriangle, RefreshCw, Layers } from 'lucide-react';
 
 export default function HealthSLOPanel({ podHealth, loading, fetchPodHealth }) {
   // Aggregate stats across all namespaces
@@ -30,14 +30,12 @@ export default function HealthSLOPanel({ podHealth, loading, fetchPodHealth }) {
             <Layers className="w-4 h-4 text-[var(--accent-primary)]" /> K8s Cluster Health & SLO
           </h2>
           <div className="flex items-center gap-2">
-            <span className="text-[10px] font-semibold text-[var(--status-success)] bg-[var(--status-success-muted)] border border-[var(--status-success)]/10 px-2 py-0.5 rounded flex items-center gap-1">
-              <ShieldCheck className="w-3 h-3" /> SLA Compliant
-            </span>
             <button 
               onClick={fetchPodHealth}
               disabled={loading}
-              className="p-1 rounded hover:bg-[var(--interactive-hover)] text-[var(--fg-muted)] hover:text-[var(--fg-default)] transition-colors disabled:opacity-50"
+              className="p-1 rounded hover:bg-[var(--interactive-hover)] text-[var(--fg-muted)] hover:text-[var(--fg-default)] transition-colors disabled:opacity-50 cursor-pointer"
               title="Refresh Health"
+              aria-label="Refresh cluster health"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
             </button>
@@ -59,27 +57,27 @@ export default function HealthSLOPanel({ podHealth, loading, fetchPodHealth }) {
                 <div key={ns.namespace} className="bg-[var(--bg-canvas)]/60 border border-[var(--border-default)] p-3 rounded-lg space-y-2">
                   <div className="flex items-center justify-between">
                     <span className="font-mono text-xs font-semibold text-[var(--fg-default)]">ns/{ns.namespace}</span>
-                    <span className={`w-1.5 h-1.5 rounded-full ${ns.failed > 0 || ns.crash_loop > 0 ? 'bg-[var(--status-error)] animate-pulse' : ns.pending > 0 ? 'bg-[var(--status-warning)]' : 'bg-[var(--status-success)]'}`}></span>
+                    <span className={`w-1.5 h-1.5 rounded-full ${ns.failed > 0 || ns.crash_loop > 0 ? 'bg-[var(--status-error)]' : ns.pending > 0 ? 'bg-[var(--status-warning)]' : 'bg-[var(--status-success)]'}`}></span>
                   </div>
                   
                   <div className="grid grid-cols-4 gap-1.5 text-center">
                     <div className="bg-[var(--bg-surface)]/40 p-1.5 rounded">
                       <div className="text-[var(--status-success)] font-mono text-base font-bold">{ns.running}</div>
-                      <div className="text-[9px] text-[var(--fg-subtle)] uppercase">Run</div>
+                      <div className="text-[10px] text-[var(--fg-subtle)] uppercase">Run</div>
                     </div>
                     <div className="bg-[var(--bg-surface)]/40 p-1.5 rounded">
                       <div className="text-[var(--status-warning)] font-mono text-base font-bold">{ns.pending}</div>
-                      <div className="text-[9px] text-[var(--fg-subtle)] uppercase">Pend</div>
+                      <div className="text-[10px] text-[var(--fg-subtle)] uppercase">Pend</div>
                     </div>
                     <div className="bg-[var(--bg-surface)]/40 p-1.5 rounded">
                       <div className="text-[var(--status-error)] font-mono text-base font-bold">{ns.failed}</div>
-                      <div className="text-[9px] text-[var(--fg-subtle)] uppercase">Fail</div>
+                      <div className="text-[10px] text-[var(--fg-subtle)] uppercase">Fail</div>
                     </div>
                     <div className="bg-[var(--bg-surface)]/40 p-1.5 rounded">
-                      <div className={`font-mono text-base font-bold ${ns.crash_loop > 0 ? 'text-[var(--status-error)] animate-pulse' : 'text-[var(--fg-subtle)]'}`}>
+                      <div className={`font-mono text-base font-bold ${ns.crash_loop > 0 ? 'text-[var(--status-error)]' : 'text-[var(--fg-subtle)]'}`}>
                         {ns.crash_loop}
                       </div>
-                      <div className="text-[9px] text-[var(--fg-subtle)] uppercase">Crash</div>
+                      <div className="text-[10px] text-[var(--fg-subtle)] uppercase">Crash</div>
                     </div>
                   </div>
                 </div>
@@ -118,7 +116,7 @@ export default function HealthSLOPanel({ podHealth, loading, fetchPodHealth }) {
                         <CheckCircle2 className="w-3 h-3 text-[var(--status-success)]" /> Meeting Target
                       </span>
                     ) : (
-                      <span className="inline-flex items-center text-[10px] font-semibold text-[var(--status-error)] gap-0.5 animate-pulse">
+                      <span className="inline-flex items-center text-[10px] font-semibold text-[var(--status-error)] gap-0.5">
                         <AlertTriangle className="w-3 h-3 text-[var(--status-error)]" /> SLO Breached
                       </span>
                     )}

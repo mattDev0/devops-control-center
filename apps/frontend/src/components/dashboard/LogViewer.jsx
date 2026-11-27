@@ -8,7 +8,7 @@ export default function LogViewer({ logs, logsContainerRef }) {
           <FileText className="w-4 h-4 text-[var(--accent-primary)]" /> Live System Logs
         </h2>
         <span className="flex items-center gap-1.5 text-[10px] font-semibold text-[var(--status-success)] uppercase">
-          <span className="w-2 h-2 rounded-full bg-[var(--status-success)] animate-pulse shrink-0"></span>
+          <span className="w-2 h-2 rounded-full bg-[var(--status-success)] shrink-0"></span>
           Streaming Live
         </span>
       </div>
